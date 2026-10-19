@@ -1,0 +1,59 @@
+---
+title: Stone Circle
+type: [dexterity, outdoor, homemade]
+designer: the family
+location: garden shed, blue bucket
+cover: media/layout.jpg
+variants:
+  teams: "4 players in two teams of two"
+---
+
+# Overview
+
+A homemade tossing game: lay a string in a circle, set a big rock in the middle,
+and toss small stones as close to it as you can, without touching it.
+
+# Components
+
+- 1x [[string]] — 3 m, thick, red
+- 1x [[large rock]] — head-sized, the "heart"
+- 6x [[small stone]] — palm-sized, two colours
+- {4p} 2x [[small stone]] — extra pair, third colour
+- 1x [[stick]] — to mark the throwing line
+
+![How we set it up](media/layout.jpg)
+
+# Setup
+
+1. Lay the [[string]] in a circle on the ground, about 1 m across.
+2. Put the [[large rock]] in the centre.
+3. Mark a throwing line with the [[stick]], 4 big steps from the circle.
+4. Hand out stones: {2p: 3 each | 3p: 2 each | 4p: 2 each, using the extra pair}.
+
+# Play
+
+- Take turns tossing one [[small stone]] from behind the line.
+- ! A stone that touches the [[large rock]] is [[burnt]]: remove it.
+- {2p} Alternate stones until all 6 are thrown.
+- {3-4p} Go around clockwise until everyone has thrown all their stones.
+- Each player has 20 seconds to throw. Slow players lose the stone.
+
+# Scoring
+
+! Closest stone to the rock that is still inside the circle: 3 points. Every other stone inside the circle: 1 point.
+
+| Points to win | 2p | 3p | 4p |
+|---------------|----|----|----|
+| {-teams} Each player | 15 | 12 | 10 |
+| {+teams} Each team   |    |    | 15 |
+
+## Team play {+teams}
+
+- {4p} Play in two teams of two, partners standing opposite.
+- ! Team-mates' stones add up; scores are kept per team.
+- Partners may knock each other's stones closer, but a stone pushed onto the [[large rock]] is [[burnt]] as usual.
+
+# Glossary
+
+Burnt
+: A stone that touched the large rock; it is out of the round.

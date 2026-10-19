@@ -1,0 +1,94 @@
+---
+title: Oh My Socks!
+players: 2-5
+duration: 15
+age: 6
+type: [card]
+tags: [family, quick, set-collection]
+designer: [Antoine Bauza, Théo Rivière]
+artist: [Camille Chaussy]
+language: fr
+location: Armoire de l'entrée
+# cover: media/box.jpg
+---
+
+# Matériel
+
+- 66x [[carte Chaussette]] — 11 séries : une [[Super-Chaussette]], deux exemplaires du « 2 », trois du « 3 », etc.
+  Parmi elles, 9 cartes ont l'effet [[Cadeau]] et 9 l'effet [[Sauvetage]].
+- 1x [[carte Machine à laver]]
+
+# But du jeu
+
+Les chaussettes vont par paires, c'est bien connu.
+Pourtant, il en manque toujours une à la fin d'une lessive…
+Essayez de récupérer le plus de paires possible avant de lancer la machine à laver !
+Mais attention : si vous avez un nombre impair de chaussettes d'un motif, vous ne pourrez pas
+les ranger par paires et n'obtiendrez donc aucun point.
+
+# Mise en place
+
+1. Mélangez les 66 [[cartes Chaussettes]], face cachée.
+2. Prenez 10 [[cartes Chaussettes]] (sans les regarder) et mélangez-les avec la [[carte Machine à laver]].
+   Placez ce petit paquet sous le reste des cartes pour former la pioche.
+3. {2p} Asseyez-vous côte à côte.
+4. La personne qui porte les chaussettes les plus amusantes commence.
+   On joue ensuite {2p: chacun son tour | *: à tour de rôle dans le sens horaire}.
+
+# Déroulement d'une partie
+
+À votre tour, révélez les 2 premières cartes de la pioche, puis :
+
+1. Choisissez une carte et ajoutez-la à votre collection, face visible devant vous.
+   Classez vos cartes par [[série]] pour que tout le monde voie facilement ce que vous possédez.
+2. {3-5p} Donnez l'autre carte à votre voisin(e) de gauche ou de droite, selon le sens de la flèche
+   sur cette carte. Il ou elle l'ajoute à sa collection, face visible.
+3. {2p} Regardez la flèche de l'autre carte : si elle pointe vers votre adversaire, donnez-lui la carte ;
+   sinon, défaussez-la face visible, en vrac, pour que chacun puisse en tenir compte.
+4. Si la carte que vous avez gardée a un [[effet]], vous devez l'activer si possible.
+
+! Seuls les effets des cartes que vous **gardez** s'appliquent : une carte donnée n'active pas son effet.
+
+# Fin de partie
+
+! La partie prend fin immédiatement quand quelqu'un pioche la [[carte Machine à laver]].
+
+Révélez alors les cartes reçues en [[Cadeau]], si vous en avez, et complétez vos séries,
+que cela vous arrange… ou pas !
+
+# Décompte des points
+
+! Pour chaque [[série]], seul un nombre **pair** de chaussettes (2, 4, 6, 8 ou 10) rapporte des points.
+
+Les séries impaires (1, 3, 5, 7, 9 ou 11 chaussettes) ne rapportent rien.
+Chaque symbole « ★ » vaut un point. La personne qui totalise le meilleur score gagne.
+
+En cas d'égalité, la personne qui a le moins de séries différentes l'emporte.
+
+> Conseil : pour faciliter le décompte, défaussez d'abord vos séries impaires, puis comptez les séries paires.
+
+# Glossaire
+
+Série
+: Toutes les cartes Chaussettes du même motif.
+
+Effet
+: Certaines cartes ont un effet, [[Cadeau]] ou [[Sauvetage]], qui ne s'applique que si vous gardez la carte.
+
+Cadeau
+: Piochez la première carte de la pioche **sans la regarder** et donnez-la à l'adversaire de votre choix,
+  qui la garde face cachée à côté de sa collection. Elle sera révélée en fin de partie
+  et ajoutée à la série correspondante.
+
+Sauvetage
+: Prenez une [[chaussette isolée]] dans la collection d'un adversaire et ajoutez-la à la vôtre.
+  S'il n'y en a aucune, ignorez l'effet.
+
+Super-Chaussette
+: Ajoutez-la à la série de votre choix ; elle compte comme une chaussette de ce motif
+  mais ne rapporte elle-même aucun point.
+  - Si c'est votre première chaussette, la prochaine chaussette récupérée détermine son motif.
+  - Reçue en [[Cadeau]], face cachée : vous choisissez sa série au moment de la révéler, en fin de partie.
+
+Chaussette isolée
+: Une chaussette seule de sa [[série]] dans une collection.

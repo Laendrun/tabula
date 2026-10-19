@@ -1,0 +1,40 @@
+---
+title: Crazy Eights
+players: 2-5
+duration: 10-20
+age: 6
+type: [card]
+tags: [classic, shedding, quick, public-domain]
+---
+
+# Overview
+
+A quick shedding game: match the top card by suit or rank and be the first to empty your hand. Eights are wild.
+
+# Components
+
+- 1x [[deck]] — standard 52 cards
+
+# Setup
+
+- Deal {2p: 7 | *: 5} cards to each player from the [[deck]].
+- Turn the next card face up to start the [[discard pile]]; the rest is the [[stock]].
+
+# Play
+
+! On your turn, play a card matching the top discard by suit or rank, or play an 8 and name any suit.
+
+- If you can't play, draw from the [[stock]] until you can.
+- {2p} If the [[stock]] runs out, play passes when you can't play.
+
+# End of the game
+
+! The first player to empty their hand wins the round.
+
+# Glossary
+
+Discard pile
+: Face-up pile you play onto.
+
+Stock
+: Face-down draw pile.

@@ -1,0 +1,75 @@
+---
+title: Dame de pique
+players: 3-5
+best_players: 4
+duration: 30-60
+age: 10
+type: [card]
+tags: [classique, domaine public]
+location: tiroir cartes
+source: traditionnel
+variants:
+  omnibus: "Le valet de carreau vaut -10 points"
+---
+
+<!-- Seul le texte est traduit : players, duration, age… sont hérités de hearts.game. -->
+
+# Aperçu
+
+Un classique des jeux de levées où l'on cherche à *ne pas* gagner certaines cartes.
+Chaque cœur coûte un point et la dame de pique coûte cher, sauf si vous osez tout prendre.
+
+# Matériel
+
+- 1x [[jeu de cartes]] — 52 cartes, sans jokers
+- 1x [[bloc de score]] et un crayon
+
+# But
+
+! Avoir le **moins** de points quand quelqu'un atteint 100.
+
+# Mise en place
+
+1. {3p} Retirez le 2 de carreau du [[jeu de cartes]].
+2. {5p} Retirez le 2 de carreau et le 2 de trèfle du [[jeu de cartes]].
+3. Distribuez toutes les cartes : {3p: 17 | 4p: 13 | 5p: 10} cartes chacun.
+
+| Joueurs           | 3p | 4p | 5p |
+|-------------------|----|----|----|
+| Cartes par joueur | 17 | 13 | 10 |
+| Cartes retirées   | 1  | 0  | 2  |
+
+## Passe {4p}
+
+Avant chaque donne, chacun passe 3 cartes : à gauche, à droite, en face, puis pas de passe.
+
+## Passe {3,5p}
+
+Avant chaque donne, chacun passe 3 cartes : à gauche, à droite, puis pas de passe.
+
+# Jeu
+
+! Fournissez la couleur demandée si possible ; sinon jouez n'importe quelle carte.
+
+- Le joueur qui a le {3-4p: 2 | 5p: 3} de trèfle entame la première [[levée]].
+- ! Pas d'entame à cœur tant qu'il n'y a pas eu de [[cœur cassé]].
+
+# Score
+
+- ! Chaque cœur : 1 point. Dame de pique : 13 points.
+- {+omnibus} Valet de carreau : -10 points.
+- Prendre tous les cœurs et la dame de pique, c'est [[faire un grand chelem]] :
+  0 point pour vous, 26 pour les autres.
+
+! La partie s'arrête quand un joueur atteint 100 points. Le plus petit score gagne.
+
+# Lexique
+
+Levée
+: Une carte de chaque joueur ; la plus forte de la couleur demandée remporte le tout.
+
+Cœur cassé
+: Un cœur a déjà été défaussé ; on peut alors entamer à cœur.
+
+Faire un grand chelem
+: Prendre tous les cœurs et la dame de pique dans une même donne.

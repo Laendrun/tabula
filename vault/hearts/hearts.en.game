@@ -1,0 +1,76 @@
+---
+title: Hearts
+location: card drawer
+source: traditional (written in our own words)
+variants:
+  omnibus: "The jack of diamonds is worth -10 points"
+---
+
+<!-- Only text is translated : players, duration, age... are inherited from hearts.game. -->
+
+# Overview
+
+A classic trick-taking game where you try *not* to win certain cards.
+Every heart costs you a point and the queen of spades costs a lot,
+unless you're bold enough to take them all.
+
+# Components
+
+- 1x [[deck]] — standard 52 cards, no jokers
+- 1x [[score pad]] and a pencil
+
+> Our 2 of diamonds is bent: use it as the removed card for 3 players.
+
+# Goal
+
+! Have the **fewest** points when someone reaches 100.
+
+# Setup
+
+1. {3p} Remove the 2 of diamonds from the [[deck]].
+2. {5p} Remove the 2 of diamonds and the 2 of clubs from the [[deck]].
+3. Deal all cards: {3p: 17 | 4p: 13 | 5p: 10} cards each.
+
+| Players          | 3p | 4p | 5p |
+|------------------|----|----|----|
+| Cards per player | 17 | 13 | 10 |
+| Cards removed    | 1  | 0  | 2  |
+
+## Passing {4p}
+
+Before each hand, every player passes 3 cards: left, right, across, then no pass. Repeat.
+
+## Passing {3,5p}
+
+Before each hand, every player passes 3 cards: left, right, then no pass.
+
+# Play
+
+! Follow suit if you can; otherwise play any card.
+
+- The player holding the {3-4p: 2 | 5p: 3} of clubs leads the first [[trick]].
+- On the first trick you may not play a heart or the queen of spades, unless you have nothing else.
+- ! Hearts can't be led until [[hearts are broken]].
+- The highest card of the led suit wins the trick; its winner leads next.
+
+# Scoring
+
+- ! Each heart: 1 point. Queen of spades: 13 points.
+- {+omnibus} The jack of diamonds: -10 points.
+- If you take all hearts and the queen of spades, you [[shoot the moon]]:
+  you score 0 and everyone else scores 26.
+
+Write each hand's score on the [[score pad]].
+
+! The game ends when a player reaches 100 points. Lowest score wins.
+
+# Glossary
+
+Trick
+: One card from each player; the highest card of the led suit takes them all.
+
+Hearts are broken
+: A heart has been discarded on an earlier trick, so hearts may now be led.
+
+Shoot the moon
+: Taking every heart plus the queen of spades in a single hand.
