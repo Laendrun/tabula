@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""tabula — reference CLI for the Tabula game format (spec v0.4).
+"""tabula — reference CLI for the Tabula game format (spec v0.5).
 
   tabula list  [-p N] [-l CODE]
   tabula show  GAME [-p N] [-v VARIANT ...] [-l CODE] [--json]
@@ -24,13 +24,13 @@ try:
 except ImportError:  # pragma: no cover
     sys.exit("tabula needs PyYAML:  pip install pyyaml")
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 # =========================================================================== syntax
 
 HEADING_RE = re.compile(r"^(#{1,6})\s+(.*?)\s*$")
 ITEM_RE = re.compile(r"^(\s*)([-*+]|\d+[.)])\s+(.*)$")
-DEF_LINE_RE = re.compile(r"^ {0,3}:\s+(.*)$")
+DEF_LINE_RE = re.compile(r"^ {0,3}:(?:\s+(.*)|\s*)$")
 FENCE_RE = re.compile(r"^\s*(```|~~~)")
 REF_RE = re.compile(r"(?<!\\)\[\[([^\[\]|\n]+?)(?:\|([^\[\]\n]+?))?\]\]")
 IMAGE_RE = re.compile(r"(?<!\\)!\[([^\]]*)\]\(([^)\s]+)\)")
@@ -228,12 +228,15 @@ class Block:
     items: list = field(default_factory=list)   # def: [[kind('p'|'li'), text, line]]
     qty: str = ""             # component declaration
     src: list = field(default_factory=list)     # [(line, raw text)] for exact error positions
+    children: list = field(default_factory=list)  # def: the definition body, parsed as blocks
+    start: int = 1            # ordered item: its number (a list continues from its first number)
+    parent: str = ""          # component nested under another component
 
 
 def is_block_start(t: str) -> bool:
     s = t.lstrip()
     return (not s or bool(HEADING_RE.match(t)) or s.startswith("|") or bool(ITEM_RE.match(t))
-            or t.startswith(">") or (t.startswith("!") and not t.startswith("![")) or bool(FENCE_RE.match(t))
+            or s.startswith(">") or (t.startswith("!") and not t.startswith("![")) or bool(FENCE_RE.match(t))
             or bool(DEF_LINE_RE.match(t)) or bool(BLOCK_COND_RE.match(t)))
 
 
@@ -288,20 +291,24 @@ def parse_blocks(lines: list[tuple[int, str]]) -> list[Block]:
             i += 1
             while i < n:
                 nt = lines[i][1]
-                if not nt.strip() or ITEM_RE.match(nt) or len(nt) - len(nt.lstrip()) <= indent:
+                if (not nt.strip() or ITEM_RE.match(nt) or len(nt) - len(nt.lstrip()) <= indent
+                        or nt.lstrip().startswith(">")):
                     break
                 text += " " + nt.strip()
                 src.append((lines[i][0], nt.strip()))
                 i += 1
-            blocks.append(Block("item", text, ln, level=indent, ordered=not m.group(2) in "-*+", src=src))
+            marker = m.group(2)
+            blocks.append(Block("item", text, ln, level=indent, ordered=marker not in "-*+", src=src,
+                                start=int(marker[:-1]) if marker not in "-*+" else 1))
             continue
-        if t.startswith(">"):
+        if t.lstrip().startswith(">"):
             parts, src = [], []
-            while i < n and lines[i][1].startswith(">"):
-                parts.append(lines[i][1][1:].strip())
+            level = len(t) - len(t.lstrip())
+            while i < n and lines[i][1].lstrip().startswith(">"):
+                parts.append(lines[i][1].lstrip()[1:].strip())
                 src.append((lines[i][0], parts[-1]))
                 i += 1
-            blocks.append(Block("note", " ".join(parts), ln, src=src))
+            blocks.append(Block("note", " ".join(parts), ln, src=src, level=level))
             continue
         if im := IMAGE_RE.fullmatch(t.strip()):
             blocks.append(Block("image", im.group(1), ln, term=im.group(2)))
@@ -309,25 +316,30 @@ def parse_blocks(lines: list[tuple[int, str]]) -> list[Block]:
             continue
         # definition: a term line followed by ": definition"
         if i + 1 < n and DEF_LINE_RE.match(lines[i + 1][1]) and not is_block_start(t):
-            term, i = t.strip(), i + 1
-            items: list[list] = []
+            term, cond, i = t.strip(), None, i + 1
+            if (cm := HEADING_COND_RE.search(term)) and (c := parse_cond(cm.group(1))):
+                cond, term = c, term[: cm.start()].strip()
+            body: list[tuple[int, str]] = []
             while i < n:
                 lln, lt = lines[i]
                 if m := DEF_LINE_RE.match(lt):
-                    items.append(["p", m.group(1).strip(), lln])
-                elif lt.startswith("  ") and lt.strip() and items:
-                    s = lt.strip()
-                    if im := re.match(r"^([-*+]|\d+[.)])\s+(.*)$", s):
-                        items.append(["li", im.group(2), lln])
-                    else:
-                        items[-1][1] += " " + s
+                    if body:
+                        body.append((lln, ""))          # a new ": " starts a new paragraph
+                    if m.group(1):
+                        body.append((lln, "  " + m.group(1)))
+                elif lt.startswith(" ") and lt.strip():
+                    body.append((lln, lt))
                 elif not lt.strip() and i + 1 < n and (DEF_LINE_RE.match(lines[i + 1][1])
-                                                       or (lines[i + 1][1].startswith("  ") and lines[i + 1][1].strip())):
-                    pass
+                                                       or (lines[i + 1][1].startswith(" ") and lines[i + 1][1].strip())):
+                    body.append((lln, ""))
                 else:
                     break
                 i += 1
-            blocks.append(Block("def", line=ln, term=term, items=items))
+            ind = min((len(x) - len(x.lstrip()) for _, x in body if x.strip()), default=0)
+            body = [(l, x[ind:] if x.strip() else "") for l, x in body]
+            kids = parse_blocks(body)
+            blocks.append(Block("def", line=ln, term=term, cond=cond, children=kids,
+                                items=[["p", k.text, k.line] for k in kids if k.text]))
             continue
         kind = "key" if t.startswith("!") and not t.startswith("![") else "para"
         parts = [t[1:].strip() if kind == "key" else t.strip()]
@@ -360,12 +372,20 @@ def parse_blocks(lines: list[tuple[int, str]]) -> list[Block]:
 
 
 def components_of(blocks: list[Block]) -> list[dict]:
-    out = []
+    out, stack = [], []          # stack of (indent, name) for nested component lists
     for b in blocks:
-        if b.kind == "item" and b.qty:
+        if b.kind != "item":
+            stack = []
+            continue
+        if b.qty:
             rest = COMPONENT_RE.sub("", b.text, count=1)
             if rm := REF_RE.match(rest):
+                while stack and stack[-1][0] >= b.level:
+                    stack.pop()
                 d = {"name": rm.group(1).strip(), "quantity": b.qty, "line": b.line}
+                if stack:
+                    d["part_of"] = stack[-1][1]
+                stack.append((b.level, d["name"]))
                 note = rest[rm.end():].strip(" —–-:,;")
                 if note:
                     d["note"] = note
@@ -393,8 +413,21 @@ def filter_blocks(blocks: list[Block], ctx: Ctx) -> list[Block]:
             b = filter_table(b, ctx)
             if not b.rows:
                 continue
+        if b.kind == "def" and b.children:
+            b = Block("def", line=b.line, term=b.term, cond=b.cond, children=filter_blocks(b.children, ctx))
         out.append(b)
-    return out
+    if not ctx.active:
+        return out
+    # drop headings whose whole section was filtered away
+    keep = []
+    for k, b in enumerate(out):
+        if b.kind == "heading":
+            end = next((j for j in range(k + 1, len(out))
+                        if out[j].kind == "heading" and out[j].level <= b.level), len(out))
+            if not any(x.kind != "heading" for x in out[k + 1: end]):
+                continue
+        keep.append(b)
+    return keep
 
 
 def player_columns(b: Block):
@@ -410,13 +443,30 @@ def player_columns(b: Block):
     return cols
 
 
+def player_rows(b: Block):
+    """Table with player codes in its first column: {row_index: rng}, else None."""
+    body = [(k, cells) for k, (_, cells) in enumerate(b.rows) if k > 0 and not is_sep_row(cells)]
+    if not body:
+        return None
+    out = {}
+    for k, cells in body:
+        m = P_TOKEN.match(cells[0].strip()) if cells else None
+        if not m or m.group(1):
+            return None
+        out[k] = parse_range(m.group(2))
+    return out
+
+
 def filter_table(b: Block, ctx: Ctx) -> Block:
     cols = player_columns(b)
+    prow = None if cols else player_rows(b)
     keep = None
     if cols and ctx.players is not None:
         keep = [0] + [j for j, rng in cols if rng and in_range(rng, ctx.players)]
     rows = []
-    for ln, cells in b.rows:
+    for k, (ln, cells) in enumerate(b.rows):
+        if prow and ctx.players is not None and k in prow and not in_range(prow[k], ctx.players):
+            continue
         if cells and (m := BLOCK_COND_RE.match(cells[0])) and (c := parse_cond(m.group(1))):
             if not cond_ok(c, ctx):
                 continue
@@ -454,14 +504,26 @@ class Game:
     def base_dir(self) -> Path:
         return self.folder or self.path.parent
 
-    @property
-    def variants(self) -> dict[str, str]:
-        v = self.meta.get("variants")
+    def _options(self, key: str) -> dict[str, str]:
+        v = self.meta.get(key)
         if isinstance(v, dict):
             return {str(k): "" if d is None else str(d) for k, d in v.items()}
         if isinstance(v, list):
             return {str(k): "" for k in v}
         return {}
+
+    @property
+    def variants(self) -> dict[str, str]:
+        return self._options("variants")
+
+    @property
+    def extensions(self) -> dict[str, str]:
+        return self._options("extensions")
+
+    @property
+    def options(self) -> dict[str, str]:
+        """Everything a {+name} condition can refer to: variants and extensions."""
+        return {**self.variants, **self.extensions}
 
 
 class Vault:
@@ -534,8 +596,9 @@ class Vault:
             if tr.exists():
                 tr_meta, lines = read_source(tr, issues)
                 merged = {**meta, **tr_meta}
-                if isinstance(meta.get("variants"), dict) and isinstance(tr_meta.get("variants"), dict):
-                    merged["variants"] = {**meta["variants"], **tr_meta["variants"]}
+                for key in ("variants", "extensions"):
+                    if isinstance(meta.get(key), dict) and isinstance(tr_meta.get(key), dict):
+                        merged[key] = {**meta[key], **tr_meta[key]}
                 meta, body_path = merged, tr
             else:
                 fallback = True
@@ -627,6 +690,7 @@ def render_inline(text: str, ctx: Ctx, st: Style) -> str:
     text = IMAGE_RE.sub(lambda m: st.dim(f"[image: {m.group(1) or m.group(2)}]"), text)
     text = LINK_RE.sub(lambda m: f"{m.group(1)} {st.dim('(' + m.group(2) + ')')}", text)
     text = re.sub(r"\*\*(.+?)\*\*", lambda m: st.bold(m.group(1)), text)
+    text = re.sub(r"(?<!\w)__(?!\s)(.+?)(?<!\s)__(?!\w)", lambda m: st.bold(m.group(1)), text)
     text = re.sub(r"(?<![*\w])\*(?!\s)(.+?)(?<!\s)\*(?![*\w])", lambda m: st.italic(m.group(1)), text)
     text = re.sub(r"(?<!\w)_(?!\s)(.+?)(?<!\s)_(?!\w)", lambda m: st.italic(m.group(1)), text)
     return ESCAPE_RE.sub(r"\1", text)
@@ -649,7 +713,7 @@ def render_blocks(blocks: list[Block], ctx: Ctx, st: Style, width: int) -> list[
             out.append("")
 
     for b in blocks:
-        if b.kind != "item":
+        if b.kind != "item" and not (b.kind == "note" and b.level and counters):
             counters.clear()
         txt = render_inline(b.text, ctx, st) if b.kind not in ("table", "code", "def") else ""
         if b.kind == "heading":
@@ -670,8 +734,10 @@ def render_blocks(blocks: list[Block], ctx: Ctx, st: Style, width: int) -> list[
             gap()
             out += wrap(badge(b) + st.bold(txt), width, st.green("★ "), "  ")
         elif b.kind == "note":
-            gap()
-            out += wrap(badge(b) + st.dim(txt), width, st.dim("│ "))
+            if b.level == 0 or not counters:
+                gap()
+            pad = " " * (b.level + (2 if b.level else 0))
+            out += wrap(badge(b) + st.dim(txt), width, pad + st.dim("│ "))
         elif b.kind == "image":
             gap()
             out.append(st.dim(f"[image: {txt or b.term}  →  {b.term}]"))
@@ -680,21 +746,19 @@ def render_blocks(blocks: list[Block], ctx: Ctx, st: Style, width: int) -> list[
             out += ["    " + l for l in b.text.split("\n")]
         elif b.kind == "def":
             gap()
-            out.append(st.bold(render_inline(b.term, ctx, st)))
-            for kind, t, _ in b.items:
-                body = render_inline(t, ctx, st)
-                out += wrap(body, width, "    • " if kind == "li" else "    ", "      " if kind == "li" else "    ")
+            out.append(badge(b) + st.bold(render_inline(b.term, ctx, st)))
+            out += ["    " + l if l else "" for l in render_blocks(b.children, ctx, st, width - 4)]
         elif b.kind == "item":
+            if not counters:
+                gap()                                  # blank line before a new list
             for lvl in [l for l in counters if l > b.level]:
                 del counters[lvl]
             if b.ordered:
-                counters[b.level] = counters.get(b.level, 0) + 1
+                counters[b.level] = counters.get(b.level, b.start - 1) + 1
                 marker = f"{counters[b.level]}."
             else:
                 counters.setdefault(b.level, 0)
                 marker = "•"
-            if not counters or (len(out) and out[-1] != "" and len(out) - 1 == heading_end):
-                pass
             pad = " " * b.level
             body = badge(b) + (st.green("★ ") + st.bold(txt) if b.key else txt)
             out += wrap(body, width, f"{pad}{marker} ", pad + " " * (len(marker) + 1))
@@ -753,7 +817,7 @@ def block_json(b: Block, ctx: Ctx) -> dict:
         d["rows"] = [[plain(c, ctx) for c in cells] for _, cells in b.rows if not is_sep_row(cells)]
     elif b.kind == "def":
         d["term"] = b.term
-        d["items"] = [{"kind": k, "text": plain(t, ctx)} for k, t, _ in b.items]
+        d["body"] = [block_json(k, ctx) for k in b.children]
     elif b.kind == "code":
         d["text"] = b.text
     else:
@@ -770,7 +834,7 @@ def block_json(b: Block, ctx: Ctx) -> dict:
 def cmd_show(args) -> int:
     vault = open_vault(args.vault, args.game)
     game = vault.load(vault.find(args.game), args.lang)
-    ctx = Ctx(args.players, {v.lower() for v in (args.variant or [])})
+    ctx = Ctx(args.players, {v.lower() for v in (args.variant or []) + (args.ext or [])})
     if game.fallback:
         print(f"tabula: {game.title} has no '{args.lang}' version (available: {', '.join(game.languages)}); "
               f"showing '{game.default_language}'", file=sys.stderr)
@@ -780,8 +844,9 @@ def cmd_show(args) -> int:
         return 2
     declared = game.variants
     for v in ctx.variants:
-        if v not in {k.lower() for k in declared}:
-            print(f"tabula: unknown variant '{v}' for {game.title}; declared: {', '.join(declared) or '(none)'}",
+        if v not in {k.lower() for k in game.options}:
+            print(f"tabula: '{v}' is not a variant or extension of {game.title}; "
+                  f"variants: {', '.join(game.variants) or '(none)'}; extensions: {', '.join(game.extensions) or '(none)'}",
                   file=sys.stderr)
             return 2
 
@@ -792,7 +857,7 @@ def cmd_show(args) -> int:
             "language": game.language, "languages": game.languages, "meta": game.meta,
             "filters": {"players": ctx.players, "variants": sorted(ctx.variants)} if ctx.active else None,
             "components": [{k: v for k, v in c.items() if k != "line"} for c in components_of(blocks)],
-            "glossary": [{"term": b.term, "definition": [plain(t, ctx) for _, t, _ in b.items]}
+            "glossary": [{"term": b.term, "definition": [plain(k.text, ctx) for k in b.children if k.text]}
                          for b in blocks if b.kind == "def"],
             "key_rules": [plain(b.text, ctx) for b in blocks if b.kind == "key" or (b.kind == "item" and b.key)],
             "blocks": [block_json(b, ctx) for b in blocks],
@@ -810,6 +875,8 @@ def cmd_show(args) -> int:
     info = []
     if len(game.languages) > 1:
         info.append(f"language: {game.language} (available: {', '.join(game.languages)}; -l CODE)")
+    if game.extensions:
+        info.append("extensions: " + ", ".join(game.extensions) + " (-e NAME)")
     if declared:
         info.append("variants: " + ", ".join(declared) + " (-v NAME)")
     if info:
@@ -878,7 +945,12 @@ def check_game(game: Game, vault: Vault) -> Issues:
             iss.warn(path, 1, f"'{key}:' in frontmatter is from v0.3; move 'variants' (and others) to the top level")
 
     game_rng = parse_range(meta.get("players"))
-    declared = {k.lower() for k in game.variants}
+    declared = {k.lower() for k in game.options}
+    ext = meta.get("extensions")
+    if ext is not None and not isinstance(ext, (dict, list)):
+        iss.error(path, 1, "'extensions' must be a mapping (name: description) or a list of names")
+    for both in set(game.variants) & set(game.extensions):
+        iss.warn(path, 1, f"'{both}' is declared both as a variant and as an extension")
 
     # ---- leftover v0.3 syntax (raw lines)
     in_code = False
@@ -910,7 +982,8 @@ def check_game(game: Game, vault: Vault) -> Issues:
                 if not hits:
                     iss.warn(path, ln, f"condition '{c.raw}' never applies (game is for {meta.get('players')} players)")
             elif kind == "v" and val not in declared:
-                iss.error(path, ln, f"variant '{val}' is not declared; add it under 'variants:' in the frontmatter")
+                iss.error(path, ln, f"'+{val}' is not declared; add it under 'variants:' or 'extensions:' "
+                                    f"in the frontmatter")
 
     refs: list[tuple[str, int, str]] = []
 
@@ -946,42 +1019,50 @@ def check_game(game: Game, vault: Vault) -> Issues:
                 iss.error(path, ln, f"image not found: {src}")
 
     terms: dict[str, tuple[int, str]] = {}
-    for b in game.blocks:
-        if b.cond:
-            check_cond(b.cond, b.line)
-        if b.kind == "heading":
-            check_text(b.text, b.line)
-        elif b.kind in ("para", "item", "note", "key"):
-            for k, (ln, raw) in enumerate(b.src or [(b.line, b.text)]):
-                if k == 0:   # the block condition / "!" were already taken off b.text
-                    raw = raw.lstrip("! ")
-                    if (m := BLOCK_COND_RE.match(raw)) and parse_cond(m.group(1)):
-                        raw = raw[m.end():].lstrip("! ")
-                check_text(raw, ln)
-        elif b.kind == "image":
-            if not re.match(r"^[a-z]+://", b.term) and not (game.base_dir / b.term).exists():
-                iss.error(path, b.line, f"image not found: {b.term}")
-        elif b.kind == "def":
-            k = norm(b.term)
-            if k in terms:
-                iss.warn(path, b.line, f"'{b.term}' is defined twice (also line {terms[k][0]})")
-            else:
-                terms[k] = (b.line, b.term)
-            if not any(t.strip() for _, t, _ in b.items):
-                iss.warn(path, b.line, f"definition of '{b.term}' is empty")
-            for _, t, l in b.items:
-                check_text(t, l)
-        elif b.kind == "table":
-            cols = player_columns(b)
-            header = b.rows[0][1] if b.rows else []
-            if not cols and len(header) > 1 and any(P_TOKEN.match(c.strip()) for c in header[1:]):
-                iss.error(path, b.line, "table mixes player codes and other headers; for a player table every "
-                                        "header after the first must be a code like 3p, 4-5p, 6+p")
-            if len({len(c) for _, c in b.rows}) > 1:
-                iss.warn(path, b.line, "table rows have different numbers of cells")
-            for ln, cells in b.rows:
-                for j, c in enumerate(cells):
-                    check_text(c, ln, allow_block_cond=(j == 0))
+
+    def walk(blocks: list[Block]):
+        for b in blocks:
+            if b.cond:
+                check_cond(b.cond, b.line)
+            if b.kind == "heading":
+                check_text(b.text, b.line)
+            elif b.kind in ("para", "item", "note", "key"):
+                for k, (ln, raw) in enumerate(b.src or [(b.line, b.text)]):
+                    if k == 0:   # the block condition / "!" were already taken off b.text
+                        raw = raw.lstrip("! ")
+                        if (m := BLOCK_COND_RE.match(raw)) and parse_cond(m.group(1)):
+                            raw = raw[m.end():].lstrip("! ")
+                    check_text(raw, ln)
+            elif b.kind == "image":
+                if not re.match(r"^[a-z]+://", b.term) and not (game.base_dir / b.term).exists():
+                    iss.error(path, b.line, f"image not found: {b.term}")
+            elif b.kind == "def":
+                k = norm(b.term)
+                if k in terms:
+                    iss.warn(path, b.line, f"'{b.term}' is defined twice (also line {terms[k][0]})")
+                else:
+                    terms[k] = (b.line, b.term)
+                if not b.children:
+                    iss.warn(path, b.line, f"definition of '{b.term}' is empty")
+                walk(b.children)
+            elif b.kind == "table":
+                cols = player_columns(b)
+                header = b.rows[0][1] if b.rows else []
+                if not cols and len(header) > 1 and any(P_TOKEN.match(c.strip()) for c in header[1:]):
+                    iss.error(path, b.line, "table mixes player codes and other headers; for a player table every "
+                                            "header after the first must be a code like 3p, 4-5p, 6+p")
+                body = [cells for _, cells in b.rows[1:] if not is_sep_row(cells)]
+                if (not cols and not player_rows(b) and body
+                        and all(c and re.fullmatch(r"\d+(-\d+|\+)", c[0].strip()) for c in body)):
+                    iss.warn(path, b.line, f"first column looks like player counts ('{body[0][0].strip()}'); "
+                                           f"write '{body[0][0].strip()}p' so tables are filtered by player count")
+                if len({len(c) for _, c in b.rows}) > 1:
+                    iss.warn(path, b.line, "table rows have different numbers of cells")
+                for ln, cells in b.rows:
+                    for j, c in enumerate(cells):
+                        check_text(c, ln, allow_block_cond=(j == 0))
+
+    walk(game.blocks)
 
     # ---- references
     known = {norm(c["name"]) for c in components_of(game.blocks)} | set(terms)
@@ -1008,11 +1089,13 @@ def check_translation(default: Game, tr: Game, vault: Vault) -> Issues:
         if k in tr.tr_meta and str(tr.tr_meta[k]) != str(default.meta.get(k)):
             iss.warn(tp, 1, f"'{k}' differs from the default language ({tr.tr_meta[k]} vs {default.meta.get(k)}); "
                             "leave it out so it is inherited")
-    if isinstance(tr.tr_meta.get("variants"), dict):
-        extra = set(tr.tr_meta["variants"]) - set(default.variants)
+    for key, ref in (("variants", default.variants), ("extensions", default.extensions)):
+        if not isinstance(tr.tr_meta.get(key), dict):
+            continue
+        extra = set(tr.tr_meta[key]) - set(ref)
         if extra:
-            iss.warn(tp, 1, f"variant(s) {', '.join(sorted(extra))} not declared in the default language; "
-                            "keep variant names identical and translate only their descriptions")
+            iss.warn(tp, 1, f"{key} {', '.join(sorted(extra))} not declared in the default language; "
+                            "keep the names identical and translate only their descriptions")
     return iss
 
 
@@ -1077,6 +1160,7 @@ def main(argv=None) -> int:
     p.add_argument("game")
     p.add_argument("-p", "--players", type=int, help="only what applies to N players")
     p.add_argument("-v", "--variant", action="append", help="turn a variant on (repeatable)")
+    p.add_argument("-e", "--ext", action="append", metavar="EXTENSION", help="add an extension (repeatable)")
     p.add_argument("-l", "--lang", help="language (falls back to the default language)")
     p.add_argument("--json", action="store_true", help="print the parsed structure as JSON")
     p.add_argument("--no-color", action="store_true")

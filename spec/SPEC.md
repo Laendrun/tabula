@@ -1,4 +1,4 @@
-# Tabula — specification v0.4 (draft)
+# Tabula — specification v0.5 (draft)
 
 A plain-text format for board, card, dice, dexterity, outdoor and homemade games. Each game is a single `.game` file: a game description and its rules, written in Markdown with three small additions.
 
@@ -9,11 +9,11 @@ A plain-text format for board, card, dice, dexterity, outdoor and homemade games
 ## 1. Design goals
 
 1. **It's Markdown.** A `.game` file is valid Markdown. It reads well as raw text, and Markdown tools (GitHub, editors, Obsidian) render it nicely.
-2. **Three small additions** on top of Markdown:
+2. **A few small additions** on top of Markdown:
    - `[[references]]` to components and game terms
    - `{conditions}` for player counts and variants
    - definitions for the glossary
-3. **Player-count aware.** Any part of the rules can apply only to certain player counts or variants, so a tool can show "the rules for 2 players" and nothing else.
+3. **Player-count aware.** Any part of the rules can apply only to certain player counts, variants or extensions, so a tool can show "the rules for 2 players with the Supercharge extension" and nothing else.
 4. **One file per game**, with optional translations.
 5. **Grow from real use.** Features get added once real games need them. See section 9 for ideas.
 
@@ -101,7 +101,8 @@ Série
 | `publisher` | text | | |
 | `year` | number | `2019` | |
 | `language` | code | `fr` | default language of this game (overrides the vault) |
-| `variants` | map name → description | `{omnibus: "…"}` | declares the variants usable in `{+name}` conditions |
+| `variants` | map name → description, or list | `{omnibus: "…"}` | declares variants (other ways to play the same box), usable in `{+name}` conditions |
+| `extensions` | map name → description, or list | `[supercharge, pandora]` | declares extensions/expansions (extra boxes), usable in `{+name}` conditions, see 8.5 |
 | `location` | text | `Armoire de l'entrée` | where the game is stored |
 | `cover` | path | `media/box.jpg` | relative to the game folder |
 | `links` | map | `{bgg: https://…}` | |
@@ -127,6 +128,8 @@ All the usual Markdown: headings `#` to `######`, paragraphs, `*italic*` and `**
 1. Choisissez une carte et ajoutez-la à votre collection.
    Classez vos cartes par série.
 ```
+
+**Continuing a numbered list** after a table or paragraph: start the next item with the number you want (`3.`). Tools keep counting from there, and renumber when filtering hides steps.
 
 ---
 
@@ -163,6 +166,13 @@ Components are declared as **list items that start with a quantity, then `x`, th
 - Declarations can go anywhere, but the convention is one section near the top.
 - A component can be listed more than once. Each line can have its own condition: `{4p} 2x [[petite pierre]]` above means "2 more for 4 players".
 - Any other list item is just text. "Prenez 10 [[cartes]]" doesn't declare anything.
+- **Nested component lists break a component down.** Indented components are *part of* the one above them, not extra pieces:
+
+  ```markdown
+  - 125x [[carte à jouer]]
+    - 81x [[carte numérotée]]
+    - 44x [[carte spéciale]]
+  ```
 
 ---
 
@@ -181,7 +191,21 @@ Super-Chaussette
 : Une deuxième ligne `: ` ajoute un autre paragraphe.
 ```
 
-- Indented lines (2 spaces or more) continue the definition, and that includes lists.
+- **The definition body is ordinary Markdown.** Everything indented under the term (2 spaces or more) belongs to it: paragraphs, nested lists, `> notes`, key rules, even conditions.
+- The first `:` line can be empty when the definition starts with a list, or the list can start on it:
+
+  ```markdown
+  Cartes numérotées
+  :
+    - Cartes de couleur
+      - Se posent sur le même chiffre ou la même couleur.
+    > **Remarque** : le noir n'est pas une couleur !
+
+  Effet
+  : - [[Gift]]
+    - [[Skip]]
+  ```
+- **A term can have a condition**, for example a card that only exists in an extension: `Carte Puissance {+supercharge}`.
 - Defined terms can be referenced with `[[term]]`.
 - `tabula check` warns about terms that are defined twice.
 
@@ -198,11 +222,11 @@ A condition is a set of **codes** in curly braces. Every code must hold.
 | `5+p` | 5 or more players |
 | `3,5p` | 3 or 5 players |
 | `!2p` | any number of players except 2 |
-| `+omnibus` | when the variant `omnibus` is on |
-| `-omnibus` | when the variant `omnibus` is off |
+| `+omnibus` | when the variant or extension `omnibus` is on |
+| `-omnibus` | when it is off |
 | `*` | otherwise (only inside inline choices) |
 
-Codes are combined with spaces: `{4p +teams}`. Variants must be declared in the frontmatter (`variants:`). Variants are **opt-in**: when you filter, variant content is hidden unless you turn the variant on.
+Codes are combined with spaces: `{4p +teams}`. Names must be declared in the frontmatter, under `variants:` or `extensions:`. They are **opt-in**: when you filter, their content is hidden unless you turn them on.
 
 ### 8.1 Where conditions go
 
@@ -244,6 +268,15 @@ A table whose header cells, after the first one, are all player codes is a **pla
 
 The first header cell is free text, so you can write it in any language. Table rows can also start with a condition: `| {+omnibus} Valet de carreau | … |`.
 
+The table can also be the other way round, with player codes **in the first column**. Filtering then keeps only the matching rows:
+
+```markdown
+| Joueurs | court | moyen | long |
+|---------|-------|-------|------|
+| 2-4p    | 137   | 154   | 179  |
+| 5-8p    | 113   | 137   | 154  |
+```
+
 ### 8.3 Key rules `!`
 
 A line, or a list item, that starts with `! ` is a **key rule**. Key rules are highlighted and collected for cheat sheets:
@@ -257,14 +290,60 @@ A line, or a list item, that starts with `! ` is a **key rule**. Key rules are h
 
 Use `\[[`, `\{` and `\!` (at the start of a line) to write those characters literally. Curly braces that don't contain valid codes are shown as normal text. `tabula check` warns when they look like a broken condition.
 
+### 8.5 Extensions (expansions)
+
+Declare the extensions in the frontmatter. Add a description if you want one shown:
+
+```yaml
+extensions:
+  supercharge: "Cartes Puissance"
+  troublemaker: "Nouvelles cartes spéciales et événements"
+```
+
+Then write each extension's content in the same file, with `{+name}`. Extensions come in two kinds, and both use the same tools.
+
+**Additions** (more cards, new rules, new events):
+
+```markdown
+# Matériel
+- 125x [[carte à jouer]]
+- {+supercharge} 30x [[carte Puissance]]
+
+# Supercharge {+supercharge}
+Les [[cartes Puissance]] se jouent…
+
+# Glossaire
+Carte Puissance {+supercharge}
+: …
+```
+
+**Changes to existing rules.** Write the base version with `{-name}` and the extension's version with `{+name}`. The base version is shown without the extension, the new one with it:
+
+```markdown
+- {-pandora} Distribuez 7 cartes à chaque joueur.
+- {+pandora} Distribuez 7 cartes à chaque joueur, puis …
+
+## Fin de la manche {-troublemaker}
+…
+## Fin de la manche {+troublemaker}
+…
+```
+
+For a small change inside a sentence, use an inline choice: `Distribuez {+troublemaker: 9 | *: 7} cartes.`
+
+Several extensions can be on at the same time (`-e supercharge -e pandora`). Combined codes cover rules that only apply to a combination: `{+supercharge +pandora}`.
+
+Convention: keep the base rules first and readable, put each extension's new rules in its own section at the end, and use `{-name}`/`{+name}` pairs only where an extension really replaces a base rule.
+
 ---
 
-## 9. Ideas for later (not part of v0.4)
+## 9. Ideas for later (not part of v0.5)
 
 These came up while designing. They'll be added once real games need them.
 
 - **Card catalogs:** per-type cards with a count, an effect and an icon (Cadeau ×9, Sauvetage ×9), rendered as a reference sheet.
-- **Expansions and modules:** content that only applies when an expansion is present, e.g. `{+seafarers}` with `expansions:` in frontmatter, or a separate `catan+seafarers.game` that extends the base game.
+- **Extension files:** large extensions in their own file next to the game (e.g. `frantic/frantic+pandora.game`) that is merged into the base game when the extension is on.
+- **Extension metadata:** extensions that change the player count or duration (`extensions: {pandora: {players: 2-10}}`), or that require or exclude each other.
 - **Shared fragments:** one definition of "standard 52-card deck" included by many card games.
 - **Roles and factions:** rules for asymmetric games, e.g. `{@wizard}` and `--role wizard`.
 - **Solo and co-op:** `{1p}` already works. Solo bots or automata may need more structure.
@@ -287,7 +366,7 @@ The reference CLI is `tabula`. Point it at a vault with `--vault PATH`, or set `
 | Command | What it does |
 |---|---|
 | `tabula list [-p N] [-l CODE]` | list games, optionally only those playable with N players |
-| `tabula show GAME [-p N] [-v VARIANT…] [-l CODE] [--json]` | print a game filtered by player count, variants and language. `--json` prints the parsed structure. |
+| `tabula show GAME [-p N] [-v VARIANT…] [-e EXTENSION…] [-l CODE] [--json]` | print a game filtered by player count, variants, extensions and language. `--json` prints the parsed structure. |
 | `tabula check [GAME…] [--strict]` | find mistakes: frontmatter, references that match nothing, invalid or never-applying conditions, undeclared variants, missing images, duplicate terms, leftover v0.3 syntax, translation problems |
 
 Planned: `new`, `export --pdf`, `cheatsheet`, `server`.
@@ -307,7 +386,9 @@ Term                                   definition
 {2p} paragraph / - {3-4p} item         block condition
 ## Section {4p}   ## Variante {+quick} section condition
 {3p: 17 | 4p: 13 | *: 10}              inline choice
-| Joueurs | 3p | 4p |                  player table
+{-pandora} … / {+pandora} …            base rule / extension's replacement
+| Joueurs | 3p | 4p |                  player table (or codes in the first column)
+extensions: [supercharge]              in frontmatter; then {+supercharge}
 ! key rule                             cheat-sheet line
 <!-- comment -->                       hidden
 oh-my-socks.de.game                    translation

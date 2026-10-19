@@ -1,6 +1,6 @@
 # Tabula
 
-Board, card and homemade games as plain files (`.game`). The rules can be filtered by player count, variant and language. See `SPEC.md` for the format (v0.4).
+Board, card and homemade games as plain Markdown files (`.game`). The rules can be filtered by player count, variant and language. See `SPEC.md` for the format (v0.5).
 
 ## Install
 
@@ -18,6 +18,7 @@ tabula list -p 2                       # games playable with 2 players
 tabula show oh-my-socks                # everything, conditions shown as [2p] badges
 tabula show oh-my-socks -p 2           # only what applies to 2 players
 tabula show hearts -p 4 -v omnibus     # ...with a variant on
+tabula show frantic -p 4 -e pandora    # ...with an extension
 tabula show hearts -l fr               # French version
 tabula show hearts --json              # parsed structure
 tabula check                           # find mistakes in every game and translation
