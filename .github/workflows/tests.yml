@@ -1,13 +1,35 @@
 name: tests
 on: [push, pull_request]
+
 jobs:
-  test:
+  cli:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
-      - run: pip install -e "./cli[test]"
+      - run: pip install -e "./cli[test]"     # tabula + pyyaml + pytest, from cli/pyproject.toml
       - run: pytest -q tests
       - run: tabula --vault examples/vault check
+
+  vscode:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: editors/vscode
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: editors/vscode/package-lock.json
+      - run: npm ci
+      - run: npm test                          # the extension's logic and its grammar
+      - run: npm run package                   # builds tabula-game-files-<version>.vsix
+      - uses: actions/upload-artifact@v4       # downloadable from the run's page, kept 30 days
+        with:
+          name: vscode-extension
+          path: editors/vscode/*.vsix
+          retention-days: 30

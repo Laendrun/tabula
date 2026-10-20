@@ -13,10 +13,10 @@ Highlighting and live checks for Tabula `.game` files.
 
 The extension needs tabula 0.7 or newer on your computer. If `tabula --version` works in a terminal, there's nothing more to set up.
 
-Install the packaged extension:
+Get the `.vsix` from GitHub: **Actions** tab → the latest green *tests* run → **Artifacts** → *vscode-extension*. It downloads as a zip; unzip it to get `tabula-game-files-<version>.vsix`, then:
 
 ```
-code --install-extension editors/vscode/tabula-game-files-0.2.0.vsix
+code --install-extension tabula-game-files-0.2.0.vsix
 ```
 
 Or, from VS Code: Extensions panel → `…` menu → *Install from VSIX…*.
@@ -27,7 +27,8 @@ To build the `.vsix` yourself (Node.js needed):
 
 ```
 cd editors/vscode
-npx @vscode/vsce package --skip-license
+npm ci
+npm run package
 ```
 
 ## Settings
@@ -47,7 +48,7 @@ If nothing happens, open *View → Output* and pick **Tabula** in the list: it s
 
 ```
 cd editors/vscode
-npm install
+npm ci
 npm test          # the logic and the grammar (with VS Code's own TextMate engine)
 ```
 

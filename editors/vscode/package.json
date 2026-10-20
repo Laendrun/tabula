@@ -99,10 +99,11 @@
   },
   "scripts": {
     "test": "node --test test/*.test.js",
-    "package": "vsce package --skip-license"
+    "package": "vsce package --skip-license --allow-missing-repository"
   },
   "devDependencies": {
     "vscode-oniguruma": "^2.0.1",
-    "vscode-textmate": "^9.2.0"
+    "vscode-textmate": "^9.2.0",
+    "@vscode/vsce": "3.6.0"
   }
 }

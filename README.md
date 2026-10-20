@@ -35,7 +35,7 @@ tabula check -d                        # ...and require a glossary definition fo
 
 ## Editor
 
-`editors/vscode/` is a VS Code extension: highlighting, `tabula check` while you type (squiggles and the Problems panel), an outline, and Ctrl+click on `[[references]]`. Install it with `code --install-extension editors/vscode/tabula-game-files-0.2.0.vsix`. See [its README](editors/vscode/README.md) for the settings.
+`editors/vscode/` is a VS Code extension: highlighting, `tabula check` while you type (squiggles and the Problems panel), an outline, and Ctrl+click on `[[references]]`. Download the `.vsix` from the *vscode-extension* artifact of the latest CI run (Actions tab) and install it with `code --install-extension tabula-game-files-<version>.vsix`. See [its README](editors/vscode/README.md) for the settings.
 
 ## Tests
 
