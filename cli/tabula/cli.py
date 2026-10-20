@@ -1,10 +1,11 @@
 """tabula — reference CLI for the Tabula game format (spec v0.7).
 
   tabula list  [-p N] [-l CODE]
-  tabula show  GAME [-p N] [-v VARIANT ...] [-l CODE] [--json]
-  tabula export GAME [-p N] [-e EXT] [-v VARIANT] [--all] [-s SECTION] [-o FILE]
+  tabula show  GAME [-p N] [-v VARIANT ...] [-l CODE] [-k] [--json]
+  tabula export GAME [-p N] [-e EXT] [-v VARIANT] [--all] [-s SECTION] [-k] [-o FILE]
   tabula cards GAME [-p N] [-e EXT] [--all] [--sort COLUMN]
   tabula lookup GAME [TERM] [-p N] [-e EXT] [-v VARIANT] [--all]
+  tabula site [-o FOLDER]
   tabula check [GAME ...] [--strict] [-d]
 
 GAME is a slug, a path to a .game file, or a game folder.
@@ -20,6 +21,7 @@ from .lookup import cmd_lookup
 from .cards import cmd_cards
 from .check import cmd_check
 from .export import cmd_export
+from .site import cmd_site
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="tabula", description="Tabula: board & card game rules in Markdown.")
@@ -43,6 +45,8 @@ def main(argv=None) -> int:
     p.add_argument("-l", "--lang", help="language (falls back to the default language)")
     p.add_argument("-s", "--section", action="append", metavar="NAME",
                    help="only this section: a role like 'glossary' or 'components', or a heading title (repeatable)")
+    p.add_argument("-k", "--key", action="store_true",
+                   help="only the key rules ('! …') and key sections ('## ! Title'): a cheat sheet")
     p.add_argument("--json", action="store_true", help="print the parsed structure as JSON")
     p.add_argument("--no-color", action="store_true")
     p.add_argument("--vault", default=argparse.SUPPRESS)
@@ -82,11 +86,18 @@ def main(argv=None) -> int:
     p.add_argument("-e", "--ext", action="append", metavar="EXTENSION", help="add an extension (repeatable)")
     p.add_argument("-a", "--all", action="store_true", help="every extension and variant, with badges")
     p.add_argument("-s", "--section", action="append", metavar="NAME", help="only some sections (repeatable)")
+    p.add_argument("-k", "--key", action="store_true", help="only the key rules and key sections: a cheat sheet")
     p.add_argument("-l", "--lang", help="language")
     p.add_argument("-o", "--output", help="file or folder to write (default: a name like frantic-4p-supercharge.html "
                                           "in the current folder; '-' for standard output)")
     p.add_argument("--vault", default=argparse.SUPPRESS)
     p.set_defaults(func=cmd_export)
+
+    p = sub.add_parser("site", help="the whole vault as a small website: an index page and a page per game")
+    p.add_argument("-o", "--output", metavar="FOLDER",
+                   help="folder to write (default: ./site); replaced on every run, but only if tabula made it")
+    p.add_argument("--vault", default=argparse.SUPPRESS)
+    p.set_defaults(func=cmd_site)
 
     p = sub.add_parser("check", help="find mistakes in game files")
     p.add_argument("games", nargs="*", help="games to check (default: all)")

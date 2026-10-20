@@ -8,7 +8,7 @@ import sys
 
 from .syntax import Ctx, in_range, parse_range
 from .blocks import components_of
-from .filtering import filter_blocks, section_names, select_sections
+from .filtering import filter_blocks, section_names, select_key, select_sections
 from .vault import open_vault
 from .terminal import Style, block_json, plain, render_blocks
 
@@ -59,6 +59,11 @@ def cmd_show(args) -> int:
                   f"available: {', '.join(avail) or '(none)'}", file=sys.stderr)
             return 2
         blocks = picked
+    if args.key:
+        blocks = select_key(blocks)
+        if not blocks:
+            print(f"tabula: no key rules in {game.title} (mark them with '! ' or '## ! Title')", file=sys.stderr)
+            return 1
     if args.json:
         print(json.dumps({
             "slug": game.slug, "title": game.title, "path": str(game.body_path or game.path),
@@ -78,7 +83,8 @@ def cmd_show(args) -> int:
     out = [st.bold(game.title)]
     if ml := meta_line(game.meta):
         out.append(st.dim(ml))
-    f = [f"{ctx.players} players"] if ctx.players is not None else []
+    f = ["key rules"] if args.key else []
+    f += [f"{ctx.players} players"] if ctx.players is not None else []
     if ctx.everything:
         if game.options:
             f.append("everything (all extensions and variants)")
