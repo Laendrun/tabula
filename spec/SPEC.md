@@ -144,7 +144,14 @@ Une [[Super-Chaussette]] compte comme n'importe quelle [[série]].
 
 - **Matching** ignores case and plural endings (`s`, `x`) on every word, so `[[cartes Chaussettes]]` matches the component `carte Chaussette`.
 - **An alias** shows different text but points to the given name: `[[série|séries complètes]]`.
-- `tabula check` warns about references that match nothing.
+- `tabula check` warns about references that match nothing. A component counts as known even without a glossary entry, since simple pieces like "deck" or "string" rarely need one. To require a definition for every component, use `tabula check --definitions`, or turn it on for the whole vault in `vault.yaml`:
+
+  ```yaml
+  check:
+    require_definitions: true
+  ```
+
+  (or `require_definitions: true` in one game's frontmatter).
 - Renderers show the visible text, highlighted. The web view will later make it a link or tooltip.
 
 ---
@@ -205,8 +212,8 @@ Super-Chaussette
   : - [[Gift]]
     - [[Skip]]
   ```
-- **A term can have a condition**, for example a card that only exists in an extension: `Carte Puissance {+supercharge}`.
-- Defined terms can be referenced with `[[term]]`.
+- **A term can have a condition**, before or after it, for example a card that only exists in an extension: `{+supercharge} Recharge` or `Recharge {+supercharge}`.
+- Defined terms can be referenced with `[[term]]`. The term itself is written without brackets (`Black Hole`, not `[[Black Hole]]`).
 - `tabula check` warns about terms that are defined twice.
 
 ---
@@ -224,9 +231,9 @@ A condition is a set of **codes** in curly braces. Every code must hold.
 | `!2p` | any number of players except 2 |
 | `+omnibus` | when the variant or extension `omnibus` is on |
 | `-omnibus` | when it is off |
-| `*` | otherwise (only inside inline choices) |
+| `*` | otherwise (only inside inline choices; for a whole line shown only without an option, use `{-name}`) |
 
-Codes are combined with spaces: `{4p +teams}`. Names must be declared in the frontmatter, under `variants:` or `extensions:`. They are **opt-in**: when you filter, their content is hidden unless you turn them on.
+Codes are combined with spaces: `{4p +teams}`. Names must be declared in the frontmatter, under `variants:` or `extensions:`. They are **opt-in**: their content is hidden unless you turn them on (or ask for everything).
 
 ### 8.1 Where conditions go
 
@@ -237,11 +244,20 @@ Codes are combined with spaces: `{4p +teams}`. Names must be declared in the fro
 ## Jeu en équipe {+teams}
 ```
 
-**At the start of a block.** The condition covers that one paragraph, list item, note, key rule or table row. A line starting with `{…}` always starts a new block.
+**At the start or the end of a block.** The condition covers that one paragraph, list item, note, key rule or table row. A line starting with `{…}` always starts a new block.
 
 ```markdown
 {2p} Asseyez-vous côte à côte.
 - {3-5p} Donnez l'autre carte à votre voisin.
+- 10x [[carte spéciale]] {+supercharge}
+```
+
+**Nested content follows its list item.** If a list item is hidden, everything indented under it is hidden too: sub-items, tables, notes and paragraphs.
+
+```markdown
+- 15x [[carte à jouer]] {+supercharge}     ← hidden without supercharge…
+  - 5x [[carte numérotée]]                 ← …and so are these
+  - 10x [[carte spéciale]]
 ```
 
 **Inline choice.** Inside a sentence, list the alternatives as `code: text`, separated by `|`. The first matching alternative is shown. `*` is the fallback, and if nothing matches, nothing is shown.
@@ -254,7 +270,7 @@ Le valet de carreau vaut {+omnibus: -10 points | *: 0 point}.
 
 A single alternative works as an inline "only if": `Prenez une carte{+quick: , puis passez}.`
 
-Without filters, tools show everything and mark conditions, like `[2p]` or `⟨3p: 17 | 4p: 13⟩`. With `--players 4` and/or `--variant X`, content that doesn't match disappears and the markers are removed. Numbered lists are renumbered.
+**What a reader sees.** By default, a game is shown as the **base game**: no extensions and no variants. Anything the reader hasn't decided stays visible with a badge. Without a player count, for example, you see `[2p]` and `⟨3p: 17 | 4p: 13⟩`. Choosing a player count (`-p 4`) or turning on extensions and variants (`-e`, `-v`) resolves those conditions: content that doesn't apply disappears, and the badges go away. `--all` shows every extension and variant with badges. Numbered lists are renumbered and empty sections are hidden.
 
 ### 8.2 Player tables
 
@@ -331,6 +347,10 @@ Carte Puissance {+supercharge}
 
 For a small change inside a sentence, use an inline choice: `Distribuez {+troublemaker: 9 | *: 7} cartes.`
 
+`tabula show frantic` shows **the base game**. Add extensions with `-e` (`tabula show frantic -e pandora`), or see everything at once, with badges, using `tabula show frantic --all`.
+
+When you show a game with extensions turned on (`tabula show frantic -e supercharge`), everything they add or change is **highlighted**: marked `[+supercharge]` and coloured, including nested parts and inline choices. Without filters, all conditions are shown as `[…]` badges instead.
+
 Several extensions can be on at the same time (`-e supercharge -e pandora`). Combined codes cover rules that only apply to a combination: `{+supercharge +pandora}`.
 
 Convention: keep the base rules first and readable, put each extension's new rules in its own section at the end, and use `{-name}`/`{+name}` pairs only where an extension really replaces a base rule.
@@ -366,8 +386,8 @@ The reference CLI is `tabula`. Point it at a vault with `--vault PATH`, or set `
 | Command | What it does |
 |---|---|
 | `tabula list [-p N] [-l CODE]` | list games, optionally only those playable with N players |
-| `tabula show GAME [-p N] [-v VARIANT…] [-e EXTENSION…] [-l CODE] [--json]` | print a game filtered by player count, variants, extensions and language. `--json` prints the parsed structure. |
-| `tabula check [GAME…] [--strict]` | find mistakes: frontmatter, references that match nothing, invalid or never-applying conditions, undeclared variants, missing images, duplicate terms, leftover v0.3 syntax, translation problems |
+| `tabula show GAME [-p N] [-v VARIANT…] [-e EXTENSION…] [-a] [-l CODE] [--json]` | print a game, by default the base game (no extensions or variants), filtered by player count, extensions, variants and language. `-a`/`--all` shows every extension and variant with badges. `--json` prints the parsed structure. |
+| `tabula check [GAME…] [--strict] [-d]` | find mistakes: frontmatter, references that match nothing, invalid or never-applying conditions, undeclared variants, missing images, duplicate terms, leftover v0.3 syntax, translation problems. `-d`/`--definitions`: every component must also have a glossary definition |
 
 Planned: `new`, `export --pdf`, `cheatsheet`, `server`.
 
@@ -383,7 +403,7 @@ Planned: `new`, `export --pdf`, `cheatsheet`, `server`.
 Term                                   definition
 : definition text
   - indented lines continue it
-{2p} paragraph / - {3-4p} item         block condition
+{2p} paragraph / - item {3-4p}         block condition (start or end of the line)
 ## Section {4p}   ## Variante {+quick} section condition
 {3p: 17 | 4p: 13 | *: 10}              inline choice
 {-pandora} … / {+pandora} …            base rule / extension's replacement

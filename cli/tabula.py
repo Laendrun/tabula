@@ -11,6 +11,7 @@ The vault is --vault, else $TABULA_VAULT, else the current directory.
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
 import os
 import re
@@ -130,25 +131,37 @@ def parse_cond(s: str) -> Cond | None:
 
 @dataclass
 class Ctx:
-    players: int | None = None
-    variants: set[str] = field(default_factory=set)
+    """What the reader chose. Anything not chosen stays visible and is marked with a badge."""
+    players: int | None = None                         # None: every player count
+    variants: set[str] = field(default_factory=set)   # extensions/variants turned on
+    everything: bool = False                           # --all: every extension and variant
 
     @property
-    def active(self) -> bool:
-        return self.players is not None or bool(self.variants)
+    def active(self) -> bool:      # is anything hidden at all?
+        return self.players is not None or not self.everything
 
 
 def cond_ok(cond: Cond | None, ctx: Ctx) -> bool:
-    if cond is None or not ctx.active:
+    if cond is None:
         return True
     for kind, neg, val in cond.tokens:
         if kind == "p" and ctx.players is not None:
             if in_range(val, ctx.players) == neg:
                 return False
-        elif kind == "v":
-            if (val in ctx.variants) == neg:      # variants are opt-in
+        elif kind == "v" and not ctx.everything:
+            if (val in ctx.variants) == neg:      # extensions and variants are opt-in
                 return False
     return True
+
+
+def open_label(cond: Cond | None, ctx: Ctx) -> str:
+    """The parts of a condition the reader hasn't decided (shown as a badge)."""
+    if cond is None:
+        return ""
+    raw = cond.raw.split()
+    keep = [raw[i] for i, (kind, _, _) in enumerate(cond.tokens)
+            if (kind == "p" and ctx.players is None) or (kind == "v" and ctx.everything)]
+    return " ".join(keep)
 
 
 def parse_choice(body: str):
@@ -231,6 +244,8 @@ class Block:
     children: list = field(default_factory=list)  # def: the definition body, parsed as blocks
     start: int = 1            # ordered item: its number (a list continues from its first number)
     parent: str = ""          # component nested under another component
+    via: tuple = ()           # filtered view: the enabled extensions/variants this block comes from
+    tint: bool = False        # filtered view: nested under a block that comes from an extension
 
 
 def is_block_start(t: str) -> bool:
@@ -283,7 +298,7 @@ def parse_blocks(lines: list[tuple[int, str]]) -> list[Block]:
             while i < n and lines[i][1].lstrip().startswith("|"):
                 rows.append((lines[i][0], split_row(lines[i][1])))
                 i += 1
-            blocks.append(Block("table", line=ln, rows=rows))
+            blocks.append(Block("table", line=ln, rows=rows, level=len(t) - len(t.lstrip())))
             continue
         if m := ITEM_RE.match(t):
             indent, text = len(m.group(1)), m.group(3)
@@ -292,7 +307,7 @@ def parse_blocks(lines: list[tuple[int, str]]) -> list[Block]:
             while i < n:
                 nt = lines[i][1]
                 if (not nt.strip() or ITEM_RE.match(nt) or len(nt) - len(nt.lstrip()) <= indent
-                        or nt.lstrip().startswith(">")):
+                        or nt.lstrip().startswith((">", "|"))):
                     break
                 text += " " + nt.strip()
                 src.append((lines[i][0], nt.strip()))
@@ -315,10 +330,13 @@ def parse_blocks(lines: list[tuple[int, str]]) -> list[Block]:
             i += 1
             continue
         # definition: a term line followed by ": definition"
-        if i + 1 < n and DEF_LINE_RE.match(lines[i + 1][1]) and not is_block_start(t):
-            term, cond, i = t.strip(), None, i + 1
-            if (cm := HEADING_COND_RE.search(term)) and (c := parse_cond(cm.group(1))):
-                cond, term = c, term[: cm.start()].strip()
+        pre = BLOCK_COND_RE.match(t.strip())
+        pre_cond = parse_cond(pre.group(1)) if pre else None
+        term_text = t.strip()[pre.end():] if pre_cond else t
+        if i + 1 < n and DEF_LINE_RE.match(lines[i + 1][1]) and term_text.strip() and not is_block_start(term_text):
+            term, cond, i = term_text.strip(), pre_cond, i + 1      # condition before the term…
+            if cond is None and (cm := HEADING_COND_RE.search(term)) and (c := parse_cond(cm.group(1))):
+                cond, term = c, term[: cm.start()].strip()           # …or after it
             body: list[tuple[int, str]] = []
             while i < n:
                 lln, lt = lines[i]
@@ -351,7 +369,7 @@ def parse_blocks(lines: list[tuple[int, str]]) -> list[Block]:
             parts.append(lines[i][1].strip())
             src.append((lines[i][0], parts[-1]))
             i += 1
-        blocks.append(Block(kind, " ".join(parts), ln, src=src))
+        blocks.append(Block(kind, " ".join(parts), ln, src=src, level=len(t) - len(t.lstrip())))
 
     for b in blocks:
         if b.kind not in ("para", "item", "note", "key"):
@@ -366,6 +384,8 @@ def parse_blocks(lines: list[tuple[int, str]]) -> list[Block]:
                 b.kind = "key"
             if b.cond is None and (m := BLOCK_COND_RE.match(b.text)) and (c := parse_cond(m.group(1))):
                 b.cond, b.text = c, b.text[m.end():]
+        if b.cond is None and (m := HEADING_COND_RE.search(b.text)) and (c := parse_cond(m.group(1))):
+            b.cond, b.text = c, b.text[: m.start()].rstrip()      # condition written at the end of the block
         if b.kind == "item" and (m := COMPONENT_RE.match(b.text)):
             b.qty = m.group(1)
     return blocks
@@ -383,9 +403,13 @@ def components_of(blocks: list[Block]) -> list[dict]:
                 while stack and stack[-1][0] >= b.level:
                     stack.pop()
                 d = {"name": rm.group(1).strip(), "quantity": b.qty, "line": b.line}
+                adds = [v for k, neg, v in (b.cond.tokens if b.cond else []) if k == "v" and not neg]
                 if stack:
                     d["part_of"] = stack[-1][1]
-                stack.append((b.level, d["name"]))
+                    adds = adds or stack[-1][2]          # nested parts belong to the same extension
+                if adds:
+                    d["added_by"] = adds
+                stack.append((b.level, d["name"], adds))
                 note = rest[rm.end():].strip(" —–-:,;")
                 if note:
                     d["note"] = note
@@ -397,27 +421,52 @@ def components_of(blocks: list[Block]) -> list[dict]:
 
 # --------------------------------------------------------------------------- filtering
 
+def via_of(cond: Cond | None, ctx: Ctx) -> tuple:
+    """Enabled extensions/variants that a matching condition asks for (used for highlighting)."""
+    if cond is None or ctx.everything:
+        return ()
+    return tuple(v for k, neg, v in cond.tokens if k == "v" and not neg and v in ctx.variants)
+
+
 def filter_blocks(blocks: list[Block], ctx: Ctx) -> list[Block]:
-    out, stack = [], []
+    out, stack, items = [], [], []      # stack: headings (level, ok); items: list nesting (indent, ok)
     for b in blocks:
         if b.kind == "heading":
+            items = []
             while stack and stack[-1][0] >= b.level:
                 stack.pop()
             stack.append((b.level, cond_ok(b.cond, ctx)))
             if all(ok for _, ok in stack):
-                out.append(b)
+                out.append(dataclasses.replace(b, via=via_of(b.cond, ctx)) if b.cond else b)
             continue
+        inherited = False
+        if b.kind == "item":
+            while items and items[-1][0] >= b.level:
+                items.pop()
+            parent_ok = all(ok for _, ok, _ in items)
+            inherited = any(t for _, _, t in items)
+            items.append((b.level, parent_ok and cond_ok(b.cond, ctx), inherited or bool(via_of(b.cond, ctx))))
+            if not parent_ok:              # nested under a hidden item: hidden too
+                continue
+        elif b.kind in ("note", "table", "para", "key") and b.level and items:    # indented under a list item
+            if not all(ok for _, ok, _ in items):
+                continue
+            inherited = any(t for _, _, t in items)
+        else:
+            items = []
         if not all(ok for _, ok in stack) or not cond_ok(b.cond, ctx):
             continue
+        if b.cond and (v := via_of(b.cond, ctx)):
+            b = dataclasses.replace(b, via=v, tint=True)
+        elif inherited:
+            b = dataclasses.replace(b, tint=True)
         if b.kind == "table":
             b = filter_table(b, ctx)
             if not b.rows:
                 continue
         if b.kind == "def" and b.children:
-            b = Block("def", line=b.line, term=b.term, cond=b.cond, children=filter_blocks(b.children, ctx))
+            b = dataclasses.replace(b, children=filter_blocks(b.children, ctx))
         out.append(b)
-    if not ctx.active:
-        return out
     # drop headings whose whole section was filtered away
     keep = []
     for k, b in enumerate(out):
@@ -470,12 +519,13 @@ def filter_table(b: Block, ctx: Ctx) -> Block:
         if cells and (m := BLOCK_COND_RE.match(cells[0])) and (c := parse_cond(m.group(1))):
             if not cond_ok(c, ctx):
                 continue
-            if ctx.active:   # unfiltered views keep the marker so it can be shown as a badge
-                cells = [cells[0][m.end():]] + cells[1:]
+            v, lab = via_of(c, ctx), open_label(c, ctx)
+            cells = [(f"\x02{lab}\x02" if lab else "") + (f"\x01{','.join(v)}\x01" if v else "")
+                     + cells[0][m.end():]] + cells[1:]
         if keep is not None:
             cells = [cells[j] if j < len(cells) else "" for j in keep]
         rows.append((ln, cells))
-    return Block("table", line=b.line, rows=rows, cond=b.cond)
+    return Block("table", line=b.line, rows=rows, cond=b.cond, level=b.level)
 
 
 # =========================================================================== vault & games
@@ -641,6 +691,14 @@ class Style:
     def yellow(self, s): return self._w("33", s)
     def green(self, s): return self._w("32", s)
     def red(self, s): return self._w("31", s)
+    def magenta(self, s): return self._w("35", s)
+
+    def tint(self, s):
+        """Highlight a whole piece of already-styled text (keeps bold/italic, overrides colours)."""
+        if not self.on or not s:
+            return s
+        s = re.sub(r"\x1b\[3[0-9]m", "", s)
+        return "\x1b[35m" + s.replace("\x1b[0m", "\x1b[0m\x1b[35m") + "\x1b[0m"
 
 
 def vlen(s: str) -> int:
@@ -667,18 +725,16 @@ def resolve_choices(text: str, ctx: Ctx, st: Style) -> str:
         branches = parse_choice(m.group(1))
         if branches is None:
             return m.group(0)
-        if not ctx.active:
-            shown = " | ".join(f"{c.raw}: {t}" for c, t in branches)
+        remaining = [(c, t, any(k == "*" for k, _, _ in c.tokens)) for c, t in branches]
+        remaining = [(c, t, star) for c, t, star in remaining if star or cond_ok(c, ctx)]
+        concrete = [(c, t) for c, t, star in remaining if not star]
+        if concrete:
+            c, t = concrete[0]
+            if not open_label(c, ctx):                 # fully decided: this alternative wins
+                return st.magenta(t) if via_of(c, ctx) else t
+            shown = " | ".join(f"{'*' if star else open_label(c, ctx)}: {t}" for c, t, star in remaining)
             return st.yellow("⟨") + shown + st.yellow("⟩")
-        for c, t in branches:
-            if any(k == "*" for k, _, _ in c.tokens):
-                continue
-            if cond_ok(c, ctx):
-                return t
-        for c, t in branches:
-            if any(k == "*" for k, _, _ in c.tokens):
-                return t
-        return ""
+        return next((t for _, t, star in remaining if star), "")
     text = CHOICE_RE.sub(repl, text)
     text = re.sub(r" {2,}", " ", text)
     return re.sub(r" ([.,])", r"\1", text).strip()
@@ -706,14 +762,20 @@ def render_blocks(blocks: list[Block], ctx: Ctx, st: Style, width: int) -> list[
     heading_end = -1
 
     def badge(b):
-        return st.yellow(f"[{b.cond.raw}] ") if b.cond and not ctx.active else ""
+        out = ""
+        if lab := open_label(b.cond, ctx):     # not decided by the reader: show the condition
+            out += st.yellow(f"[{lab}] ")
+        if b.via:          # what an enabled extension/variant adds or changes
+            out += st.magenta("[+" + " +".join(b.via) + "] ")
+        return out
 
     def gap():
         if out and out[-1] != "" and len(out) - 1 != heading_end:
             out.append("")
 
     for b in blocks:
-        if b.kind != "item" and not (b.kind == "note" and b.level and counters):
+        nested = b.kind in ("note", "table", "para", "key") and b.level and counters
+        if b.kind != "item" and not nested:
             counters.clear()
         txt = render_inline(b.text, ctx, st) if b.kind not in ("table", "code", "def") else ""
         if b.kind == "heading":
@@ -729,7 +791,8 @@ def render_blocks(blocks: list[Block], ctx: Ctx, st: Style, width: int) -> list[
             heading_end = len(out) - 1
         elif b.kind == "para":
             gap()
-            out += wrap(badge(b) + txt, width)
+            pad = " " * (b.level + 1) if nested else ""
+            out += wrap(badge(b) + (st.tint(txt) if b.tint else txt), width, pad)
         elif b.kind == "key":
             gap()
             out += wrap(badge(b) + st.bold(txt), width, st.green("★ "), "  ")
@@ -760,11 +823,15 @@ def render_blocks(blocks: list[Block], ctx: Ctx, st: Style, width: int) -> list[
                 counters.setdefault(b.level, 0)
                 marker = "•"
             pad = " " * b.level
+            if b.tint:
+                txt = st.tint(txt)
             body = badge(b) + (st.green("★ ") + st.bold(txt) if b.key else txt)
             out += wrap(body, width, f"{pad}{marker} ", pad + " " * (len(marker) + 1))
         elif b.kind == "table":
-            gap()
-            out += render_table(b, ctx, st)
+            if not nested:
+                gap()
+            pad = " " * (b.level + 1) if nested else ""
+            out += [pad + l for l in render_table(b, ctx, st)]
     return out
 
 
@@ -775,9 +842,12 @@ def render_table(b: Block, ctx: Ctx, st: Style) -> list[str]:
             continue
         r = []
         for c in cells:
-            if (m := BLOCK_COND_RE.match(c)) and (cc := parse_cond(m.group(1))):
-                c = (st.yellow(f"[{cc.raw}] ") if not ctx.active else "") + c[m.end():]
-            r.append(render_inline(c, ctx, st))
+            badge = ""
+            if (lm := re.match(r"\x02(.*?)\x02", c)):
+                badge, c = st.yellow(f"[{lm.group(1)}] "), c[lm.end():]
+            if (vm := re.match(r"\x01(.*?)\x01", c)):
+                badge, c = badge + st.magenta(f"[+{vm.group(1).replace(',', ' +')}] "), c[vm.end():]
+            r.append(badge + render_inline(c, ctx, st))
         rows.append(r)
     if not rows:
         return []
@@ -810,11 +880,13 @@ def block_json(b: Block, ctx: Ctx) -> dict:
     d: dict = {"kind": b.kind, "line": b.line}
     if b.cond:
         d["cond"] = b.cond.raw
+    if b.via:
+        d["from"] = list(b.via)
     if b.kind == "heading":
         d["level"] = b.level
     if b.kind == "table":
         d["player_table"] = player_columns(b) is not None
-        d["rows"] = [[plain(c, ctx) for c in cells] for _, cells in b.rows if not is_sep_row(cells)]
+        d["rows"] = [[plain(re.sub(r"\x01.*?\x01", "", c), ctx) for c in cells] for _, cells in b.rows if not is_sep_row(cells)]
     elif b.kind == "def":
         d["term"] = b.term
         d["body"] = [block_json(k, ctx) for k in b.children]
@@ -834,7 +906,10 @@ def block_json(b: Block, ctx: Ctx) -> dict:
 def cmd_show(args) -> int:
     vault = open_vault(args.vault, args.game)
     game = vault.load(vault.find(args.game), args.lang)
-    ctx = Ctx(args.players, {v.lower() for v in (args.variant or []) + (args.ext or [])})
+    if args.all and (args.ext or args.variant):
+        print("tabula: --all already shows every extension and variant; drop either --all or -e/-v", file=sys.stderr)
+        return 2
+    ctx = Ctx(args.players, {v.lower() for v in (args.variant or []) + (args.ext or [])}, args.all)
     if game.fallback:
         print(f"tabula: {game.title} has no '{args.lang}' version (available: {', '.join(game.languages)}); "
               f"showing '{game.default_language}'", file=sys.stderr)
@@ -855,7 +930,7 @@ def cmd_show(args) -> int:
         print(json.dumps({
             "slug": game.slug, "title": game.title, "path": str(game.body_path or game.path),
             "language": game.language, "languages": game.languages, "meta": game.meta,
-            "filters": {"players": ctx.players, "variants": sorted(ctx.variants)} if ctx.active else None,
+            "filters": {"players": ctx.players, "options": sorted(ctx.variants), "all": ctx.everything},
             "components": [{k: v for k, v in c.items() if k != "line"} for c in components_of(blocks)],
             "glossary": [{"term": b.term, "definition": [plain(k.text, ctx) for k in b.children if k.text]}
                          for b in blocks if b.kind == "def"],
@@ -869,9 +944,20 @@ def cmd_show(args) -> int:
     out = [st.bold(game.title)]
     if ml := meta_line(game.meta):
         out.append(st.dim(ml))
-    if ctx.active:
-        f = ([f"{ctx.players} players"] if ctx.players is not None else []) + [f"+{v}" for v in sorted(ctx.variants)]
+    f = [f"{ctx.players} players"] if ctx.players is not None else []
+    if ctx.everything:
+        if game.options:
+            f.append("everything (all extensions and variants)")
+    else:
+        f += [f"+{v}" for v in sorted(ctx.variants)]
+        if game.extensions and not (ctx.variants & {k.lower() for k in game.extensions}):
+            f.append("base game")
+        if game.variants and not (ctx.variants & {k.lower() for k in game.variants}):
+            f.append("no variants")
+    if f:
         out.append(st.green("Showing: " + ", ".join(f)))
+    if ctx.variants:
+        out.append(st.magenta("[+…]") + st.dim(" marks what the enabled extensions/variants add or change"))
     info = []
     if len(game.languages) > 1:
         info.append(f"language: {game.language} (available: {', '.join(game.languages)}; -l CODE)")
@@ -879,6 +965,8 @@ def cmd_show(args) -> int:
         info.append("extensions: " + ", ".join(game.extensions) + " (-e NAME)")
     if declared:
         info.append("variants: " + ", ".join(declared) + " (-v NAME)")
+    if game.options and not ctx.everything:
+        info.append("--all shows everything")
     if info:
         out.append(st.dim(" · ".join(info)))
     out.append("")
@@ -916,7 +1004,7 @@ def cmd_list(args) -> int:
 STRUCTURAL_KEYS = ("players", "best_players", "duration", "age", "year", "cover")
 
 
-def check_game(game: Game, vault: Vault) -> Issues:
+def check_game(game: Game, vault: Vault, require_defs: bool = False) -> Issues:
     iss = Issues()
     iss.extend(game.issues)
     path = game.body_path or game.path
@@ -974,7 +1062,10 @@ def check_game(game: Game, vault: Vault) -> Issues:
             iss.warn(f, 0, "separate .rules files are not read in v0.4; move their content into the .game file")
 
     # ---- conditions
-    def check_cond(c: Cond, ln):
+    def check_cond(c: Cond, ln, in_choice: bool = False):
+        if not in_choice and any(k == "*" for k, _, _ in c.tokens):
+            iss.error(path, ln, f"'{{{c.raw}}}': '*' (otherwise) only works inside an inline choice "
+                                f"{{+x: … | *: …}}; for a line shown only without an option, write {{-name}}")
         for kind, neg, val in c.tokens:
             if kind == "p" and game_rng:
                 lo, hi = bounds(game_rng)
@@ -986,6 +1077,7 @@ def check_game(game: Game, vault: Vault) -> Issues:
                                     f"in the frontmatter")
 
     refs: list[tuple[str, int, str]] = []
+    singles: list[tuple[str, int]] = []      # [name] with single brackets: maybe a mistyped [[name]]
 
     def check_text(text: str, ln: int, allow_block_cond: bool = False):
         rest = text
@@ -996,7 +1088,7 @@ def check_game(game: Game, vault: Vault) -> Issues:
             br = parse_choice(m.group(1))
             if br:
                 for c, _ in br:
-                    check_cond(c, ln)
+                    check_cond(c, ln, in_choice=True)
                 if sum(1 for c, _ in br if any(k == "*" for k, _, _ in c.tokens)) > 1:
                     iss.warn(path, ln, "choice has more than one '*' alternative")
         for m in BRACES_RE.finditer(rest):
@@ -1004,13 +1096,15 @@ def check_game(game: Game, vault: Vault) -> Issues:
             if parse_choice(body) if ":" in body else False:
                 continue
             if parse_cond(body):
-                iss.error(path, ln, f"'{{{body}}}' in the middle of text: block conditions go at the start of a "
-                                    f"line; inside a sentence write '{{{body}: text}}'")
+                iss.error(path, ln, f"'{{{body}}}' in the middle of text: a block condition goes at the start or "
+                                    f"the end of a line; inside a sentence write '{{{body}: text}}'")
             elif CONDISH_RE.search(body.split(":")[0]):
                 iss.error(path, ln, f"invalid condition '{{{body}}}' (codes: 2p, 3-4p, 5+p, !2p, +variant, "
                                     f"-variant; choices: {{3p: … | *: …}})")
         for m in REF_RE.finditer(rest):
             refs.append((m.group(1).strip(), ln, m.group(0)))
+        for m in re.finditer(r"(?<![\[!\\])\[([^\[\]\n]+)\](?![\](\[])", REF_RE.sub("", rest)):
+            singles.append((m.group(1).strip(), ln))
         if re.search(r"(?<!\\)\[\[(?![^\]]*\]\])", REF_RE.sub("", rest)):
             iss.error(path, ln, "unclosed '[[' reference")
         for m in IMAGE_RE.finditer(rest):
@@ -1019,6 +1113,7 @@ def check_game(game: Game, vault: Vault) -> Issues:
                 iss.error(path, ln, f"image not found: {src}")
 
     terms: dict[str, tuple[int, str]] = {}
+    bracketed: set[str] = set()      # terms written as [[Term]]: reported once, not at every reference
 
     def walk(blocks: list[Block]):
         for b in blocks:
@@ -1027,16 +1122,23 @@ def check_game(game: Game, vault: Vault) -> Issues:
             if b.kind == "heading":
                 check_text(b.text, b.line)
             elif b.kind in ("para", "item", "note", "key"):
-                for k, (ln, raw) in enumerate(b.src or [(b.line, b.text)]):
+                src = b.src or [(b.line, b.text)]
+                for k, (ln, raw) in enumerate(src):
                     if k == 0:   # the block condition / "!" were already taken off b.text
                         raw = raw.lstrip("! ")
                         if (m := BLOCK_COND_RE.match(raw)) and parse_cond(m.group(1)):
                             raw = raw[m.end():].lstrip("! ")
+                    if k == len(src) - 1 and (m := HEADING_COND_RE.search(raw)) and parse_cond(m.group(1)):
+                        raw = raw[: m.start()]       # condition written at the end of the block
                     check_text(raw, ln)
             elif b.kind == "image":
                 if not re.match(r"^[a-z]+://", b.term) and not (game.base_dir / b.term).exists():
                     iss.error(path, b.line, f"image not found: {b.term}")
             elif b.kind == "def":
+                if (rm := REF_RE.fullmatch(b.term)):
+                    iss.error(path, b.line, f"term '{b.term}' is written as a reference; "
+                                            f"write it without brackets: '{rm.group(1).strip()}'")
+                    bracketed.add(norm(rm.group(1)))
                 k = norm(b.term)
                 if k in terms:
                     iss.warn(path, b.line, f"'{b.term}' is defined twice (also line {terms[k][0]})")
@@ -1065,7 +1167,18 @@ def check_game(game: Game, vault: Vault) -> Issues:
     walk(game.blocks)
 
     # ---- references
-    known = {norm(c["name"]) for c in components_of(game.blocks)} | set(terms)
+    known = {norm(c["name"]) for c in components_of(game.blocks)} | set(terms) | bracketed
+    if require_defs:      # every component must also be described in the glossary
+        reported_defs = set()
+        for c in components_of(game.blocks):
+            k = norm(c["name"])
+            if k not in terms and k not in bracketed and k not in reported_defs:
+                reported_defs.add(k)
+                iss.warn(path, c["line"], f"component '{c['name']}' has no definition; add '{c['name']}' "
+                                          f"then ': …' to the glossary")
+    for name, ln in singles:
+        if norm(name) in known:
+            iss.warn(path, ln, f"'[{name}]' has single brackets; write [[{name}]] to make it a reference")
     seen = set()
     for name, ln, raw in refs:
         k = norm(name)
@@ -1076,10 +1189,10 @@ def check_game(game: Game, vault: Vault) -> Issues:
     return iss
 
 
-def check_translation(default: Game, tr: Game, vault: Vault) -> Issues:
+def check_translation(default: Game, tr: Game, vault: Vault, require_defs: bool = False) -> Issues:
     iss = Issues()
     tp = tr.body_path
-    for i in check_game(tr, vault):
+    for i in check_game(tr, vault, require_defs=require_defs):
         if Path(i.path) == tp and not i.msg.startswith(("cover image",)):
             iss.append(i)
     declared = tr.tr_meta.get("language")
@@ -1124,10 +1237,12 @@ def cmd_check(args) -> int:
         tw += sum(i.level == "warning" for i in vault.issues)
     for p in paths:
         game = vault.load(p)
-        iss = list(check_game(game, vault))
+        req = bool(args.definitions or (vault.config.get("check") or {}).get("require_definitions")
+                   or game.meta.get("require_definitions"))
+        iss = list(check_game(game, vault, require_defs=req))
         for lang in game.languages:
             if lang != game.default_language:
-                iss += check_translation(game, vault.load(p, lang), vault)
+                iss += check_translation(game, vault.load(p, lang), vault, require_defs=req)
         iss.sort(key=lambda i: (str(i.path), i.line))
         e = sum(i.level == "error" for i in iss)
         w = len(iss) - e
@@ -1161,6 +1276,8 @@ def main(argv=None) -> int:
     p.add_argument("-p", "--players", type=int, help="only what applies to N players")
     p.add_argument("-v", "--variant", action="append", help="turn a variant on (repeatable)")
     p.add_argument("-e", "--ext", action="append", metavar="EXTENSION", help="add an extension (repeatable)")
+    p.add_argument("-a", "--all", action="store_true",
+                   help="show every extension and variant, marked with badges (default: base game only)")
     p.add_argument("-l", "--lang", help="language (falls back to the default language)")
     p.add_argument("--json", action="store_true", help="print the parsed structure as JSON")
     p.add_argument("--no-color", action="store_true")
@@ -1170,6 +1287,9 @@ def main(argv=None) -> int:
     p = sub.add_parser("check", help="find mistakes in game files")
     p.add_argument("games", nargs="*", help="games to check (default: all)")
     p.add_argument("--strict", action="store_true", help="fail on warnings too")
+    p.add_argument("-d", "--definitions", action="store_true",
+                   help="every component must also have a glossary definition "
+                        "(or set 'check: {require_definitions: true}' in vault.yaml)")
     p.add_argument("--no-color", action="store_true")
     p.add_argument("--vault", default=argparse.SUPPRESS)
     p.set_defaults(func=cmd_check)
