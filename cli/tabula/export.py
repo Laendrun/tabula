@@ -122,6 +122,11 @@ mark.chosen{background:var(--ext-bg);color:var(--ext);padding:0 .15em;border-rad
 .choice .alt b{color:var(--open);font-weight:600;margin-right:.25em}
 .choice .alt b.opt{color:var(--ext)}
 /* glossary entries as playing cards */
+nav.site{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:.4rem 1.2rem;margin:-1.5rem 0 -1.5rem;
+  font:.9rem/1.4 var(--sans)}
+nav.site a{color:var(--term);text-decoration:none}
+nav.site a:hover{text-decoration:underline}
+nav.site .here{color:var(--muted)}
 .cards{columns:2 17rem;column-gap:.9rem;margin:1rem 0 1.6rem}
 hr.end{border:0;border-top:1px solid var(--rule);width:4rem;margin:1.6rem auto}
 .card{position:relative;display:inline-block;width:100%;margin:0 0 .9rem;background:var(--card);
@@ -178,6 +183,7 @@ class HtmlRenderer:
         import html as _html
         self.esc = _html.escape
         self.game, self.blocks, self.ctx, self.key_only = game, blocks, ctx, key_only
+        self.game_href = "{}.html"             # where [text](game:slug) links point; `tabula site` changes it
         self.lang = game.language if game.language in UI else game.language.split("-")[0]
         self.t = UI.get(self.lang, UI["en"])
         self.ids: set[str] = set()
@@ -303,7 +309,7 @@ class HtmlRenderer:
 
     def link(self, label: str, href: str) -> str:
         if href.startswith("game:"):
-            href = href[5:] + ".html"
+            href = self.game_href.format(href[5:])
         return f'<a href="{self.esc(href)}">{self.esc(label)}</a>'
 
     # ------------------------------------------------------------------ blocks
@@ -457,7 +463,8 @@ class HtmlRenderer:
         return f"<table><thead>{head}</thead><tbody>{body}</tbody></table>"
 
     # ------------------------------------------------------------------ page
-    def page(self, title_suffix: str = "") -> str:
+    def page(self, title_suffix: str = "", nav: str = "") -> str:
+        """The full HTML document. `nav`: links shown above the title (used by `tabula site`)."""
         g, t, esc, ctx = self.game, self.t, self.esc, self.ctx
         body = self.render(self.blocks)          # fills self.toc
         meta = g.meta
@@ -534,6 +541,7 @@ class HtmlRenderer:
 </head>
 <body>
 <div class="page">
+{f'<nav class="site">{nav}</nav>' if nav else ""}
 <header class="game"><div><h1>{esc(g.title)}</h1>
 <ul class="facts">{"".join(f"<li>{f}</li>" for f in facts)}</ul>
 {f'<p class="credits">{" &nbsp; ".join(credits)}</p>' if credits else ""}</div>{cover}</header>

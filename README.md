@@ -28,11 +28,21 @@ tabula lookup frantic black hole       # one card/term, for use at the table (ty
 tabula export frantic -p 4 -e supercharge   # → frantic-4p-supercharge.html (open in a browser, print)
 tabula cards frantic -e supercharge --sort points   # card catalog: counts and fields
 tabula lookup frantic                  # list every term
+tabula site                            # the whole vault as a website in ./site (open site/index.html)
 tabula check                           # find mistakes in every game and translation
 tabula check -d                        # ...and require a glossary definition for every component
 ```
 
 `examples/vault/` has four example games: `oh-my-socks` (fr), `hearts` (en + fr, with a variant), `stone-circle` (homemade, en + fr, team variant, image) and `crazy-eights` (standalone file).
+
+## Website
+
+`tabula site` writes the whole vault to a `site/` folder (`-o` for another one):
+
+- `index.html` lists every game, with filters for player count, duration and tags, and a search.
+- Each game gets a page per language, showing everything with extensions and variants marked, plus a cheat sheet of its key rules.
+
+Open `site/index.html` in a browser; it works offline. You can also put the folder on any static host. The folder is replaced on every run, but only if `tabula site` made it.
 
 ## Editor
 
@@ -50,7 +60,7 @@ tabula check -d                        # ...and require a glossary definition fo
 | `filtering.py` | keeping what applies: players, variants, extensions, sections |
 | `vault.py` | finding and loading games and translations |
 | `terminal.py` | terminal and JSON rendering |
-| `show.py`, `lookup.py`, `cards.py`, `check.py`, `export.py` | one command each |
+| `show.py`, `lookup.py`, `cards.py`, `check.py`, `export.py`, `site.py` | one command each |
 | `cli.py` | the command line (`tabula …`) |
 
 Without installing: `python cli/tabula show hearts`.
