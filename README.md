@@ -1,11 +1,11 @@
 # Tabula
 
-Board, card and homemade games as plain Markdown files (`.game`). The rules can be filtered by player count, variant and language. See `SPEC.md` for the format (v0.5).
+Board, card and homemade games as plain Markdown files (`.game`). The rules can be filtered by player count, variant and language. See `spec/SPEC.md` for the format (v0.6).
 
 ## Install
 
 ```sh
-pipx install --editable .   # gives you the `tabula` command everywhere
+pipx install --editable ./cli   # gives you the `tabula` command everywhere
 ```
 
 ## Use
@@ -23,16 +23,18 @@ tabula show frantic --all              # every extension and variant, with badge
 tabula show hearts -l fr               # French version
 tabula show frantic -s glossary        # only one section (role or title)
 tabula show hearts --json              # parsed structure
+tabula lookup frantic black hole       # one card/term, for use at the table (typos and accents ok)
+tabula lookup frantic                  # list every term
 tabula check                           # find mistakes in every game and translation
 tabula check -d                        # ...and require a glossary definition for every component
 ```
 
-`vault/` has four example games: `oh-my-socks` (fr), `hearts` (en + fr, with a variant), `stone-circle` (homemade, en + fr, team variant, image) and `crazy-eights` (standalone file).
+`examples/vault/` has four example games: `oh-my-socks` (fr), `hearts` (en + fr, with a variant), `stone-circle` (homemade, en + fr, team variant, image) and `crazy-eights` (standalone file).
 
 ## Tests
 
 ```sh
-pip install pytest
+pip install -e "./cli[test]"
 pytest                                 # runs tests/ against tests/fixtures and the example vault
 ```
 

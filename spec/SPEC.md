@@ -379,7 +379,6 @@ Tools use roles to show part of a game. `tabula show frantic -s glossary` shows 
 These came up while designing. They'll be added once real games need them.
 
 - **Card catalogs:** structured cards in a `{#cards}` section (count, effect, points, timing, extension), rendered as a printable reference sheet or a points table.
-- **Lookup:** `tabula lookup frantic "black hole"` shows one term (with fuzzy matching) and what it refers to, for use at the table.
 - **Extension files:** large extensions in their own file next to the game (e.g. `frantic/frantic+pandora.game`) that is merged into the base game when the extension is on.
 - **Extension metadata:** extensions that change the player count or duration (`extensions: {pandora: {players: 2-10}}`), or that require or exclude each other.
 - **Shared fragments:** one definition of "standard 52-card deck" included by many card games.
@@ -405,6 +404,7 @@ The reference CLI is `tabula`. Point it at a vault with `--vault PATH`, or set `
 |---|---|
 | `tabula list [-p N] [-l CODE]` | list games, optionally only those playable with N players |
 | `tabula show GAME [-p N] [-v VARIANT…] [-e EXTENSION…] [-a] [-s SECTION…] [-l CODE] [--json]` | print a game, by default the base game (no extensions or variants), filtered by player count, extensions, variants and language. `-a`/`--all` shows every extension and variant with badges. `-s` shows only some sections (role or title). `--json` prints the parsed structure. |
+| `tabula lookup GAME [TERM] [-p N] [-e …] [-v …] [-a] [-l CODE] [--json]` | show one glossary term or component, for use at the table. Case, accents, plurals and small typos are ignored, and partial names work. Filters apply inside the definition. A term from an extension that isn't turned on is still shown, marked "only with +name". The output ends with "see also" for the terms it refers to. When no term has the exact name, it also looks for a section by role or title (`tabula lookup frantic components`). Without a term, lists every term. |
 | `tabula check [GAME…] [--strict] [-d]` | find mistakes: frontmatter, references that match nothing, invalid or never-applying conditions, undeclared variants, missing images, duplicate terms, leftover v0.3 syntax, translation problems. `-d`/`--definitions`: every component must also have a glossary definition |
 
 Planned: `new`, `export --pdf`, `cheatsheet`, `server`.
