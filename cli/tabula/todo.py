@@ -6,7 +6,9 @@ import os
 import sys
 from pathlib import Path
 
+from .fragments import SHARED_DIR, fragment_files
 from .source import find_todos
+from .syntax import split_lang
 from .terminal import Style
 from .vault import open_vault
 
@@ -17,7 +19,8 @@ def game_files(path: Path, slug: str, languages: list[str], default: str) -> lis
 
 def cmd_todo(args) -> int:
     vault = open_vault(args.vault, args.games[0] if args.games else None)
-    paths = [vault.find(g) for g in args.games] if args.games else vault.discover()
+    paths = [vault.find(g) for g in args.games] if args.games else vault.discover() + [
+        f for f in fragment_files(vault.root) if split_lang(f.stem)[1] is None]
     found = []                       # (game, file, line, text)
     for p in paths:
         game = vault.load(p)
@@ -36,9 +39,11 @@ def cmd_todo(args) -> int:
         if g.slug != current:
             if current is not None:
                 print()
-            print(st.bold(g.title) + st.dim(f"  ({g.slug})"))
+            label = f"{SHARED_DIR}/{g.slug}" if g.path.parent.name == SHARED_DIR else g.slug
+            print(st.bold(g.title) + st.dim(f"  ({label})"))
             current = g.slug
         print(f"  {st.dim(f'{f.name}:{ln}')}  {text}")
-    games = len({g.slug for g, *_ in found})
-    print(f"\n{len(found)} TODO(s) in {games} game(s)")
+    games = len({g.path for g, *_ in found})
+    print(f"\n{len(found)} TODO(s) in {games} file(s)" if any(g.path.parent.name == SHARED_DIR for g, *_ in found)
+          else f"\n{len(found)} TODO(s) in {games} game(s)")
     return 0

@@ -1,4 +1,4 @@
-# Tabula — specification v0.7 (draft)
+# Tabula — specification v0.8 (draft)
 
 A plain-text format for board, card, dice, dexterity, outdoor and homemade games. Each game is a single `.game` file: a game description and its rules, written in Markdown with three small additions.
 
@@ -26,6 +26,9 @@ A plain-text format for board, card, dice, dexterity, outdoor and homemade games
 ```
 my-games/                       ← the vault
 ├── vault.yaml                  ← optional settings
+├── _shared/                    ← shared fragments, included by games (see 10)
+│   ├── deck-52.game
+│   └── deck-52.fr.game
 ├── oh-my-socks/
 │   ├── oh-my-socks.game        ← the game (description + rules)
 │   ├── oh-my-socks.de.game     ← German translation (optional)
@@ -38,6 +41,7 @@ my-games/                       ← the vault
 - **The id (slug)** is the file name without extension: `oh-my-socks`. Use lowercase with dashes.
 - **Folder or standalone.** A game can live in its own folder, `<slug>/<slug>.game`, which gives it room for `media/` and other files. A game with no extra files can be a single `<slug>.game` directly in the vault.
 - In a game folder, other files are ignored by tools, so you can keep notes, PDFs and anything else there.
+- Folders whose name starts with `_` (like `_shared/`) or `.` are never games.
 
 ### 2.2 `vault.yaml` (optional)
 
@@ -445,14 +449,40 @@ Many games are mostly cards: special cards, events, power cards, and so on. A **
 
 ---
 
-## 10. Ideas for later (not part of v0.7)
+## 10. Shared fragments `![[ ]]`
+
+Many games use the same things: a standard 52-card deck, a tarot deck, dice. Write them once in a **fragment**, a `.game` file in the vault's `_shared/` folder, and include it in each game:
+
+```markdown
+# Matériel {#components}
+
+![[deck-52#Matériel]]
+- 1x [[bloc de score]]
+
+# Glossaire {#glossary}
+
+![[deck-52#Glossaire]]
+
+Bloc de score
+: …
+```
+
+- **A fragment** is written like a game, with the same syntax: sections, components, definitions, conditions. Frontmatter is optional and not used by the game (a `title:` is a good reminder of what it is).
+- **`![[deck-52]]`**, alone on its line, inserts the whole of `_shared/deck-52.game`. **`![[deck-52#Glossaire]]`** inserts only the content of one section, found by its title (matched like references) or its role (`![[deck-52#glossary]]`), with its sub-sections but without its heading.
+- **Headings nest where they land:** a fragment's `#` sections become sub-sections of the section the include is in, and a selected section's sub-sections become sub-sections there. After the included lines, the game's next lines are back in the game's section, as if the fragment's sections had been closed with `---`.
+- **Indentation is kept:** an indented include puts the fragment's lines at that indentation, so components can become parts of a game's component (`- 1x [[boîte]]` then `  ![[deck-52#Matériel]]` on the next line).
+- **Translations:** a French game (`slug.fr.game`, or a game whose language is `fr`) includes `_shared/deck-52.fr.game` when it exists, else `_shared/deck-52.game`.
+- **Conditions** inside a fragment are the game's: `{+jokers}` in the fragment needs `jokers` declared in the game that includes it, and follows its `-v jokers`.
+- Fragments can include other fragments. A fragment that ends up including itself is an error.
+- `tabula check` reports problems in included lines at the `![[…]]` line of the game, and checks each fragment on its own: syntax and TODOs only, since references and conditions depend on the game that includes it. `![[…]]` inside a sentence is an error: an include must be alone on its line.
+
+## 11. Ideas for later (not part of v0.8)
 
 These came up while designing. They'll be added once real games need them.
 
 - **Printable card sheets:** cards from the catalog laid out at real card size, for sleeving or replacing lost cards.
 - **Extension files:** large extensions in their own file next to the game (e.g. `frantic/frantic+pandora.game`) that is merged into the base game when the extension is on.
 - **Extension metadata:** extensions that change the player count or duration (`extensions: {pandora: {players: 2-10}}`), or that require or exclude each other.
-- **Shared fragments:** one definition of "standard 52-card deck" included by many card games.
 - **Roles and factions:** rules for asymmetric games, e.g. `{@wizard}` and `--role wizard`.
 - **Solo and co-op:** `{1p}` already works. Solo bots or automata may need more structure.
 - **Turn structure:** marking phases (`## Tour {phase}`) to generate a turn-summary card.
@@ -467,7 +497,7 @@ These came up while designing. They'll be added once real games need them.
 
 ---
 
-## 11. CLI (informative)
+## 12. CLI (informative)
 
 The reference CLI is `tabula`. Point it at a vault with `--vault PATH`, or set `$TABULA_VAULT`, or run it from inside the vault.
 
@@ -480,13 +510,13 @@ The reference CLI is `tabula`. Point it at a vault with `--vault PATH`, or set `
 | `tabula export GAME [-p N] [-e …] [-v …] [-a] [-s SECTION…] [-k] [-l CODE] [-o FILE]` | write a self-contained HTML page with the same filtering as `show`: table of contents from the headings, glossary entries as cards, `[[references]]` as links with the definition as a tooltip, extension content highlighted, images embedded. Works offline, prints cleanly, and has a dark mode. The default file name describes the selection, e.g. `frantic-4p-supercharge.html`. `-k` exports the cheat sheet (`hearts-4p-key.html`). |
 | `tabula site [-o FOLDER]` | write the whole vault as a small website (default folder: `site/`): an `index.html` listing every game, with filters for player count, duration and tags and a search, and for each game a page per language (`index.html`, `index.fr.html`) with every extension and variant marked, plus a cheat sheet (`key.html`) when it has key rules. Works offline from the folder, or on any static host. The folder is replaced on every run, but only if `tabula site` made it. |
 | `tabula todo [GAME…] [--json]` | list the `<!-- TODO: … -->` and `FIXME` reminders, with file and line, translations included. |
-| `tabula check [GAME…] [--strict] [-d]` | find mistakes: frontmatter, references that match nothing, invalid or never-applying conditions, undeclared variants, missing images, duplicate terms, leftover v0.3 syntax, translation problems. Also warns about definitions nothing refers to, and counts TODO reminders (they never fail `--strict`). `-d`/`--definitions`: every component must also have a glossary definition. `--json`: the issues as JSON, with absolute paths. `--stdin`: check unsaved text for the one file given (used by editors) |
+| `tabula check [GAME…] [--strict] [-d]` | find mistakes: frontmatter, references that match nothing, invalid or never-applying conditions, undeclared variants, missing images, duplicate terms, leftover v0.3 syntax, translation problems. Also checks the shared fragments in `_shared/`, warns about definitions nothing refers to, and counts TODO reminders (they never fail `--strict`). `-d`/`--definitions`: every component must also have a glossary definition. `--json`: the issues as JSON, with absolute paths. `--stdin`: check unsaved text for the one file given (used by editors) |
 
 Planned: `new`, PDF export, `cheatsheet`, `server`.
 
 ---
 
-## 12. Cheat sheet
+## 13. Cheat sheet
 
 ```
 ---  frontmatter (YAML)  ---          title, players, variants, language…
@@ -510,6 +540,7 @@ extensions: [supercharge]              in frontmatter; then {+supercharge}
 ! key rule                             cheat-sheet line
 ## ! Si la tour tombe                  key section (the whole section)
 [[#Si la tour tombe]]                  link to a section (by title, or a role: [[#setup]])
+![[deck-52#Glossaire]]                 include a shared fragment (_shared/deck-52.game), or one section of it
 <!-- comment -->                       hidden
 oh-my-socks.de.game                    translation
 ```

@@ -243,6 +243,43 @@ function definitionMarkdown(body) {
   return [fields.join("  \n"), rest].filter(Boolean).join("\n\n");
 }
 
+const INCLUDE_LINE = /^(\s*)!\[\[([^\[\]#|\n]+?)(?:#([^\[\]|\n]+))?\]\]\s*$/;
+
+/** The `![[fragment#Section]]` line under the cursor, or null. */
+function includeAt(lineText, column) {
+  const m = lineText.match(INCLUDE_LINE);
+  if (!m) return null;
+  const start = m[1].length;
+  const end = lineText.trimEnd().length;
+  if (column < start || column > end) return null;
+  return { name: m[2].trim(), section: m[3] ? m[3].trim() : null, start, end };
+}
+
+/** Is the cursor in an unfinished `![[name` or `![[name#Section`? */
+function includeContext(lineText, column) {
+  const before = lineText.slice(0, column);
+  const m = before.match(/^\s*!\[\[([^\[\]#|]*)(?:#([^\[\]|]*))?$/);
+  if (!m) return null;
+  const typed = m[2] !== undefined ? m[2] : m[1];
+  return {
+    name: m[1].trim(),
+    section: m[2] !== undefined ? m[2] : null,
+    start: column - typed.length,
+    closed: /^[^\[\]\n]*\]\]/.test(lineText.slice(column)),
+  };
+}
+
+/** Markdown preview of what `![[name#section]]` includes (the section, or the fragment's sections). */
+function includeHover(text, name, section) {
+  if (section) {
+    const h = hoverText(text, "#" + section);
+    return h ? `*from \`_shared/${name}\`*\n\n${h}` : null;
+  }
+  const o = outline(text);
+  const heads = o.headings.map((h) => `${"  ".repeat(h.level - 1)}- ${plainRefs(h.title)}`).join("\n");
+  return `**Fragment \`${name}\`**${heads ? `\n\n${heads}` : ""}`;
+}
+
 /**
  * Is the cursor inside an unfinished "[[…"? Returns where the typed name starts, whether it is a section
  * link ("[[#…"), what was typed, and whether "]]" already follows (so it isn't added twice).
@@ -319,4 +356,5 @@ function hoverText(text, name) {
 module.exports = {
   severity, checkArgs, expand, parseCheckOutput, issueColumns, fold, outline, refAt, findTargets,
   plainRefs, definitionBody, definitionMarkdown, completionContext, completions, hoverText,
+  includeAt, includeContext, includeHover,
 };

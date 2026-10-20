@@ -12,6 +12,7 @@ except ImportError:  # pragma: no cover
     sys.exit("tabula needs PyYAML:  pip install pyyaml")
 
 from .syntax import split_lang
+from .fragments import SHARED_DIR, expand_includes
 from .source import Issues, read_source
 from .blocks import Block, parse_blocks
 
@@ -82,7 +83,7 @@ class Vault:
                 found.append(g)
             elif not (self.root / f"{slug}.game").exists():
                 self.issues.error(g, 0, f"translation without the default-language file '{slug}.game'")
-        for d in sorted(p for p in self.root.iterdir() if p.is_dir() and not p.name.startswith(".")):
+        for d in sorted(p for p in self.root.iterdir() if p.is_dir() and not p.name.startswith((".", "_"))):
             games = sorted(d.glob("*.game"))
             if not games:
                 continue
@@ -119,6 +120,8 @@ class Vault:
         folder = None if path.parent.resolve() == self.root else path.parent
         meta, lines = read_source(path, issues)
         default_lang = str(meta.get("language") or self.language)
+        if path.parent.name != SHARED_DIR:            # a fragment's includes are expanded where it's used
+            lines = expand_includes(lines, self.root, default_lang, issues, path)
         langs = {default_lang}
         for f in path.parent.glob(f"{slug}.*.game"):
             s, l = split_lang(f.stem)
@@ -130,6 +133,7 @@ class Vault:
             tr = path.parent / f"{slug}.{lang}.game"
             if tr.exists():
                 tr_meta, lines = read_source(tr, issues)
+                lines = expand_includes(lines, self.root, lang, issues, tr)
                 merged = {**meta, **tr_meta}
                 for key in ("variants", "extensions"):
                     if isinstance(meta.get(key), dict) and isinstance(tr_meta.get(key), dict):
@@ -153,5 +157,7 @@ def open_vault(arg: str | None, ref: str | None = None) -> Vault:
             if (anc / "vault.yaml").exists():
                 return Vault(anc)
         d = p if p.is_dir() else p.parent
+        if d.name == SHARED_DIR:                     # a shared fragment: the vault is the folder above
+            return Vault(d.parent)
         return Vault(d.parent if (d / f"{d.name}.game").exists() else d)
     return Vault(Path.cwd())

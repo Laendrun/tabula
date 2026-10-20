@@ -16,6 +16,9 @@
       "include": "#fence"
     },
     {
+      "include": "#include-line"
+    },
+    {
       "include": "#section-end"
     },
     {
@@ -381,6 +384,30 @@
         },
         "6": {
           "name": "punctuation.definition.reference.end.tabula"
+        }
+      }
+    },
+    "include-line": {
+      "match": "^(\\s*)(!)(\\[\\[)([^\\]#|\\n]+?)(?:(#)([^\\]|\\n]+))?(\\]\\])\\s*$",
+      "name": "meta.include.tabula",
+      "captures": {
+        "2": {
+          "name": "keyword.control.include.tabula"
+        },
+        "3": {
+          "name": "punctuation.definition.include.begin.tabula"
+        },
+        "4": {
+          "name": "entity.name.namespace.fragment.tabula"
+        },
+        "5": {
+          "name": "punctuation.definition.section-link.tabula"
+        },
+        "6": {
+          "name": "entity.name.section.link.tabula"
+        },
+        "7": {
+          "name": "punctuation.definition.include.end.tabula"
         }
       }
     }

@@ -199,3 +199,16 @@ test("TODO reminders are information, not warnings", () => {
   assert.equal(core.severity("warning", S), 1);
   assert.equal(core.severity("todo", S), 2);
 });
+
+test("include lines: under the cursor, while typing, hover", () => {
+  assert.deepEqual(core.includeAt("![[deck-52#Glossaire]]", 5), { name: "deck-52", section: "Glossaire", start: 0, end: 22 });
+  assert.deepEqual(core.includeAt("  ![[deck-52]]", 4), { name: "deck-52", section: null, start: 2, end: 14 });
+  assert.equal(core.includeAt("See ![[deck-52]] here", 8), null);           // not alone on its line
+  assert.deepEqual(core.includeContext("![[de", 5), { name: "de", section: null, start: 3, closed: false });
+  assert.deepEqual(core.includeContext("![[deck-52#Glo]]", 14), { name: "deck-52", section: "Glo", start: 11, closed: true });
+  assert.equal(core.includeContext("[[de", 4), null);
+  const frag = "# Components {#components}\n\n- 52x [[card]]\n\n# Glossary\n\nCard\n: One card.\n";
+  assert.match(core.includeHover(frag, "deck-52", "components"), /^\*from `_shared\/deck-52`\*\n\n\*\*Components\*\*/);
+  assert.equal(core.includeHover(frag, "deck-52", null), "**Fragment `deck-52`**\n\n- Components\n- Glossary");
+  assert.equal(core.includeHover(frag, "deck-52", "nothing"), null);
+});

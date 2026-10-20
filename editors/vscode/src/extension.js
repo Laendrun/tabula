@@ -248,6 +248,13 @@ const folding = {
 
 const definitionProvider = {
   provideDefinition(doc, pos) {
+    const inc = core.includeAt(doc.lineAt(pos.line).text, pos.character);
+    if (inc) {
+      const file = fragmentFile(doc.uri.fsPath, inc.name);
+      if (!file) return null;
+      const line = inc.section ? (core.findTargets(readText(file) || "", "#" + inc.section)[0] || 0) : 0;
+      return new vscode.Location(vscode.Uri.file(file), new vscode.Position(line, 0));
+    }
     const ref = core.refAt(doc.lineAt(pos.line).text, pos.character);
     if (!ref) return null;
     const files = [doc.uri.fsPath];
@@ -277,8 +284,76 @@ const KINDS = {
   role: vscode.CompletionItemKind.Keyword,
 };
 
+/** The vault folder of a file: the nearest folder above it with _shared/ or vault.yaml. */
+function vaultRoot(file) {
+  let dir = path.dirname(file);
+  for (let i = 0; i < 12; i++) {
+    if (path.basename(dir) === "_shared") return path.dirname(dir);
+    if (fs.existsSync(path.join(dir, "_shared")) || fs.existsSync(path.join(dir, "vault.yaml"))) return dir;
+    const up = path.dirname(dir);
+    if (up === dir) break;
+    dir = up;
+  }
+  return path.dirname(path.dirname(file));
+}
+
+/** The language code of a translation file (slug.fr.game), or null. */
+function fileLang(file) {
+  const m = path.basename(file).match(/^.*\.([a-z]{2}(?:-[A-Za-z]{2})?)\.game$/);
+  return m ? m[1] : null;
+}
+
+/** _shared/<name>.<lang>.game when the document is a translation and it exists, else _shared/<name>.game. */
+function fragmentFile(docFile, name) {
+  const dir = path.join(vaultRoot(docFile), "_shared");
+  const lang = fileLang(docFile);
+  const cands = (lang ? [path.join(dir, `${name}.${lang}.game`)] : []).concat(path.join(dir, `${name}.game`));
+  return cands.find((f) => fs.existsSync(f)) || null;
+}
+
+function fragmentNames(docFile) {
+  try {
+    return fs.readdirSync(path.join(vaultRoot(docFile), "_shared"))
+      .filter((f) => f.endsWith(".game") && !/\.[a-z]{2}(?:-[A-Za-z]{2})?\.game$/.test(f))
+      .map((f) => f.slice(0, -5)).sort();
+  } catch {
+    return [];
+  }
+}
+
+function readText(file) {
+  try {
+    return fs.readFileSync(file, "utf8");
+  } catch {
+    return null;
+  }
+}
+
+function includeCompletions(doc, pos, ctx) {
+  const range = new vscode.Range(pos.line, ctx.start, pos.line, pos.character);
+  const end = ctx.closed ? "" : "]]";
+  if (ctx.section === null) {
+    return fragmentNames(doc.uri.fsPath).map((name) => {
+      const item = new vscode.CompletionItem({ label: name, description: "_shared" }, vscode.CompletionItemKind.File);
+      Object.assign(item, { range, insertText: name + end, filterText: name, detail: "shared fragment" });
+      return item;
+    });
+  }
+  const file = fragmentFile(doc.uri.fsPath, ctx.name);
+  const text = file && readText(file);
+  if (!text) return undefined;
+  return core.completions(text).sections.map((x, i) => {
+    const item = new vscode.CompletionItem({ label: x.label, description: x.detail }, KINDS[x.kind]);
+    Object.assign(item, { range, insertText: x.label + end, filterText: x.label, sortText: String(i).padStart(5, "0"),
+                          detail: `${x.kind} in ${ctx.name}` });
+    return item;
+  });
+}
+
 const completionProvider = {
   provideCompletionItems(doc, pos) {
+    const inc = core.includeContext(doc.lineAt(pos.line).text, pos.character);
+    if (inc) return includeCompletions(doc, pos, inc);
     const ctx = core.completionContext(doc.lineAt(pos.line).text, pos.character);
     if (!ctx) return undefined;
     const all = core.completions(doc.getText());
@@ -299,6 +374,15 @@ const completionProvider = {
 
 const hoverProvider = {
   provideHover(doc, pos) {
+    const inc = core.includeAt(doc.lineAt(pos.line).text, pos.character);
+    if (inc) {
+      const file = fragmentFile(doc.uri.fsPath, inc.name);
+      const text = file ? readText(file) : null;
+      const md = text ? core.includeHover(text, inc.name, inc.section)
+        : `No shared fragment \`${inc.name}\` (looked for _shared/${inc.name}.game)`;
+      if (!md) return null;
+      return new vscode.Hover(new vscode.MarkdownString(md), new vscode.Range(pos.line, inc.start, pos.line, inc.end));
+    }
     const ref = core.refAt(doc.lineAt(pos.line).text, pos.character);
     if (!ref) return null;
     let text = core.hoverText(doc.getText(), ref.name);
