@@ -27,7 +27,7 @@ jobs:
           cache-dependency-path: editors/vscode/package-lock.json
       - run: npm ci
       - run: npm test                          # the extension's logic and its grammar
-      - run: npm run package                   # builds tabula-game-files-<version>.vsix
+      - run: npm run package                   # builds <name>-<version>.vsix (tabula-syntax-0.4.0.vsix)
       - uses: actions/upload-artifact@v4       # downloadable from the run's page, kept 30 days
         with:
           name: vscode-extension

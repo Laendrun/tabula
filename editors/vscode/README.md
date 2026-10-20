@@ -15,15 +15,15 @@ Highlighting and live checks for Tabula `.game` files.
 
 The extension needs tabula 0.7 or newer on your computer. If `tabula --version` works in a terminal, there's nothing more to set up.
 
-Get the `.vsix` from GitHub: **Actions** tab → the latest green *tests* run → **Artifacts** → *vscode-extension*. It downloads as a zip; unzip it to get `tabula-game-files-<version>.vsix`, then:
+Get the `.vsix` from GitHub: **Actions** tab → a green *tests* run → **Artifacts** → *vscode-extension*. It downloads as a zip; unzip it to get `tabula-syntax-<version>.vsix`, then:
 
 ```
-code --install-extension tabula-game-files-0.4.0.vsix
+code --install-extension tabula-syntax-<version>.vsix
 ```
 
-Or, from VS Code: Extensions panel → `…` menu → *Install from VSIX…*.
+Or, from VS Code: Extensions panel → `…` menu → *Install from VSIX…*. Installing a newer `.vsix` the same way replaces the old version.
 
-The extension's ID is `tabula-rules.tabula-game-files`. If you installed an earlier build (ID `tabula.tabula`, which clashed with another extension on the Marketplace), remove it first: `code --uninstall-extension tabula.tabula`.
+The extension's ID is `Laendrun.tabula-syntax`. If you installed an earlier build, remove it first: `code --uninstall-extension tabula-rules.tabula-game-files` (or `tabula.tabula` for the very first ones).
 
 To build the `.vsix` yourself (Node.js needed):
 

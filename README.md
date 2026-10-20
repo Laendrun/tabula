@@ -47,7 +47,7 @@ Open `site/index.html` in a browser; it works offline. You can also put the fold
 
 ## Editor
 
-`editors/vscode/` is a VS Code extension: highlighting, `tabula check` while you type (squiggles and the Problems panel), an outline, and Ctrl+click on `[[references]]`. Download the `.vsix` from the *vscode-extension* artifact of the latest CI run (Actions tab) and install it with `code --install-extension tabula-game-files-<version>.vsix`. See [its README](editors/vscode/README.md) for the settings.
+`editors/vscode/` is a VS Code extension: highlighting, `tabula check` while you type (squiggles and the Problems panel), an outline, and Ctrl+click on `[[references]]`. Install it from the `.vsix` that CI builds (Actions tab → a green run → Artifacts → *vscode-extension*). See [its README](editors/vscode/README.md) for the settings.
 
 ## Code layout
 
@@ -74,3 +74,7 @@ pytest                                 # runs tests/ against tests/fixtures and 
 ```
 
 `tests/fixtures/vault/kitchen-sink/` is a test game that uses every feature of the format. When you add a feature, add an example of it there and a test in `tests/`.
+
+## License
+
+MIT, see [LICENSE](LICENSE).
