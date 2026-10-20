@@ -130,3 +130,65 @@ test("key sections and section links", () => {
   assert.deepEqual(core.findTargets(text, "#setup").map((l) => lines[l]), ["# Mise en place {#setup}"]);
   assert.deepEqual(core.findTargets(text, "#nowhere"), []);
 });
+
+const SAMPLE = `---
+title: G
+---
+# Matériel {#components}
+
+- 60x [[carte]]
+- 2x [[Pion]] — rouges
+
+## ! Si la tour tombe {2p}
+
+Arrête la partie, voir [[Carte]].
+
+# Glossaire {#glossary}
+
+Carte {+expo}
+: points:: 3
+  timing:: 1st
+  Une [[carte|carte]] simple.
+
+Carte
+: Doublon ignoré.
+
+### Déplacer le [[Pion]]
+
+Texte.
+`;
+
+test("completion context", () => {
+  assert.deepEqual(core.completionContext("Voir [[ca", 9), { section: false, typed: "ca", start: 7, closed: false });
+  assert.deepEqual(core.completionContext("Voir [[#Si]] x", 10), { section: true, typed: "Si", start: 8, closed: true });
+  assert.equal(core.completionContext("Voir [[carte]] ok", 16), null);          // after a finished reference
+  assert.equal(core.completionContext("no ref", 3), null);
+  assert.deepEqual(core.completionContext("[[]]", 2), { section: false, typed: "", start: 2, closed: true });
+});
+
+test("completions: terms, then components, then sections and roles", () => {
+  const { terms, sections } = core.completions(SAMPLE);
+  assert.deepEqual(terms.map((t) => [t.label, t.kind, t.detail]), [
+    ["Carte", "definition", "{+expo}"],        // the duplicate definition is listed once
+    ["Pion", "component", "2x"],               // "carte" already has a definition
+  ]);
+  assert.equal(terms[0].doc, "**points:** 3  \n**timing:** 1st\n\nUne carte simple.");
+  assert.deepEqual(sections.map((s) => [s.label, s.kind]), [
+    ["Matériel", "section"], ["components", "role"], ["Si la tour tombe", "section"],
+    ["Glossaire", "section"], ["glossary", "role"], ["Déplacer le Pion", "section"],
+  ]);
+  assert.equal(sections[2].detail, "★ ##");
+});
+
+test("hover: definitions, components and sections", () => {
+  const card = core.hoverText(SAMPLE, "cartes");
+  assert.match(card, /^\*\*Carte\*\* `\{\+expo\}`\n\n\*\*points:\*\* 3/);
+  assert.match(card, /Doublon ignoré/);                   // both definitions are shown
+  assert.match(card, /- 60x carte/);                      // and the component line
+  assert.equal(core.hoverText(SAMPLE, "pion"), "- 2x Pion — rouges");
+  assert.match(core.hoverText(SAMPLE, "#si la tour tombe"), /^\*\*★ Si la tour tombe\*\* `\{2p\}`\n\nArrête la partie, voir Carte\./);
+  assert.match(core.hoverText(SAMPLE, "#glossary"), /^\*\*Glossaire\*\*/);
+  assert.match(core.hoverText(SAMPLE, "#déplacer le pion"), /^\*\*Déplacer le Pion\*\*\n\nTexte\./);
+  assert.equal(core.hoverText(SAMPLE, "nothing"), null);
+  assert.equal(core.hoverText(SAMPLE, "#nothing"), null);
+});
