@@ -76,4 +76,4 @@ jobs:
             exit 0
           fi
           echo "publishing $id $version (Marketplace has: ${published:-nothing yet})"
-          npx vsce publish --packagePath "$name-$version.vsix" --skip-license
+          npx vsce publish --packagePath "$name-$version.vsix"

@@ -115,7 +115,7 @@
   },
   "scripts": {
     "test": "node --test test/*.test.js",
-    "package": "vsce package --skip-license"
+    "package": "vsce package"
   },
   "devDependencies": {
     "vscode-oniguruma": "^2.0.1",

@@ -74,3 +74,7 @@ pytest                                 # runs tests/ against tests/fixtures and 
 ```
 
 `tests/fixtures/vault/kitchen-sink/` is a test game that uses every feature of the format. When you add a feature, add an example of it there and a test in `tests/`.
+
+## License
+
+MIT, see [LICENSE](LICENSE).
