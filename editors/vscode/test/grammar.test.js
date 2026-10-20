@@ -147,3 +147,10 @@ test("TODO stands out in comments", () => {
   assert.match(scopesOf(l, "TODO"), /comment.block.*keyword.other.todo/);
   assert.match(scopesOf(l, ": write the cards "), /comment.block/);
 });
+
+test("shared fragment includes", () => {
+  const l = tokenize("![[deck-52#Glossaire]]");
+  assert.match(l[0][0].scopes.join(" "), /meta.include.*keyword.control.include/);
+  assert.match(scopesOf(l, "deck-52"), /entity.name.namespace.fragment/);
+  assert.match(scopesOf(l, "Glossaire"), /entity.name.section.link/);
+});

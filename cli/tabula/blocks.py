@@ -9,6 +9,9 @@ from .syntax import (
     HEADING_RE, IMAGE_RE, ITEM_RE, P_TOKEN, REF_RE, parse_attrs, parse_cond, parse_range,
 )
 
+QUIET_END = "---\x00quiet"     # see fragments.expand_includes
+
+
 @dataclass
 class Block:
     kind: str                 # heading para item note key table image def code
@@ -32,6 +35,7 @@ class Block:
     roles: list = field(default_factory=list)   # heading: section roles like "glossary", "components"
     tint: bool = False        # filtered view: nested under a block that comes from an extension
     reopens: int = 0          # heading made by "---": back in the section whose heading is on this line
+    quiet: bool = False       # an end added after an included fragment: closes its sections, shows nothing
 
 
 def is_block_start(t: str) -> bool:
@@ -61,7 +65,7 @@ def parse_blocks(lines: list[tuple[int, str]]) -> list[Block]:
         if not t.strip():
             i += 1
             continue
-        if END_RE.match(t):
+        if END_RE.match(t) or t == QUIET_END:
             # "---" ends the innermost section: what follows belongs to the section around it again.
             # It becomes an invisible heading that reopens that section (or no section at all).
             if heads:
@@ -69,7 +73,7 @@ def parse_blocks(lines: list[tuple[int, str]]) -> list[Block]:
             up = heads[-1] if heads else None
             blocks.append(Block("heading", up.text if up else "", ln, level=up.level if up else 0,
                                 cond=up.cond if up else None, roles=list(up.roles) if up else [],
-                                reopens=(up.reopens or up.line) if up else -1))
+                                reopens=(up.reopens or up.line) if up else -1, quiet=t == QUIET_END))
             i += 1
             continue
         if FENCE_RE.match(t):

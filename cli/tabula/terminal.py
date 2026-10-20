@@ -133,6 +133,8 @@ def render_blocks(blocks: list[Block], ctx: Ctx, st: Style, width: int) -> list[
         if b.kind != "item" and not nested:
             counters.clear()
         txt = render_inline(b.text, ctx, st) if b.kind not in ("table", "code", "def") else ""
+        if b.kind == "heading" and b.reopens and b.quiet:
+            continue
         if b.kind == "heading" and b.reopens:
             if out and out[-1] != "":
                 out.append("")

@@ -394,7 +394,7 @@ class HtmlRenderer:
     def block(self, b: Block, in_card: bool) -> str:
         ext = " from-ext" if (b.via or b.tint) else ""
         if b.kind == "heading" and b.reopens:
-            return '<hr class="end">'
+            return "" if b.quiet else '<hr class="end">'
         if b.kind == "heading":
             level = min(6, b.level + (3 if in_card else 1))
             title = self.inline(b.text)

@@ -1,4 +1,4 @@
-"""tabula — reference CLI for the Tabula game format (spec v0.7).
+"""tabula — reference CLI for the Tabula game format (spec v0.8).
 
   tabula list  [-p N] [-l CODE]
   tabula show  GAME [-p N] [-v VARIANT ...] [-l CODE] [-k] [--json]

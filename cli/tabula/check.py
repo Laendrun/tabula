@@ -10,8 +10,9 @@ from pathlib import Path
 from .syntax import (
     BLOCK_COND_RE, BRACES_RE, CHOICE_RE, CONDISH_RE, Cond, FENCE_RE, FIELD_RE, HEADING_COND_RE,
     IMAGE_RE, P_TOKEN, REF_RE, bounds, in_range, norm, parse_attrs, parse_choice, parse_cond,
-    parse_range,
+    parse_range, split_lang,
 )
+from .fragments import SHARED_DIR, fragment_files
 from .source import Issue, Issues, UNSAVED, find_todos
 from .blocks import Block, components_of, is_sep_row, player_columns, player_rows
 from .vault import Game, Vault, open_vault
@@ -21,17 +22,34 @@ from .cards import card_catalog
 STRUCTURAL_KEYS = ("players", "best_players", "duration", "age", "year", "cover")
 
 
+def unique(iss: Issues) -> Issues:
+    """Drop repeated issues: an included fragment can report the same problem twice at its `![[…]]` line."""
+    out, seen = Issues(), set()
+    for i in iss:
+        key = (i.level, str(i.path), i.line, i.msg)
+        if key not in seen:
+            seen.add(key)
+            out.append(i)
+    return out
+
+
 def check_game(game: Game, vault: Vault, require_defs: bool = False,
-               unused: bool = True) -> Issues:
+               unused: bool = True, fragment: bool = False) -> Issues:
+    """Every problem in one game file. `fragment`: a shared fragment (_shared/…), checked on its own: no
+    frontmatter needed, and conditions and references are only checked where the fragment is included."""
     iss = Issues()
     iss.extend(game.issues)
     path = game.body_path or game.path
     meta = game.meta
 
     # ---- frontmatter
-    if not meta.get("title"):
+    if fragment:
+        pass
+    elif not meta.get("title"):
         iss.error(path, 1, "missing required 'title' in frontmatter")
-    if meta.get("players") is None:
+    if fragment:
+        pass
+    elif meta.get("players") is None:
         iss.error(path, 1, "missing required 'players' in frontmatter (e.g. players: 2-4)")
     elif parse_range(meta["players"]) is None:
         iss.error(path, 1, f"invalid players '{meta['players']}' (use N, N-M, N+ or N,M)")
@@ -90,7 +108,7 @@ def check_game(game: Game, vault: Vault, require_defs: bool = False,
                 hits = [n for n in range(lo, int(min(hi, 99)) + 1) if in_range(game_rng, n) and in_range(val, n) != neg]
                 if not hits:
                     iss.warn(path, ln, f"condition '{c.raw}' never applies (game is for {meta.get('players')} players)")
-            elif kind == "v" and val not in declared:
+            elif kind == "v" and val not in declared and not fragment:
                 iss.error(path, ln, f"'+{val}' is not declared; add it under 'variants:' or 'extensions:' "
                                     f"in the frontmatter")
 
@@ -119,7 +137,11 @@ def check_game(game: Game, vault: Vault, require_defs: bool = False,
             elif CONDISH_RE.search(body.split(":")[0]):
                 iss.error(path, ln, f"invalid condition '{{{body}}}' (codes: 2p, 3-4p, 5+p, !2p, +variant, "
                                     f"-variant; choices: {{3p: … | *: …}})")
+        for m in re.finditer(r"!\[\[([^\[\]\n]*)\]\]", rest):
+            iss.error(path, ln, f"'{m.group(0)}' includes a shared fragment only when it is alone on its line")
         for m in REF_RE.finditer(rest):
+            if m.start() and rest[m.start() - 1] == "!":
+                continue          # a misplaced ![[fragment]], reported above
             refs.append((m.group(1).strip(), ln, m.group(0)))
         for m in re.finditer(r"(?<![\[!\\])\[([^\[\]\n]+)\](?![\](\[])", REF_RE.sub("", rest)):
             singles.append((m.group(1).strip(), ln))
@@ -237,6 +259,11 @@ def check_game(game: Game, vault: Vault, require_defs: bool = False,
         if norm(name) in known:
             iss.warn(path, ln, f"'[{name}]' has single brackets; write [[{name}]] to make it a reference")
     seen = set()
+    if fragment:          # references and unused terms depend on the game that includes it
+        for ln, text in find_todos(path):
+            iss.todo(path, ln, f"TODO: {text}")
+        return unique(iss)
+
     # ---- definitions nothing refers to (cards in a catalog are listed there, so they don't count)
     if unused:
         referenced = {norm(name) for name, _, _ in refs if not name.startswith("#")}
@@ -271,7 +298,7 @@ def check_game(game: Game, vault: Vault, require_defs: bool = False,
             seen.add(k)
             iss.warn(path, ln, f"{raw} matches no component ('- 1x [[{name}]]' in a list) and no definition "
                                f"('{name}' then ': …')")
-    return iss
+    return unique(iss)
 
 
 def check_translation(default: Game, tr: Game, vault: Vault, require_defs: bool = False,
@@ -311,7 +338,7 @@ def cmd_check(args) -> int:
             raise SystemExit("tabula: --stdin needs exactly one .game file (the file being edited)")
         UNSAVED[Path(args.games[0]).resolve()] = sys.stdin.buffer.read().decode("utf-8", errors="replace")
     vault = open_vault(args.vault, args.games[0] if args.games else None)
-    paths = [vault.find(g) for g in args.games] if args.games else vault.discover()
+    paths = [vault.find(g) for g in args.games] if args.games else vault.discover() + shared_fragments(vault)
     if args.json:
         return check_json(vault, paths, args)
     st = Style(sys.stdout.isatty() and not os.environ.get("NO_COLOR") and not args.no_color)
@@ -341,11 +368,14 @@ def cmd_check(args) -> int:
         if todos:
             status += st.dim(f"  ({len(todos)} TODO)")
         langs = f"  [{', '.join(game.languages)}]" if len(game.languages) > 1 else ""
-        print(f"{st.bold(game.slug):<30} {status}{st.dim(langs)}")
+        name = f"{SHARED_DIR}/{game.slug}" if p.parent.name == SHARED_DIR else game.slug
+        print(f"{st.bold(name):<30} {status}{st.dim(langs)}")
         for i in iss:
             show(i)
     todo_note = f", {tt} TODO (tabula todo)" if tt else ""
-    print(f"\n{len(paths)} game(s), {te} error(s), {tw} warning(s){todo_note}")
+    nfrag = sum(1 for p in paths if p.parent.name == SHARED_DIR)
+    counted = f"{len(paths) - nfrag} game(s)" + (f", {nfrag} fragment(s)" if nfrag else "")
+    print(f"\n{counted}, {te} error(s), {tw} warning(s){todo_note}")
     return 1 if te or (args.strict and tw) else 0
 
 
@@ -356,7 +386,25 @@ def check_setting(vault: Vault, game: Game, key: str, default: bool) -> bool:
     return bool((vault.config.get("check") or {}).get(key, default))
 
 
+def shared_fragments(vault: Vault) -> list[Path]:
+    """The default-language files in _shared/ (translations are checked with them)."""
+    return [f for f in fragment_files(vault.root) if split_lang(f.stem)[1] is None]
+
+
+def check_fragment(vault: Vault, p: Path) -> tuple[Game, list[Issue]]:
+    """A shared fragment and its translations, each checked on its own."""
+    game = vault.load(p)
+    iss = list(check_game(game, vault, fragment=True))
+    for f in p.parent.glob(f"{p.stem}.*.game"):
+        if split_lang(f.stem)[0] == p.stem:
+            iss += check_game(vault.load(f), vault, fragment=True)
+    iss.sort(key=lambda i: (str(i.path), i.line))
+    return game, iss
+
+
 def check_all_languages(vault: Vault, p: Path, definitions: bool) -> tuple[Game, list[Issue]]:
+    if p.parent.name == SHARED_DIR:
+        return check_fragment(vault, p)
     game = vault.load(p)
     req = definitions or check_setting(vault, game, "require_definitions", False)
     unused = check_setting(vault, game, "unused_definitions", True)

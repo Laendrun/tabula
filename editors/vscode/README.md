@@ -8,12 +8,13 @@ Highlighting and live checks for Tabula `.game` files.
 - **Hover a `[[reference]]`** to see its definition (fields included), its component lines, or the start of the section it links to. In a translation, terms missing from the file are looked up in the default-language file.
 - **Outline** (Explorer → Outline, or Ctrl+Shift+O): headings, glossary terms and components.
 - **Ctrl+click / F12 on a `[[reference]]`** jumps to its definition, or to its component line. On a `[[#section link]]`, it jumps to the heading. In a translation, it also looks in the default-language file.
+- **Shared fragments:** `![[` offers the fragments in the vault's `_shared/` folder, and `![[deck-52#` their sections. Ctrl+click opens the fragment at that section (the translated one in a translation), and hovering previews what is included.
 - **Folding** of sections and definitions.
 - **Commands** (Ctrl+Shift+P): *Tabula: Check the whole vault* fills the Problems panel for every game. *Tabula: Check this game* checks the current file right away.
 
 ## Install
 
-The extension needs tabula 0.7 or newer on your computer. If `tabula --version` works in a terminal, there's nothing more to set up.
+The extension needs tabula 0.8 or newer on your computer. If `tabula --version` works in a terminal, there's nothing more to set up.
 
 Get the `.vsix` from GitHub: **Actions** tab → a green *tests* run → **Artifacts** → *vscode-extension*. It downloads as a zip; unzip it to get `tabula-syntax-<version>.vsix`, then:
 
