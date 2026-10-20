@@ -1534,7 +1534,11 @@ def check_game(game: Game, vault: Vault, require_defs: bool = False) -> Issues:
             refs.append((m.group(1).strip(), ln, m.group(0)))
         for m in re.finditer(r"(?<![\[!\\])\[([^\[\]\n]+)\](?![\](\[])", REF_RE.sub("", rest)):
             singles.append((m.group(1).strip(), ln))
-        if re.search(r"(?<!\\)\[\[(?![^\]]*\]\])", REF_RE.sub("", rest)):
+        if (nm := re.search(r"(?<!\\)\[\[([^\[\]\n]*)\[\[([^\[\]\n]*)\]\]", rest)):
+            inner = f"{nm.group(1).strip()} {nm.group(2).strip()}".strip()
+            iss.error(path, ln, f"a reference inside another reference: write [[{inner}]] "
+                                f"(section links ignore the brackets in the heading)")
+        elif re.search(r"(?<!\\)\[\[(?![^\]]*\]\])", REF_RE.sub("", rest)):
             iss.error(path, ln, "unclosed '[[' reference")
         for m in IMAGE_RE.finditer(rest):
             src = m.group(2)
@@ -1566,6 +1570,8 @@ def check_game(game: Game, vault: Vault, require_defs: bool = False) -> Issues:
                     if k == len(src) - 1 and (m := HEADING_COND_RE.search(raw)) and parse_cond(m.group(1)):
                         raw = raw[: m.start()]       # condition written at the end of the block
                     check_text(raw, ln)
+                if re.sub(r"`[^`]*`|\\\*", "", b.text).count("**") % 2:
+                    iss.warn(path, b.line, "'**' is opened but never closed (bold text needs '**' on both sides)")
             elif b.kind == "image":
                 if not re.match(r"^[a-z]+://", b.term) and not (game.base_dir / b.term).exists():
                     iss.error(path, b.line, f"image not found: {b.term}")

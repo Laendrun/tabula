@@ -101,3 +101,10 @@ def test_lookup_see_also_ignores_section_links(tmp_path, capsys):
     body = "# Glossary\n\nSetup\n: Read [[#setup]] first.\n\n# Setup {#setup}\n\nX.\n"
     _, out = run(capsys, game(tmp_path, body), "lookup", "setup")
     assert "see also" not in out
+
+
+def test_link_to_a_heading_that_contains_a_reference(tmp_path, capsys):
+    body = "# Play\n\n1. [[#Move the [[Pawn]]]]\n2. [[#Move the pawn]]\n\n## Move the [[Pawn]]\n\nX.\n\n- 1x [[Pawn]]\n"
+    code, out = run(capsys, game(tmp_path, body), "check")
+    assert code == 1 and out.count("a reference inside another reference: write [[#Move the Pawn]]") == 1
+    assert "matches no section" not in out              # [[#Move the pawn]] finds "Move the [[Pawn]]"

@@ -103,3 +103,13 @@ def test_vault_layout_problems(tmp_path):
     msgs = [i.msg for i in vault.issues]
     assert any("should be named 'a.game'" in m for m in msgs)
     assert any("translation without the default-language file" in m for m in msgs)
+
+
+def test_unclosed_bold(tmp_path, capsys):
+    (tmp_path / "g").mkdir()
+    (tmp_path / "g" / "g.game").write_text(
+        "---\ntitle: G\nplayers: 2\n---\n# A\n\n- **Open bold here.\n- **Fine** and `**code**`.\n\n"
+        "Bold over **two\nlines** is fine.\n", encoding="utf-8")
+    tabula.main(["--vault", str(tmp_path), "check", "--no-color"])
+    out = capsys.readouterr().out
+    assert out.count("never closed") == 1 and "g.game:7" in out
