@@ -1,6 +1,6 @@
 # Tabula
 
-Board, card and homemade games as plain Markdown files (`.game`). The rules can be filtered by player count, variant and language. See `spec/SPEC.md` for the format (v0.6).
+Board, card and homemade games as plain Markdown files (`.game`). The rules can be filtered by player count, variant and language. See `spec/SPEC.md` for the format (v0.7).
 
 ## Install
 
@@ -24,6 +24,8 @@ tabula show hearts -l fr               # French version
 tabula show frantic -s glossary        # only one section (role or title)
 tabula show hearts --json              # parsed structure
 tabula lookup frantic black hole       # one card/term, for use at the table (typos and accents ok)
+tabula export frantic -p 4 -e supercharge   # → frantic-4p-supercharge.html (open in a browser, print)
+tabula cards frantic -e supercharge --sort points   # card catalog: counts and fields
 tabula lookup frantic                  # list every term
 tabula check                           # find mistakes in every game and translation
 tabula check -d                        # ...and require a glossary definition for every component

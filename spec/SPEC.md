@@ -1,4 +1,4 @@
-# Tabula — specification v0.6 (draft)
+# Tabula — specification v0.7 (draft)
 
 A plain-text format for board, card, dice, dexterity, outdoor and homemade games. Each game is a single `.game` file: a game description and its rules, written in Markdown with three small additions.
 
@@ -131,6 +131,24 @@ All the usual Markdown: headings `#` to `######`, paragraphs, `*italic*` and `**
 
 **Continuing a numbered list** after a table or paragraph: start the next item with the number you want (`3.`). Tools keep counting from there, and renumber when filtering hides steps.
 
+**Ending a section:** a line with only `---` (three or more dashes) ends the current section. What follows belongs to the section around it again, with that section's role and condition. Tools show a small separator in its place.
+
+```markdown
+# Glossaire {#glossary}
+
+## Cartes à jouer {#cards}
+
+Cartes numérotées
+: …
+
+---
+
+Effet                    ← back in "Glossaire": a glossary term, not a card
+: …
+```
+
+Each `---` closes one level, so two in a row close two. After a top-level `#` section, `---` leaves the text outside any section. A `---` that only closes a section hidden by filtering (`## Deux joueurs {2p}` with `-p 4`) is not shown.
+
 ---
 
 ## 5. Addition 1: references `[[ ]]`
@@ -168,7 +186,7 @@ Components are declared as **list items that start with a quantity, then `x`, th
 - {4p} 2x [[petite pierre]] (paire en plus)
 ```
 
-- The format is `N x [[name]] free text…`. `×` and `X` are accepted too, the space before `x` is optional, and `N` may be a range (`2-3x`).
+- The format is `N x [[name]] free text…`. `×` and `X` are accepted too, the space before `x` is optional, and `N` may be a range (`2-3x`). Words may come before the reference (`8x cartes [[Gift]]`): the first `[[…]]` on the line is the component.
 - Write the name **in the singular**. References in the rules can use the plural.
 - Declarations can go anywhere, but the convention is one section near the top.
 - A component can be listed more than once. Each line can have its own condition: `{4p} 2x [[petite pierre]]` above means "2 more for 4 players".
@@ -372,13 +390,40 @@ Suggested roles: `components`, `goal`, `setup`, `play`, `scoring`, `end`, `gloss
 
 Tools use roles to show part of a game. `tabula show frantic -s glossary` shows only the glossary, and `-s components -s setup` shows two sections. Filters still apply. `-s` also accepts a heading's title (`-s "fin de la partie"`), so it works on games without roles too. Later, roles will let tools build cheat sheets, card catalogs and a web view with a table of contents.
 
+### 9.1 Card catalog
+
+Many games are mostly cards: special cards, events, power cards, and so on. A **card** is a glossary definition inside a section with the `#cards` role (sub-sections included):
+
+```markdown
+# Glossaire {#glossary}
+
+## Cartes particulières {#cards}
+
+{+troublemaker}Curse
+: points:: 13
+  type:: particulière
+  Tu ne peux pas jouer cette carte.
+  Mais tu peux l'offrir, l'échanger ou t'en débarrasser lors d'événements.
+
+{+supercharge}Black Wish
+: timing:: 2nd
+  Tu souhaites le noir comme couleur.
+```
+
+- **Fields** are `key:: value` lines at the very top of the definition, before its text, in the same style as Obsidian Dataview. The keys are yours: `points`, `timing`, `type`, `colour`, `author`… Values can contain references and inline choices: `points:: {+points: 42}` shows the points only with the `points` variant, and a field whose value ends up empty is not shown.
+- **Counts come from the component list,** never from the card. Every line of the components section that names the card (`4x cartes [[Thief]]`, `{+pandora} 1x carte [[Thief]]`) is added up for the current selection, so the numbers stay right whatever extensions are on. A game without a component list can use a `count::` field instead.
+- In a game without any `{#cards}` section, every definition that has fields counts as a card.
+- `tabula cards GAME` prints the catalog: one row per card with its count and fields, grouped by sub-section, with an extension column when cards come from extensions. `--sort points` sorts across groups, and `--json` gives the data.
+- `show` and `lookup` print the fields under the term. The HTML export shows them as small chips on each card, and puts a catalog table (linking to the cards) at the top of every `{#cards}` section.
+- `tabula check` warns about empty fields, fields written twice, `key::` lines below the text (where they'd be read as text), and a card missing a field that most cards in its group have.
+
 ---
 
-## 10. Ideas for later (not part of v0.6)
+## 10. Ideas for later (not part of v0.7)
 
 These came up while designing. They'll be added once real games need them.
 
-- **Card catalogs:** structured cards in a `{#cards}` section (count, effect, points, timing, extension), rendered as a printable reference sheet or a points table.
+- **Printable card sheets:** cards from the catalog laid out at real card size, for sleeving or replacing lost cards.
 - **Extension files:** large extensions in their own file next to the game (e.g. `frantic/frantic+pandora.game`) that is merged into the base game when the extension is on.
 - **Extension metadata:** extensions that change the player count or duration (`extensions: {pandora: {players: 2-10}}`), or that require or exclude each other.
 - **Shared fragments:** one definition of "standard 52-card deck" included by many card games.
@@ -404,10 +449,12 @@ The reference CLI is `tabula`. Point it at a vault with `--vault PATH`, or set `
 |---|---|
 | `tabula list [-p N] [-l CODE]` | list games, optionally only those playable with N players |
 | `tabula show GAME [-p N] [-v VARIANT…] [-e EXTENSION…] [-a] [-s SECTION…] [-l CODE] [--json]` | print a game, by default the base game (no extensions or variants), filtered by player count, extensions, variants and language. `-a`/`--all` shows every extension and variant with badges. `-s` shows only some sections (role or title). `--json` prints the parsed structure. |
+| `tabula cards GAME [-p N] [-e …] [-v …] [-a] [-l CODE] [--sort COLUMN] [--json]` | the card catalog (section 9.1): one row per card, counts from the component list for the current selection, and fields as columns |
 | `tabula lookup GAME [TERM] [-p N] [-e …] [-v …] [-a] [-l CODE] [--json]` | show one glossary term or component, for use at the table. Case, accents, plurals and small typos are ignored, and partial names work. Filters apply inside the definition. A term from an extension that isn't turned on is still shown, marked "only with +name". The output ends with "see also" for the terms it refers to. When no term has the exact name, it also looks for a section by role or title (`tabula lookup frantic components`). Without a term, lists every term. |
+| `tabula export GAME [-p N] [-e …] [-v …] [-a] [-s SECTION…] [-l CODE] [-o FILE]` | write a self-contained HTML page with the same filtering as `show`: table of contents from the headings, glossary entries as cards, `[[references]]` as links with the definition as a tooltip, extension content highlighted, images embedded. Works offline, prints cleanly, and has a dark mode. The default file name describes the selection, e.g. `frantic-4p-supercharge.html`. |
 | `tabula check [GAME…] [--strict] [-d]` | find mistakes: frontmatter, references that match nothing, invalid or never-applying conditions, undeclared variants, missing images, duplicate terms, leftover v0.3 syntax, translation problems. `-d`/`--definitions`: every component must also have a glossary definition |
 
-Planned: `new`, `export --pdf`, `cheatsheet`, `server`.
+Planned: `new`, PDF export, `cheatsheet`, `server`.
 
 ---
 
@@ -416,6 +463,7 @@ Planned: `new`, `export --pdf`, `cheatsheet`, `server`.
 ```
 ---  frontmatter (YAML)  ---          title, players, variants, language…
 # Heading  ## Sub                      Markdown headings
+---                                    end of the current section (back to the one around it)
 - 66x [[carte Chaussette]] — note      component declaration
 [[name]]   [[name|shown text]]         reference to a component or term
 Term                                   definition
@@ -424,6 +472,9 @@ Term                                   definition
 {2p} paragraph / - item {3-4p}         block condition (start or end of the line)
 ## Section {4p}   ## Variante {+quick} section condition
 # Glossaire {#glossary}                section role (tabula show GAME -s glossary)
+## Cartes {#cards}                     card catalog (tabula cards GAME)
+Curse                                  card with fields
+: points:: 13
 {3p: 17 | 4p: 13 | *: 10}              inline choice
 {-pandora} … / {+pandora} …            base rule / extension's replacement
 | Joueurs | 3p | 4p |                  player table (or codes in the first column)

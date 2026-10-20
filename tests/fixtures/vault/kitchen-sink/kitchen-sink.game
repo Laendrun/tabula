@@ -85,13 +85,19 @@ Number card
     - XRAY nested point
   > YANKEE note inside a definition.
 
-{+expo} Rocket
-: ZULU rocket text.
-
-Comet {+expo}
-: COMET-TEXT with a [[rocket]] reference.
-  ## Comet details
-  AFTER-HEADING text in the definition.
-
 Action card
 : ACTION-TEXT {+quick: (quick) | *: (normal)}.
+
+## Expo cards {#cards}
+
+{+expo} Rocket
+: points:: 5
+  timing:: 1st
+  ZULU rocket text.
+
+Comet {+expo}
+: points:: 3
+  timing:: 2nd
+  COMET-TEXT with a [[rocket]] reference.
+  ## Comet details
+  AFTER-HEADING text in the definition.

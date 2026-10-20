@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""tabula — reference CLI for the Tabula game format (spec v0.6).
+"""tabula — reference CLI for the Tabula game format (spec v0.7).
 
   tabula list  [-p N] [-l CODE]
   tabula show  GAME [-p N] [-v VARIANT ...] [-l CODE] [--json]
+  tabula export GAME [-p N] [-e EXT] [-v VARIANT] [--all] [-s SECTION] [-o FILE]
+  tabula cards GAME [-p N] [-e EXT] [--all] [--sort COLUMN]
   tabula lookup GAME [TERM] [-p N] [-e EXT] [-v VARIANT] [--all]
   tabula check [GAME ...] [--strict] [-d]
 
@@ -28,7 +30,7 @@ try:
 except ImportError:  # pragma: no cover
     sys.exit("tabula needs PyYAML:  pip install pyyaml")
 
-__version__ = "0.4.0"
+__version__ = "0.6.0"
 
 # =========================================================================== syntax
 
@@ -36,15 +38,17 @@ HEADING_RE = re.compile(r"^(#{1,6})\s+(.*?)\s*$")
 ITEM_RE = re.compile(r"^(\s*)([-*+]|\d+[.)])\s+(.*)$")
 DEF_LINE_RE = re.compile(r"^ {0,3}:(?:\s+(.*)|\s*)$")
 FENCE_RE = re.compile(r"^\s*(```|~~~)")
+END_RE = re.compile(r"^-{3,}\s*$")          # "---" alone on a line: end of the current section
 REF_RE = re.compile(r"(?<!\\)\[\[([^\[\]|\n]+?)(?:\|([^\[\]\n]+?))?\]\]")
 IMAGE_RE = re.compile(r"(?<!\\)!\[([^\]]*)\]\(([^)\s]+)\)")
 LINK_RE = re.compile(r"(?<![!\\\[])\[([^\[\]]+)\]\(([^)\s]+)\)")
-COMPONENT_RE = re.compile(r"^(\d+(?:-\d+)?)\s*[x×X]\s+(?=\[\[)")
+COMPONENT_RE = re.compile(r"^(\d+(?:-\d+)?)\s*[x×X]\s+[^\[\]\n]*?(?=\[\[)")   # "8x [[Gift]]", "8x cartes [[Gift]]"
 BLOCK_COND_RE = re.compile(r"^(?<!\\)\{([^{}:|\n]+)\}\s*")
 HEADING_COND_RE = re.compile(r"\s+(?<!\\)\{([^{}:|\n]+)\}\s*$")
 CHOICE_RE = re.compile(r"(?<!\\)\{([^{}\n]*:[^{}\n]*)\}")
 BRACES_RE = re.compile(r"(?<!\\)\{([^{}\n]*)\}")
 ESCAPE_RE = re.compile(r"\\([\[\]{}!\\*#])")
+FIELD_RE = re.compile(r"^([^\W\d][\w -]*?)::\s*(.*)$")
 LANG_RE = re.compile(r"^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})?$")
 
 P_TOKEN = re.compile(r"^(!?)(\d+(?:-\d+|\+)?(?:,\d+(?:-\d+|\+)?)*)p$")
@@ -264,14 +268,17 @@ class Block:
     children: list = field(default_factory=list)  # def: the definition body, parsed as blocks
     start: int = 1            # ordered item: its number (a list continues from its first number)
     parent: str = ""          # component nested under another component
+    fields: dict = field(default_factory=dict)  # def: card fields written as "key:: value"
+    field_lines: dict = field(default_factory=dict)  # def: key -> line number (for check)
     via: tuple = ()           # filtered view: the enabled extensions/variants this block comes from
     roles: list = field(default_factory=list)   # heading: section roles like "glossary", "components"
     tint: bool = False        # filtered view: nested under a block that comes from an extension
+    reopens: int = 0          # heading made by "---": back in the section whose heading is on this line
 
 
 def is_block_start(t: str) -> bool:
     s = t.lstrip()
-    return (not s or bool(HEADING_RE.match(t)) or s.startswith("|") or bool(ITEM_RE.match(t))
+    return (not s or bool(HEADING_RE.match(t)) or bool(END_RE.match(t)) or s.startswith("|") or bool(ITEM_RE.match(t))
             or s.startswith(">") or (t.startswith("!") and not t.startswith("![")) or bool(FENCE_RE.match(t))
             or bool(DEF_LINE_RE.match(t)) or bool(BLOCK_COND_RE.match(t)))
 
@@ -289,10 +296,22 @@ def is_sep_row(cells) -> bool:
 
 def parse_blocks(lines: list[tuple[int, str]]) -> list[Block]:
     blocks: list[Block] = []
+    heads: list[Block] = []          # open sections, outermost first
     i, n = 0, len(lines)
     while i < n:
         ln, t = lines[i]
         if not t.strip():
+            i += 1
+            continue
+        if END_RE.match(t):
+            # "---" ends the innermost section: what follows belongs to the section around it again.
+            # It becomes an invisible heading that reopens that section (or no section at all).
+            if heads:
+                heads.pop()
+            up = heads[-1] if heads else None
+            blocks.append(Block("heading", up.text if up else "", ln, level=up.level if up else 0,
+                                cond=up.cond if up else None, roles=list(up.roles) if up else [],
+                                reopens=(up.reopens or up.line) if up else -1))
             i += 1
             continue
         if FENCE_RE.match(t):
@@ -310,6 +329,9 @@ def parse_blocks(lines: list[tuple[int, str]]) -> list[Block]:
             if (cm := HEADING_COND_RE.search(title)) and (attrs := parse_attrs(cm.group(1))):
                 (cond, roles), title = attrs, title[: cm.start()]
             blocks.append(Block("heading", title.strip(), ln, level=len(m.group(1)), cond=cond, roles=roles))
+            while heads and heads[-1].level >= blocks[-1].level:
+                heads.pop()
+            heads.append(blocks[-1])
             i += 1
             continue
         if t.lstrip().startswith("|"):
@@ -374,9 +396,16 @@ def parse_blocks(lines: list[tuple[int, str]]) -> list[Block]:
                 i += 1
             ind = min((len(x) - len(x.lstrip()) for _, x in body if x.strip()), default=0)
             body = [(l, x[ind:] if x.strip() else "") for l, x in body]
+            fields, field_lines = {}, {}          # "key:: value" lines at the top of the definition
+            while body and (fm := FIELD_RE.match(body[0][1].strip())) and body[0][1][:1] != " ":
+                key = fm.group(1).strip().lower()
+                if key in fields:
+                    field_lines.setdefault("__dup__", []).append((key, body[0][0]))
+                fields[key], field_lines[key] = fm.group(2).strip(), body[0][0]
+                body = body[1:]
             kids = parse_blocks(body)
-            blocks.append(Block("def", line=ln, term=term, cond=cond, children=kids,
-                                items=[["p", k.text, k.line] for k in kids if k.text]))
+            blocks.append(Block("def", line=ln, term=term, cond=cond, children=kids, fields=fields,
+                                field_lines=field_lines, items=[["p", k.text, k.line] for k in kids if k.text]))
             continue
         kind = "key" if t.startswith("!") and not t.startswith("![") else "para"
         parts = [t[1:].strip() if kind == "key" else t.strip()]
@@ -491,9 +520,14 @@ def filter_blocks(blocks: list[Block], ctx: Ctx) -> list[Block]:
     for k, b in enumerate(out):
         if b.kind == "heading":
             end = next((j for j in range(k + 1, len(out))
-                        if out[j].kind == "heading" and out[j].level <= b.level), len(out))
+                        if out[j].kind == "heading" and out[j].level <= b.level
+                        and not (out[j].reopens and out[j].level == b.level)), len(out))
             if not any(x.kind != "heading" for x in out[k + 1: end]):
                 continue
+            if b.reopens:     # "---" after a section that was filtered away: nothing to close any more
+                prev = next((x for x in reversed(keep) if x.kind == "heading"), None)
+                if prev is None or prev.level <= b.level:
+                    continue
         keep.append(b)
     return keep
 
@@ -501,7 +535,7 @@ def filter_blocks(blocks: list[Block], ctx: Ctx) -> list[Block]:
 def section_names(blocks: list[Block]) -> list[str]:
     out = []
     for b in blocks:
-        if b.kind == "heading":
+        if b.kind == "heading" and not b.reopens:
             out += [f"#{r}" for r in b.roles] or [CHOICE_RE.sub("", b.text).strip()]
     return out
 
@@ -827,7 +861,12 @@ def render_blocks(blocks: list[Block], ctx: Ctx, st: Style, width: int) -> list[
         if b.kind != "item" and not nested:
             counters.clear()
         txt = render_inline(b.text, ctx, st) if b.kind not in ("table", "code", "def") else ""
-        if b.kind == "heading":
+        if b.kind == "heading" and b.reopens:
+            if out and out[-1] != "":
+                out.append("")
+            out.append(st.dim("· · ·"))
+            heading_end = len(out) - 1
+        elif b.kind == "heading":
             if out and out[-1] != "":
                 out.append("")
             if b.level == 1:
@@ -859,6 +898,10 @@ def render_blocks(blocks: list[Block], ctx: Ctx, st: Style, width: int) -> list[
         elif b.kind == "def":
             gap()
             out.append(badge(b) + st.bold(render_inline(b.term, ctx, st)))
+            shown = {k: render_inline(v, ctx, st) for k, v in b.fields.items()}
+            shown = {k: v for k, v in shown.items() if vlen(v)}      # e.g. points:: {+points: 42} without +points
+            if shown:
+                out += wrap("   ".join(f"{st.dim(k + ':')} {v}" for k, v in shown.items()), width, "    ", "    ")
             out += ["    " + l if l else "" for l in render_blocks(b.children, ctx, st, width - 4)]
         elif b.kind == "item":
             if not counters:
@@ -926,6 +969,8 @@ def meta_line(meta: dict) -> str:
 
 
 def block_json(b: Block, ctx: Ctx) -> dict:
+    if b.kind == "heading" and b.reopens:
+        return {"kind": "end", "line": b.line}
     d: dict = {"kind": b.kind, "line": b.line}
     if b.cond:
         d["cond"] = b.cond.raw
@@ -940,6 +985,8 @@ def block_json(b: Block, ctx: Ctx) -> dict:
         d["rows"] = [[plain(re.sub(r"\x01.*?\x01", "", c), ctx) for c in cells] for _, cells in b.rows if not is_sep_row(cells)]
     elif b.kind == "def":
         d["term"] = b.term
+        if b.fields:
+            d["fields"] = {k: plain(v, ctx) for k, v in b.fields.items()}
         d["body"] = [block_json(k, ctx) for k in b.children]
     elif b.kind == "code":
         d["text"] = b.text
@@ -1205,6 +1252,123 @@ def cmd_lookup(args) -> int:
     return 0
 
 
+# --------------------------------------------------------------------------- card catalog
+
+def card_catalog(blocks: list[Block]) -> list[dict]:
+    """Cards: definitions inside a {#cards} section (with its sub-sections), or, in a game without
+    such a section, every definition that has fields. Each: {def, group, catalog (heading)}."""
+    out, cat, cat_level, group = [], None, None, ""
+    cats: dict[int, Block] = {}           # heading line -> #cards heading (for sections reopened by "---")
+    for b in blocks:
+        if b.kind == "heading":
+            if cat_level is not None and b.level <= cat_level:
+                cat, cat_level = None, None
+            if "cards" in b.roles:
+                cat = cats.get(b.reopens) or cats.setdefault(b.line, b)
+                cat_level, group = b.level, b.text
+            elif cat is not None:
+                group = b.text
+        elif b.kind == "def" and cat is not None:
+            out.append({"def": b, "group": group, "catalog": cat})
+    if out:
+        return out
+    return [{"def": b, "group": "", "catalog": None} for b in blocks if b.kind == "def" and b.fields]
+
+
+def card_counts(blocks: list[Block]) -> dict[str, str]:
+    """How many of each card are in play: the component lines that name it, added up."""
+    totals: dict[str, list[str]] = {}
+    for c in components_of(blocks):
+        totals.setdefault(fold(c["name"]), []).append(c["quantity"])
+    out = {}
+    for k, qs in totals.items():
+        out[k] = str(sum(int(q) for q in qs)) if all(q.isdigit() for q in qs) else " + ".join(qs)
+    return out
+
+
+def card_rows(catalog: list[dict], blocks: list[Block], ctx: Ctx):
+    """Columns and rows for a catalog table (fields in order of first appearance)."""
+    counts = card_counts(blocks)
+    keys: list[str] = []
+    for c in catalog:
+        keys += [k for k in c["def"].fields if k not in keys and k != "count"]
+    show_ext = any(c["def"].cond and c["def"].cond.variants for c in catalog)
+    rows = []
+    for c in catalog:
+        d = c["def"]
+        count = counts.get(fold(d.term), d.fields.get("count", ""))
+        ext = " ".join("+" + v for v in (d.cond.variants if d.cond else []))
+        rows.append({"card": d.term, "count": count, "ext": ext, "group": c["group"], "def": d,
+                     **{k: d.fields.get(k, "") for k in keys}})
+    cols = ["card"] + (["count"] if any(r["count"] for r in rows) else []) + keys + (["ext"] if show_ext else [])
+    return cols, rows
+
+
+def sort_rows(rows: list[dict], key: str | None) -> list[dict]:
+    if not key:
+        return rows
+    def k(r):
+        v = plain(str(r.get(key, "")), Ctx(everything=True))
+        num = re.match(r"^-?\d+(\.\d+)?", v)
+        return (0, float(num.group(0)), "") if num else (1, 0, fold(v))
+    return sorted(rows, key=k)
+
+
+def cmd_cards(args) -> int:
+    vault = open_vault(args.vault, args.game)
+    game = vault.load(vault.find(args.game), args.lang)
+    if args.all and (args.ext or args.variant):
+        print("tabula: --all already includes every extension and variant; drop either --all or -e/-v", file=sys.stderr)
+        return 2
+    ctx = Ctx(args.players, {v.lower() for v in (args.variant or []) + (args.ext or [])}, args.all)
+    for v in ctx.variants:
+        if v not in {k.lower() for k in game.options}:
+            print(f"tabula: '{v}' is not a variant or extension of {game.title}", file=sys.stderr)
+            return 2
+    blocks = filter_blocks(game.blocks, ctx)
+    catalog = card_catalog(blocks)
+    if not catalog:
+        if card_catalog(game.blocks):
+            print(f"tabula: no cards in this selection; try --all or -e EXTENSION "
+                  f"(extensions: {', '.join(game.extensions) or 'none'})", file=sys.stderr)
+        else:
+            print(f"tabula: {game.title} has no cards yet: put definitions in a section with the {{#cards}} role, "
+                  f"or give them fields like 'points:: 3'", file=sys.stderr)
+        return 1
+    cols, rows = card_rows(catalog, blocks, ctx)
+    if args.sort and args.sort not in cols:
+        print(f"tabula: no column '{args.sort}'; columns: {', '.join(cols)}", file=sys.stderr)
+        return 2
+    if args.json:
+        print(json.dumps([{c: plain(str(r.get(c, "")), ctx) for c in cols} | {"group": r["group"]} for r in rows],
+                         indent=2, ensure_ascii=False))
+        return 0
+    st = Style(sys.stdout.isatty() and not os.environ.get("NO_COLOR") and not args.no_color)
+    groups = {} if args.sort else {}
+    order: list[str] = []
+    for r in (sort_rows(rows, args.sort) if args.sort else rows):
+        g = "" if args.sort else r["group"]
+        if g not in groups:
+            groups[g], _ = [], order.append(g)
+        groups[g].append(r)
+    out = []
+    for g in order:
+        table = [cols] + [[render_inline(str(r.get(c, "")), ctx, st) if c != "card" else st.bold(r["card"])
+                           for c in cols] for r in groups[g]]
+        widths = [max(vlen(row[j]) for row in table) for j in range(len(cols))]
+        fmt = lambda row: "  ".join(cell + " " * (widths[j] - vlen(cell)) for j, cell in enumerate(row)).rstrip()
+        if out:
+            out.append("")
+        if g:
+            out.append(st.bold(st.yellow(render_inline(g, ctx, st))))
+        out.append(st.dim(fmt(table[0])))
+        out += [fmt(row) for row in table[1:]]
+    total = len(rows)
+    out += ["", st.dim(f"{total} card{'s' if total != 1 else ''}" + (" · sorted by " + args.sort if args.sort else ""))]
+    print("\n".join(out))
+    return 0
+
+
 def cmd_list(args) -> int:
     vault = open_vault(args.vault)
     rows = []
@@ -1345,6 +1509,8 @@ def check_game(game: Game, vault: Vault, require_defs: bool = False) -> Issues:
 
     def walk(blocks: list[Block]):
         for b in blocks:
+            if b.kind == "heading" and b.reopens:
+                continue          # "---": its condition belongs to the section it reopens
             if b.cond:
                 check_cond(b.cond, b.line)
             if b.kind == "heading":
@@ -1376,8 +1542,19 @@ def check_game(game: Game, vault: Vault, require_defs: bool = False) -> Issues:
                     iss.warn(path, b.line, f"'{b.term}' is defined twice (also line {terms[k][0]})")
                 else:
                     terms[k] = (b.line, b.term)
-                if not b.children:
+                if not b.children and not b.fields:
                     iss.warn(path, b.line, f"definition of '{b.term}' is empty")
+                for key, val in b.fields.items():
+                    if not val:
+                        iss.warn(path, b.field_lines.get(key, b.line), f"field '{key}' of '{b.term}' is empty")
+                    else:
+                        check_text(val, b.field_lines.get(key, b.line))
+                for key, ln in b.field_lines.get("__dup__", []):
+                    iss.warn(path, ln, f"field '{key}' is written twice in '{b.term}'")
+                for kid in b.children:
+                    if kid.kind == "para" and FIELD_RE.match(kid.text) and not kid.level:
+                        iss.warn(path, kid.line, f"'{kid.text.split('::')[0]}::' looks like a field but is below the "
+                                                 f"text of '{b.term}'; fields go on the first lines of a definition")
                 walk(b.children)
             elif b.kind == "table":
                 cols = player_columns(b)
@@ -1397,6 +1574,22 @@ def check_game(game: Game, vault: Vault, require_defs: bool = False) -> Issues:
                         check_text(c, ln, allow_block_cond=(j == 0))
 
     walk(game.blocks)
+
+    # ---- card catalog: a field most cards of a group have, but this one doesn't
+    groups: dict[str, list[Block]] = {}
+    for c in card_catalog(game.blocks):
+        groups.setdefault(c["group"], []).append(c["def"])
+    for gname, cards in groups.items():
+        if len(cards) < 3:
+            continue
+        keys = {k for d in cards for k in d.fields}
+        for k in sorted(keys):
+            have = sum(1 for d in cards if k in d.fields)
+            if have * 2 > len(cards):
+                for d in cards:
+                    if k not in d.fields:
+                        iss.warn(path, d.line, f"card '{d.term}' has no '{k}::' field ({have} of {len(cards)} cards "
+                                               f"in '{gname or 'cards'}' have one)")
 
     # ---- references
     known = {norm(c["name"]) for c in components_of(game.blocks)} | set(terms) | bracketed
@@ -1489,6 +1682,569 @@ def cmd_check(args) -> int:
     return 1 if te or (args.strict and tw) else 0
 
 
+# =========================================================================== html export
+
+UI = {
+    "en": {"players": "players", "best": "best with {}", "min": "min", "age": "{}+", "toc": "Contents",
+           "showing": "Showing", "base": "base game", "no_variants": "no variants", "all": "every extension and variant",
+           "legend": "marks what the enabled extensions and variants add or change",
+           "only_with": "only with {}", "by": "Design", "art": "Art", "publisher": "Publisher",
+           "exported": "Exported with tabula {} on {}.", "players_n": "{} players",
+           "card": "card", "count": "count", "ext": "extension"},
+    "fr": {"players": "joueurs", "best": "idéal à {}", "min": "min", "age": "{} ans et +", "toc": "Sommaire",
+           "showing": "Affichage", "base": "jeu de base", "no_variants": "sans variante",
+           "all": "toutes les extensions et variantes",
+           "legend": "signale ce que les extensions et variantes activées ajoutent ou modifient",
+           "only_with": "seulement avec {}", "by": "Auteurs", "art": "Illustrations", "publisher": "Éditeur",
+           "exported": "Exporté avec tabula {} le {}.", "players_n": "{} joueurs",
+           "card": "carte", "count": "nombre", "ext": "extension"},
+    "de": {"players": "Spieler", "best": "am besten zu {}", "min": "Min.", "age": "ab {}", "toc": "Inhalt",
+           "showing": "Ansicht", "base": "Grundspiel", "no_variants": "ohne Varianten",
+           "all": "alle Erweiterungen und Varianten",
+           "legend": "markiert, was die aktiven Erweiterungen und Varianten hinzufügen oder ändern",
+           "only_with": "nur mit {}", "by": "Autoren", "art": "Illustration", "publisher": "Verlag",
+           "exported": "Exportiert mit tabula {} am {}.", "players_n": "{} Spieler",
+           "card": "Karte", "count": "Anzahl", "ext": "Erweiterung"},
+}
+
+HTML_CSS = r"""
+:root{
+  --paper:#fbfcfd; --ink:#1d2433; --muted:#5b6475; --rule:#d8dde5; --card:#ffffff; --desk:#eef1f5;
+  --term:#0f6e74; --ext:#6b3fa0; --ext-bg:#f4effa; --open:#9a5b00; --open-bg:#fff5e3; --key:#1d2433;
+  --serif:"Literata",Georgia,"Iowan Old Style","Palatino Linotype",serif;
+  --sans:"Atkinson Hyperlegible",system-ui,"Segoe UI",Roboto,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root{
+  --paper:#15181e; --ink:#e4e7ec; --muted:#9aa3b2; --rule:#2c323d; --card:#1c2028; --desk:#101318;
+  --term:#5cc4c9; --ext:#c3a1f0; --ext-bg:#241c33; --open:#f0b55a; --open-bg:#2c2214; --key:#f4f5f7;}}
+*{box-sizing:border-box}
+html{background:var(--desk)}
+body{margin:0;color:var(--ink);background:var(--paper);font:17px/1.62 var(--serif);
+  font-feature-settings:"onum","kern";-webkit-text-size-adjust:100%}
+.page{display:grid;grid-template-columns:minmax(0,15rem) minmax(0,46rem);gap:3.5rem;justify-content:center;
+  max-width:70rem;margin:0 auto;padding:3rem 2rem 5rem}
+header.game{grid-column:1/-1;display:grid;grid-template-columns:1fr auto;gap:2rem;align-items:end;
+  padding-bottom:1.6rem;border-bottom:2px solid var(--ink)}
+header.game h1{font:600 clamp(2.4rem,6vw,3.6rem)/1.02 var(--serif);letter-spacing:-.015em;margin:0 0 .9rem}
+.facts{display:flex;flex-wrap:wrap;gap:.45rem;margin:0;padding:0;list-style:none;font:500 .86rem/1 var(--sans)}
+.facts li{border:1px solid var(--rule);border-radius:999px;padding:.38rem .7rem;background:var(--card)}
+.credits{margin:.9rem 0 0;color:var(--muted);font:.88rem/1.5 var(--sans)}
+.credits b{font-weight:600;color:var(--ink)}
+.cover{max-width:11rem;max-height:11rem;border-radius:6px;box-shadow:0 1px 0 var(--rule)}
+.selection{grid-column:1/-1;margin:-1.5rem 0 0;padding:.75rem 0 0;font:.9rem/1.5 var(--sans);color:var(--muted)}
+.selection strong{color:var(--ink);font-weight:600}
+nav.toc{position:sticky;top:2rem;align-self:start;font:.92rem/1.45 var(--sans);max-height:calc(100vh - 4rem);overflow:auto}
+nav.toc h2{font:600 .95rem/1 var(--sans);margin:0 0 .8rem;color:var(--muted)}
+nav.toc ol{list-style:none;margin:0;padding:0}
+nav.toc ol ol{padding-left:.9rem;margin:.2rem 0 .4rem;font-size:.88rem}
+nav.toc li{margin:.28rem 0}
+nav.toc a{color:var(--ink);text-decoration:none;border-left:2px solid transparent;padding-left:.55rem;margin-left:-.6rem;display:block}
+nav.toc a:hover,nav.toc a:focus-visible{border-left-color:var(--term);color:var(--term)}
+main{min-width:0}
+main>*:first-child{margin-top:0}
+h2,h3,h4,h5{font-family:var(--serif);line-height:1.2;scroll-margin-top:1.5rem}
+main h2{font-size:1.75rem;font-weight:600;margin:3rem 0 1rem;padding-top:.6rem;border-top:1px solid var(--rule)}
+main h3{font-size:1.25rem;font-weight:600;margin:2rem 0 .6rem}
+main h4,main h5,main h6{font-size:1.05rem;font-weight:600;margin:1.4rem 0 .4rem}
+p{margin:0 0 .9rem}
+ul,ol{margin:0 0 1rem;padding-left:1.4rem}
+li{margin:.25rem 0}
+li>ul,li>ol{margin:.25rem 0 .2rem}
+ol>li::marker{font:600 .95em var(--sans);color:var(--muted)}
+p.key{font-weight:600;padding:.55rem .8rem;border-left:4px solid var(--key);background:var(--card);margin:1rem 0}
+p.key::before,li.key::before{content:"★ ";color:var(--open)}
+li.key{font-weight:600}
+aside.note{margin:.8rem 0 1rem;padding:.5rem .9rem;border-left:2px solid var(--rule);color:var(--muted);font-size:.95rem}
+aside.note p{margin:0}
+a{color:var(--term)}
+a.ref{color:var(--term);text-decoration:underline dotted 1.5px;text-underline-offset:.18em}
+a.ref:hover{text-decoration-style:solid}
+span.ref{border-bottom:1px dotted var(--muted)}
+code{font-size:.9em}
+pre{background:var(--card);border:1px solid var(--rule);padding:.8rem 1rem;overflow:auto;border-radius:4px}
+figure{margin:1.2rem 0}
+figure img{max-width:100%;border-radius:4px}
+figcaption{font:.85rem var(--sans);color:var(--muted);margin-top:.35rem}
+table{border-collapse:collapse;margin:.6rem 0 1.2rem;font:.92rem/1.4 var(--sans)}
+th,td{padding:.4rem .8rem .4rem 0;text-align:left;border-bottom:1px solid var(--rule);vertical-align:top}
+th{font-weight:600;border-bottom:2px solid var(--ink)}
+td:not(:first-child),th:not(:first-child){font-variant-numeric:tabular-nums}
+.badge{display:inline-block;font:600 .74rem/1 var(--sans);padding:.22rem .42rem;border-radius:4px;
+  vertical-align:.12em;margin-right:.35rem;white-space:nowrap}
+.badge.open{color:var(--open);background:var(--open-bg);border:1px solid currentColor}
+.badge.ext{color:#fff;background:var(--ext)}
+.badge.opt{color:var(--ext);background:var(--ext-bg);border:1px solid currentColor}
+@media (prefers-color-scheme:dark){.badge.ext{color:#15181e}}
+.from-ext{color:var(--ext)}
+p.from-ext,aside.from-ext,table.from-ext{border-left:3px solid var(--ext);padding-left:.8rem}
+li.from-ext::marker{color:var(--ext)}
+mark.chosen{background:var(--ext-bg);color:var(--ext);padding:0 .15em;border-radius:3px}
+.choice{font-family:var(--sans);font-size:.92em;white-space:nowrap}
+.choice .alt{border:1px solid var(--open);border-radius:4px;padding:0 .3em;margin:0 .1em;color:var(--ink)}
+.choice .alt b{color:var(--open);font-weight:600;margin-right:.25em}
+.choice .alt b.opt{color:var(--ext)}
+/* glossary entries as playing cards */
+.cards{columns:2 17rem;column-gap:.9rem;margin:1rem 0 1.6rem}
+hr.end{border:0;border-top:1px solid var(--rule);width:4rem;margin:1.6rem auto}
+.card{position:relative;display:inline-block;width:100%;margin:0 0 .9rem;background:var(--card);
+  border:1px solid var(--rule);border-radius:11px;padding:.95rem 1.05rem .9rem;font-size:.93rem;line-height:1.5;
+  break-inside:avoid;scroll-margin-top:1.5rem}
+.card>h3{font:700 1rem/1.25 var(--sans);margin:0 0 .55rem;padding-right:1.6rem}
+.card>h3 .badge{float:right;margin:0 -0.3rem 0 .4rem}
+.card p:last-child,.card ul:last-child,.card ol:last-child,.card>:last-child{margin-bottom:0}
+.card ul,.card ol{padding-left:1.1rem}
+.card h4,.card h5{font:600 .93rem/1.3 var(--sans);margin:.9rem 0 .3rem}
+.card.ext{border-color:color-mix(in srgb,var(--ext) 45%,var(--rule))}
+.card.ext::after{content:"";position:absolute;top:0;right:0;width:1.7rem;height:1.7rem;
+  background:linear-gradient(225deg,var(--ext) 50%,transparent 50%);border-top-right-radius:10px}
+.card.wide{column-span:all}
+table.catalog{width:100%}
+table.catalog td:first-child{font-weight:700}
+.fields{display:flex;flex-wrap:wrap;gap:.3rem;list-style:none;margin:-.15rem 0 .6rem;padding:0;font:.78rem/1.2 var(--sans)}
+.fields li{margin:0;padding:.2rem .45rem;border-radius:4px;background:var(--desk);font-weight:700}
+.fields li span{font-weight:400;color:var(--muted)}
+.card:target{outline:3px solid var(--term);outline-offset:2px}
+.card .from-ext{color:inherit}
+footer{grid-column:1/-1;border-top:1px solid var(--rule);padding-top:1rem;color:var(--muted);font:.82rem var(--sans)}
+:focus-visible{outline:2px solid var(--term);outline-offset:2px}
+@media (max-width:60rem){
+  .page{grid-template-columns:minmax(0,1fr);gap:2rem;padding:1.6rem 1.1rem 4rem}
+  header.game{grid-template-columns:1fr}
+  .cover{max-width:7rem}
+  nav.toc{position:static;max-height:none;border:1px solid var(--rule);border-radius:8px;padding:.9rem 1rem;background:var(--card)}
+  .selection{margin-top:-1rem}
+}
+@media print{
+  html,body{background:#fff;color:#000}
+  :root{--ink:#000;--muted:#444;--rule:#bbb;--card:#fff;--term:#000;--paper:#fff}
+  body{font-size:10.5pt}
+  .page{display:block;padding:0;max-width:none}
+  nav.toc{display:none}
+  a.ref{text-decoration:none;border-bottom:.5pt dotted #777}
+  main h2{break-after:avoid;margin-top:1.6rem}
+  .cards{columns:2;column-gap:6pt}
+  .card{border-color:#999;padding:6pt 8pt}
+  table,figure,p.key{break-inside:avoid}
+}
+@media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
+"""
+
+
+def html_slug(text: str) -> str:
+    s = fold(text).replace("'", "")
+    return re.sub(r"[^\w]+", "-", s).strip("-") or "section"
+
+
+class HtmlRenderer:
+    def __init__(self, game: Game, blocks: list[Block], ctx: Ctx):
+        import html as _html
+        self.esc = _html.escape
+        self.game, self.blocks, self.ctx = game, blocks, ctx
+        self.lang = game.language if game.language in UI else game.language.split("-")[0]
+        self.t = UI.get(self.lang, UI["en"])
+        self.ids: set[str] = set()
+        self.toc: list[tuple[int, str, str]] = []
+        # every term of the game, and which ones are actually on this page
+        self.entries = {fold(e.name): e for e in lookup_entries(game.blocks)}
+        shown = lookup_entries(blocks)
+        self.anchor = {fold(e.name): ("t-" if e.kind == "definition" else "c-") + html_slug(e.name) for e in shown}
+        self.tip = {k: self._tooltip(e) for k, e in self.entries.items()}
+        self.catalogs: dict[int, list[dict]] = {}          # id(#cards heading) -> its cards
+        for c in card_catalog(blocks):
+            if c["catalog"] is not None:
+                self.catalogs.setdefault(id(c["catalog"]), []).append(c)
+
+    # ------------------------------------------------------------------ helpers
+    def uid(self, base: str) -> str:
+        i, cand = 1, base
+        while cand in self.ids:
+            i += 1
+            cand = f"{base}-{i}"
+        self.ids.add(cand)
+        return cand
+
+    def _tooltip(self, e: "Entry") -> str:
+        texts = []
+        for b in e.blocks:
+            for k in (b.children if b.kind == "def" else [b]):
+                if k.text:
+                    texts.append(plain(k.text, self.ctx))
+        tip = " ".join(texts)
+        return tip[:220] + ("…" if len(tip) > 220 else "")
+
+    def data_uri(self, src: str) -> str:
+        import base64
+        import mimetypes
+        if re.match(r"^[a-z]+://", src):
+            return src
+        p = self.game.base_dir / src
+        if not p.exists():
+            return src
+        mime = mimetypes.guess_type(p.name)[0] or "application/octet-stream"
+        return f"data:{mime};base64," + base64.b64encode(p.read_bytes()).decode()
+
+    def label_badges(self, label: str) -> str:
+        """Undecided condition codes: player counts in amber, extensions/variants in violet."""
+        toks = label.split()
+        opts = [t for t in toks if t[:1] in "+-"]
+        counts = [t for t in toks if t not in opts]
+        out = f'<span class="badge open">{self.esc(" ".join(counts))}</span>' if counts else ""
+        return out + (f'<span class="badge opt">{self.esc(" ".join(opts))}</span>' if opts else "")
+
+    def badges(self, b: Block) -> str:
+        out = ""
+        if lab := open_label(b.cond, self.ctx):
+            out += self.label_badges(lab)
+        if b.via:
+            out += f'<span class="badge ext">+{self.esc(" +".join(b.via))}</span>'
+        return out
+
+    # ------------------------------------------------------------------ inline
+    def inline(self, text: str) -> str:
+        stash: list[str] = []
+
+        def keep(h: str) -> str:
+            stash.append(h)
+            return f"\x00{len(stash) - 1}\x00"
+
+        text = ESCAPE_RE.sub(lambda m: keep(self.esc(m.group(1))), text)
+        text = CHOICE_RE.sub(lambda m: keep(self.choice(m)), text)
+        text = REF_RE.sub(lambda m: keep(self.ref(m.group(1).strip(), (m.group(2) or m.group(1)).strip())), text)
+        text = IMAGE_RE.sub(lambda m: keep(f'<img src="{self.esc(self.data_uri(m.group(2)))}" alt="{self.esc(m.group(1))}">'), text)
+        text = LINK_RE.sub(lambda m: keep(self.link(m.group(1), m.group(2))), text)
+        text = re.sub(r"`([^`]+)`", lambda m: keep(f"<code>{self.esc(m.group(1))}</code>"), text)
+        text = self.esc(text, quote=False)
+        text = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", text)
+        text = re.sub(r"(?<!\w)__(?!\s)(.+?)(?<!\s)__(?!\w)", r"<strong>\1</strong>", text)
+        text = re.sub(r"(?<![*\w])\*(?!\s)(.+?)(?<!\s)\*(?![*\w])", r"<em>\1</em>", text)
+        text = re.sub(r"(?<!\w)_(?!\s)(.+?)(?<!\s)_(?!\w)", r"<em>\1</em>", text)
+        while "\x00" in text:
+            text = re.sub(r"\x00(\d+)\x00", lambda m: stash[int(m.group(1))], text)
+        return text
+
+    def choice(self, m) -> str:
+        branches = parse_choice(m.group(1))
+        if branches is None:
+            return self.esc(m.group(0))
+        ctx = self.ctx
+        remaining = [(c, t, any(k == "*" for k, _, _ in c.tokens)) for c, t in branches]
+        remaining = [(c, t, star) for c, t, star in remaining if star or cond_ok(c, ctx)]
+        concrete = [(c, t) for c, t, star in remaining if not star]
+        if concrete:
+            c, t = concrete[0]
+            if not open_label(c, ctx):
+                inner = self.inline(t)
+                return f'<mark class="chosen" title="+{self.esc(" +".join(via_of(c, ctx)))}">{inner}</mark>' \
+                    if via_of(c, ctx) else inner
+            def lab(c, star):
+                text = "*" if star else open_label(c, ctx)
+                return f'<b class="opt">{self.esc(text)}</b>' if text[:1] in "+-" else f"<b>{self.esc(text)}</b>"
+            alts = "".join(f'<span class="alt">{lab(c, star)}{self.inline(t)}</span>' for c, t, star in remaining)
+            return f'<span class="choice">{alts}</span>'
+        return next((self.inline(t) for _, t, star in remaining if star), "")
+
+    def ref(self, name: str, shown: str) -> str:
+        k = fold(name)
+        tip = self.tip.get(k, "")
+        if k in self.anchor:
+            return f'<a class="ref" href="#{self.anchor[k]}" title="{self.esc(tip)}">{self.esc(shown)}</a>'
+        e = self.entries.get(k)
+        if e and e.cond:
+            tip = self.t["only_with"].format(e.cond.raw)
+        return f'<span class="ref" title="{self.esc(tip)}">{self.esc(shown)}</span>'
+
+    def link(self, label: str, href: str) -> str:
+        if href.startswith("game:"):
+            href = href[5:] + ".html"
+        return f'<a href="{self.esc(href)}">{self.esc(label)}</a>'
+
+    # ------------------------------------------------------------------ blocks
+    def render(self, blocks: list[Block], in_card: bool = False) -> str:
+        out: list[str] = []
+        lists: list[tuple[int, str]] = []          # open lists: (indent, "ul"/"ol")
+        counters: dict[int, int] = {}
+        k = 0
+
+        def close_lists(to_level: int = -1):
+            while lists and lists[-1][0] > to_level:
+                out.append(f"</li></{lists.pop()[1]}>")
+
+        while k < len(blocks):
+            b = blocks[k]
+            nested = b.kind in ("note", "table", "para", "key") and b.level and lists
+            if b.kind == "item":
+                while lists and lists[-1][0] > b.level:
+                    out.append(f"</li></{lists.pop()[1]}>")
+                    counters = {l: n for l, n in counters.items() if l <= b.level}
+                tag = "ol" if b.ordered else "ul"
+                if lists and lists[-1][0] == b.level:
+                    out.append("</li>")
+                else:
+                    out.append(f"<{tag}>")
+                    lists.append((b.level, tag))
+                attrs, cls = "", []
+                if b.ordered:
+                    counters[b.level] = counters.get(b.level, b.start - 1) + 1
+                    attrs += f' value="{counters[b.level]}"'
+                if b.key:
+                    cls.append("key")
+                if b.tint or b.via:
+                    cls.append("from-ext")
+                if b.qty and (rm := REF_RE.search(b.text)):
+                    a = self.anchor.get(fold(rm.group(1)), "")
+                    if a.startswith("c-"):
+                        attrs += f' id="{self.uid(a)}"'
+                if cls:
+                    attrs += f' class="{" ".join(cls)}"'
+                out.append(f"<li{attrs}>{self.badges(b)}{self.inline(b.text)}")
+                k += 1
+                continue
+            if not nested:
+                close_lists()
+                counters = {}
+            if b.kind == "def":
+                group = []
+                while k < len(blocks) and blocks[k].kind == "def":
+                    group.append(blocks[k])
+                    k += 1
+                out.append('<div class="cards">' + "".join(self.card(d) for d in group) + "</div>")
+                continue
+            out.append(self.block(b, in_card))
+            k += 1
+        close_lists()
+        return "\n".join(out)
+
+    def card(self, d: Block) -> str:
+        cid = self.uid(self.anchor.get(fold(d.term), "t-" + html_slug(d.term)))
+        from_ext = bool(d.via) or (self.ctx.everything and d.cond is not None and
+                                   any(k == "v" and not neg for k, neg, _ in d.cond.tokens))
+        cls = "card" + (" ext" if from_ext else "")
+        size = sum(len(c.text) for c in d.children) + 120 * sum(1 for c in d.children if c.kind == "heading")
+        if size > 900:
+            cls += " wide"
+        chips = ""
+        shown = {k: self.inline(v) for k, v in d.fields.items()}
+        shown = {k: v for k, v in shown.items() if re.sub(r"<[^>]+>", "", v).strip()}
+        if shown:
+            chips = '<ul class="fields">' + "".join(
+                f'<li><span>{self.esc(k)}</span> {v}</li>' for k, v in shown.items()) + "</ul>"
+        return (f'<article class="{cls}" id="{cid}"><h3>{self.badges(d)}{self.inline(d.term)}</h3>{chips}'
+                f'{self.render(d.children, in_card=True)}</article>')
+
+    def block(self, b: Block, in_card: bool) -> str:
+        ext = " from-ext" if (b.via or b.tint) else ""
+        if b.kind == "heading" and b.reopens:
+            return '<hr class="end">'
+        if b.kind == "heading":
+            level = min(6, b.level + (3 if in_card else 1))
+            title = self.inline(b.text)
+            hid = self.uid(b.roles[0] if b.roles else html_slug(plain(CHOICE_RE.sub("", b.text), self.ctx)))
+            if not in_card and b.level <= 2:
+                self.toc.append((b.level, hid, title))
+            head = f'<h{level} id="{hid}">{self.badges(b)}{title}</h{level}>'
+            if not in_card and id(b) in self.catalogs:
+                head += self.catalog_table(self.catalogs[id(b)])
+            return head
+        if b.kind == "para":
+            return f'<p class="{ext.strip()}">{self.badges(b)}{self.inline(b.text)}</p>' if ext else \
+                f"<p>{self.badges(b)}{self.inline(b.text)}</p>"
+        if b.kind == "key":
+            return f'<p class="key{ext}">{self.badges(b)}{self.inline(b.text)}</p>'
+        if b.kind == "note":
+            return f'<aside class="note{ext}"><p>{self.badges(b)}{self.inline(b.text)}</p></aside>'
+        if b.kind == "image":
+            return (f'<figure><img src="{self.esc(self.data_uri(b.term))}" alt="{self.esc(b.text)}">'
+                    f'<figcaption>{self.inline(b.text)}</figcaption></figure>')
+        if b.kind == "code":
+            return f"<pre><code>{self.esc(b.text)}</code></pre>"
+        if b.kind == "table":
+            return self.table(b)
+        return ""
+
+    def catalog_table(self, catalog: list[dict]) -> str:
+        cols, rows = card_rows(catalog, self.blocks, self.ctx)
+        if len(cols) == 1:                      # no counts or fields: the cards themselves are enough
+            return ""
+        head = "".join(f"<th>{self.esc(self.t.get(c, c))}</th>" for c in cols)
+        body = []
+        for r in rows:
+            cells = []
+            for c in cols:
+                v = str(r.get(c, ""))
+                if c == "card":
+                    a = self.anchor.get(fold(v))
+                    cells.append(f'<td><a class="ref" href="#{a}">{self.esc(v)}</a></td>' if a else f"<td>{self.esc(v)}</td>")
+                elif c == "ext":
+                    badge = (self.label_badges(v) if self.ctx.everything
+                             else f'<span class="badge ext">{self.esc(v)}</span>') if v else ""
+                    cells.append(f"<td>{badge}</td>")
+                else:
+                    cells.append(f"<td>{self.inline(v)}</td>")
+            body.append("<tr>" + "".join(cells) + "</tr>")
+        return f'<table class="catalog"><thead><tr>{head}</tr></thead><tbody>{"".join(body)}</tbody></table>'
+
+    def table(self, b: Block) -> str:
+        rows = [cells for _, cells in b.rows if not is_sep_row(cells)]
+        if not rows:
+            return ""
+
+        def cell(c: str, tag: str) -> str:
+            pre = ""
+            if (lm := re.match(r"\x02(.*?)\x02", c)):
+                pre, c = self.label_badges(lm.group(1)), c[lm.end():]
+            if (vm := re.match(r"\x01(.*?)\x01", c)):
+                pre, c = pre + f'<span class="badge ext">+{self.esc(vm.group(1).replace(",", " +"))}</span>', c[vm.end():]
+            return f"<{tag}>{pre}{self.inline(c)}</{tag}>"
+
+        head = "<tr>" + "".join(cell(c, "th") for c in rows[0]) + "</tr>"
+        body = "".join("<tr>" + "".join(cell(c, "td") for c in r) + "</tr>" for r in rows[1:])
+        return f"<table><thead>{head}</thead><tbody>{body}</tbody></table>"
+
+    # ------------------------------------------------------------------ page
+    def page(self, title_suffix: str = "") -> str:
+        g, t, esc, ctx = self.game, self.t, self.esc, self.ctx
+        body = self.render(self.blocks)          # fills self.toc
+        meta = g.meta
+        facts = []
+        if meta.get("players") is not None:
+            facts.append(f"{esc(str(meta['players']).replace('-', '–'))} {t['players']}")
+        if meta.get("best_players") is not None:
+            facts.append(esc(t["best"].format(meta["best_players"])))
+        if meta.get("duration") is not None:
+            facts.append(f"{esc(str(meta['duration']).replace('-', '–'))} {t['min']}")
+        if meta.get("age") is not None:
+            facts.append(esc(t["age"].format(str(meta["age"]).rstrip("+"))))
+        credits = []
+        for key, label in (("designer", "by"), ("artist", "art"), ("publisher", "publisher")):
+            v = meta.get(key)
+            if v:
+                names = ", ".join(map(str, v)) if isinstance(v, list) else str(v)
+                credits.append(f"<b>{t[label]}</b> {esc(names)}")
+        cover = ""
+        if meta.get("cover") and (g.base_dir / str(meta["cover"])).exists():
+            cover = f'<img class="cover" src="{esc(self.data_uri(str(meta["cover"])))}" alt="">'
+
+        sel = []
+        if ctx.players is not None:
+            sel.append(t["players_n"].format(ctx.players))
+        if ctx.everything:
+            if g.options:
+                sel.append(t["all"])
+        else:
+            sel += [f"+{v}" for v in sorted(ctx.variants)]
+            if g.extensions and not (ctx.variants & {k.lower() for k in g.extensions}):
+                sel.append(t["base"])
+            if g.variants and not (ctx.variants & {k.lower() for k in g.variants}):
+                sel.append(t["no_variants"])
+        selection = ""
+        if sel:
+            selection = f'<p class="selection"><strong>{t["showing"]}:</strong> {esc(", ".join(sel))}'
+            if ctx.variants and not ctx.everything:
+                selection += f'<br><span class="badge ext">+…</span>{esc(t["legend"])}'
+            selection += "</p>"
+
+        toc = ""
+        if self.toc:
+            items, open_sub = [], False
+            for level, hid, title in self.toc:
+                title_txt = re.sub(r"<[^>]+>", "", title)
+                if level == 1:
+                    if open_sub:
+                        items.append("</ol></li>")
+                        open_sub = False
+                    elif items:
+                        items.append("</li>")
+                    items.append(f'<li><a href="#{hid}">{title_txt}</a>')
+                else:
+                    if not open_sub:
+                        items.append("<ol>")
+                        open_sub = True
+                    items.append(f'<li><a href="#{hid}">{title_txt}</a></li>')
+            items.append("</ol></li>" if open_sub else "</li>")
+            toc = f'<nav class="toc" aria-label="{t["toc"]}"><h2>{t["toc"]}</h2><ol>{"".join(items)}</ol></nav>'
+        import datetime
+        footer = t["exported"].format(__version__, datetime.date.today().isoformat())
+        fonts = ('<link rel="preconnect" href="https://fonts.googleapis.com">'
+                 '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700'
+                 '&family=Literata:opsz,wght@7..72,400;7..72,600;7..72,700&display=swap">')
+        return f"""<!doctype html>
+<html lang="{esc(g.language)}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{esc(g.title)}{esc(title_suffix)}</title>
+{fonts}
+<style>{HTML_CSS}</style>
+</head>
+<body>
+<div class="page">
+<header class="game"><div><h1>{esc(g.title)}</h1>
+<ul class="facts">{"".join(f"<li>{f}</li>" for f in facts)}</ul>
+{f'<p class="credits">{" &nbsp; ".join(credits)}</p>' if credits else ""}</div>{cover}</header>
+{selection}
+{toc}
+<main>
+{body}
+</main>
+<footer>{esc(footer)}</footer>
+</div>
+</body>
+</html>
+"""
+
+
+def export_name(game: Game, ctx: Ctx, sections) -> str:
+    parts = [game.slug]
+    if ctx.players is not None:
+        parts.append(f"{ctx.players}p")
+    if ctx.everything:
+        parts.append("all")
+    parts += sorted(ctx.variants)
+    if sections:
+        parts += [html_slug(s) for s in sections]
+    name = "-".join(parts)
+    if game.language != game.default_language:
+        name += f".{game.language}"
+    return name + ".html"
+
+
+def cmd_export(args) -> int:
+    vault = open_vault(args.vault, args.game)
+    game = vault.load(vault.find(args.game), args.lang)
+    if args.all and (args.ext or args.variant):
+        print("tabula: --all already shows every extension and variant; drop either --all or -e/-v", file=sys.stderr)
+        return 2
+    ctx = Ctx(args.players, {v.lower() for v in (args.variant or []) + (args.ext or [])}, args.all)
+    rng = parse_range(game.meta.get("players"))
+    if args.players is not None and rng and not in_range(rng, args.players):
+        print(f"tabula: {game.title} is for {game.meta.get('players')} players, not {args.players}", file=sys.stderr)
+        return 2
+    for v in ctx.variants:
+        if v not in {k.lower() for k in game.options}:
+            print(f"tabula: '{v}' is not a variant or extension of {game.title}", file=sys.stderr)
+            return 2
+    blocks = filter_blocks(game.blocks, ctx)
+    if args.section:
+        picked = select_sections(blocks, args.section)
+        if not picked:
+            print(f"tabula: no section {', '.join(args.section)} in {game.title}; "
+                  f"available: {', '.join(section_names(blocks)) or '(none)'}", file=sys.stderr)
+            return 2
+        blocks = picked
+    html_text = HtmlRenderer(game, blocks, ctx).page()
+    if args.output == "-":
+        sys.stdout.write(html_text)
+        return 0
+    out = Path(args.output) if args.output else Path.cwd() / export_name(game, ctx, args.section)
+    if out.is_dir():
+        out = out / export_name(game, ctx, args.section)
+    out.write_text(html_text, encoding="utf-8")
+    print(f"wrote {out}")
+    if any(i.level == "error" for i in game.issues):
+        print(f"tabula: this file has errors; run 'tabula check {game.slug}'", file=sys.stderr)
+    return 0
+
+
 # =========================================================================== main
 
 def main(argv=None) -> int:
@@ -1518,6 +2274,19 @@ def main(argv=None) -> int:
     p.add_argument("--vault", default=argparse.SUPPRESS)
     p.set_defaults(func=cmd_show)
 
+    p = sub.add_parser("cards", help="the card catalog: one row per card, with counts and fields")
+    p.add_argument("game")
+    p.add_argument("-p", "--players", type=int, help="only what applies to N players")
+    p.add_argument("-v", "--variant", action="append", help="turn a variant on (repeatable)")
+    p.add_argument("-e", "--ext", action="append", metavar="EXTENSION", help="add an extension (repeatable)")
+    p.add_argument("-a", "--all", action="store_true", help="every extension and variant")
+    p.add_argument("-l", "--lang", help="language")
+    p.add_argument("--sort", metavar="COLUMN", help="sort by a column (card, count, or any field), across groups")
+    p.add_argument("--json", action="store_true")
+    p.add_argument("--no-color", action="store_true")
+    p.add_argument("--vault", default=argparse.SUPPRESS)
+    p.set_defaults(func=cmd_cards)
+
     p = sub.add_parser("lookup", help="look up one card, term or section (or list all terms)")
     p.add_argument("game")
     p.add_argument("term", nargs="*", help="term or section to look up; partial names and small typos work")
@@ -1531,6 +2300,19 @@ def main(argv=None) -> int:
     p.add_argument("--no-color", action="store_true")
     p.add_argument("--vault", default=argparse.SUPPRESS)
     p.set_defaults(func=cmd_lookup)
+
+    p = sub.add_parser("export", help="export a game as a self-contained HTML page")
+    p.add_argument("game")
+    p.add_argument("-p", "--players", type=int, help="only what applies to N players")
+    p.add_argument("-v", "--variant", action="append", help="turn a variant on (repeatable)")
+    p.add_argument("-e", "--ext", action="append", metavar="EXTENSION", help="add an extension (repeatable)")
+    p.add_argument("-a", "--all", action="store_true", help="every extension and variant, with badges")
+    p.add_argument("-s", "--section", action="append", metavar="NAME", help="only some sections (repeatable)")
+    p.add_argument("-l", "--lang", help="language")
+    p.add_argument("-o", "--output", help="file or folder to write (default: a name like frantic-4p-supercharge.html "
+                                          "in the current folder; '-' for standard output)")
+    p.add_argument("--vault", default=argparse.SUPPRESS)
+    p.set_defaults(func=cmd_export)
 
     p = sub.add_parser("check", help="find mistakes in game files")
     p.add_argument("games", nargs="*", help="games to check (default: all)")
