@@ -2,7 +2,7 @@
   "name": "tabula-game-files",
   "displayName": "Tabula Game Files",
   "description": "Highlighting and live checks for Tabula .game files (board and card game rules).",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "tabula-rules",
   "license": "MIT",
   "engines": {

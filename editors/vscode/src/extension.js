@@ -268,6 +268,55 @@ const definitionProvider = {
   },
 };
 
+// ------------------------------------------------------------------ completion and hover
+
+const KINDS = {
+  definition: vscode.CompletionItemKind.Reference,
+  component: vscode.CompletionItemKind.Constant,
+  section: vscode.CompletionItemKind.Module,
+  role: vscode.CompletionItemKind.Keyword,
+};
+
+const completionProvider = {
+  provideCompletionItems(doc, pos) {
+    const ctx = core.completionContext(doc.lineAt(pos.line).text, pos.character);
+    if (!ctx) return undefined;
+    const all = core.completions(doc.getText());
+    const list = ctx.section ? all.sections : all.terms;
+    const range = new vscode.Range(pos.line, ctx.start, pos.line, pos.character);
+    return list.map((x, i) => {
+      const item = new vscode.CompletionItem({ label: x.label, description: x.detail }, KINDS[x.kind]);
+      item.range = range;
+      item.insertText = x.label + (ctx.closed ? "" : "]]");
+      item.filterText = x.label;
+      item.sortText = String(i).padStart(5, "0");          // definitions first, then components, in file order
+      item.detail = x.kind === "role" ? `role ${x.detail}` : x.kind;
+      if (x.doc) item.documentation = new vscode.MarkdownString(x.doc);
+      return item;
+    });
+  },
+};
+
+const hoverProvider = {
+  provideHover(doc, pos) {
+    const ref = core.refAt(doc.lineAt(pos.line).text, pos.character);
+    if (!ref) return null;
+    let text = core.hoverText(doc.getText(), ref.name);
+    // in a translation, terms may only be defined in the default-language file
+    const m = path.basename(doc.uri.fsPath).match(/^(.*)\.([a-z]{2}(?:-[A-Za-z]{2})?)\.game$/);
+    if (!text && m) {
+      try {
+        text = core.hoverText(fs.readFileSync(path.join(path.dirname(doc.uri.fsPath), `${m[1]}.game`), "utf8"), ref.name);
+      } catch {
+        text = null;
+      }
+    }
+    if (!text) return null;
+    const range = new vscode.Range(pos.line, ref.start, pos.line, ref.end);
+    return new vscode.Hover(new vscode.MarkdownString(text), range);
+  },
+};
+
 // ------------------------------------------------------------------ activation
 
 function activate(context) {
@@ -280,6 +329,8 @@ function activate(context) {
     vscode.languages.registerDocumentSymbolProvider(sel, symbols),
     vscode.languages.registerFoldingRangeProvider(sel, folding),
     vscode.languages.registerDefinitionProvider(sel, definitionProvider),
+    vscode.languages.registerCompletionItemProvider(sel, completionProvider, "[", "#"),
+    vscode.languages.registerHoverProvider(sel, hoverProvider),
     vscode.commands.registerCommand("tabula.checkVault", checkVault),
     vscode.commands.registerCommand("tabula.checkFile", () => {
       const ed = vscode.window.activeTextEditor;

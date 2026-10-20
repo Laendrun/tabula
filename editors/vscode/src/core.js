@@ -211,4 +211,107 @@ function findTargets(text, name) {
   return defs.length ? defs : comps;
 }
 
-module.exports = { checkArgs, expand, parseCheckOutput, issueColumns, fold, outline, refAt, findTargets };
+/** Text without reference brackets: "[[a|b]]" -> "b", "[[a]]" -> "a" (for labels and hovers). */
+function plainRefs(text) {
+  return text.replace(/\[\[#?([^\]|]+)(?:\|([^\]]*))?\]\]/g, (_, name, shown) => (shown || name).trim());
+}
+
+/** The body of a definition as plain lines: the ": " markers and the common indentation removed. */
+function definitionBody(lines, def) {
+  const body = [];
+  for (let k = def.line + 1; k <= def.end; k++) {
+    body.push(lines[k].replace(/^:(\s|$)/, "  "));
+  }
+  const indent = Math.min(...body.filter((l) => l.trim()).map((l) => l.match(/^\s*/)[0].length), 99);
+  return body.map((l) => l.slice(Math.min(indent, l.length))).join("\n").replace(/^\n+|\n+$/g, "");
+}
+
+/** A definition body as Markdown: "key:: value" fields at the top become bold lines, references plain text. */
+function definitionMarkdown(body) {
+  const lines = body.split("\n");
+  const fields = [];
+  while (lines.length && /^[^\W\d][\w -]*?::\s?/u.test(lines[0])) {
+    const [, key, value] = lines.shift().match(/^([^\W\d][\w -]*?)::\s?(.*)$/u);
+    fields.push(`**${key.trim()}:** ${plainRefs(value)}`);
+  }
+  const rest = plainRefs(lines.join("\n")).trim();
+  return [fields.join("  \n"), rest].filter(Boolean).join("\n\n");
+}
+
+/**
+ * Is the cursor inside an unfinished "[[…"? Returns where the typed name starts, whether it is a section
+ * link ("[[#…"), what was typed, and whether "]]" already follows (so it isn't added twice).
+ */
+function completionContext(lineText, column) {
+  const m = lineText.slice(0, column).match(/\[\[(#?)([^\[\]|]*)$/);
+  if (!m) return null;
+  return {
+    section: m[1] === "#",
+    typed: m[2],
+    start: column - m[2].length,
+    closed: /^[^\[\]\n]*\]\]/.test(lineText.slice(column)),
+  };
+}
+
+/**
+ * What can go inside [[ ]] in a game: its terms (definitions first, then components without a definition)
+ * and, for [[#…]], its section titles and roles. Each item: { label, kind, detail, doc }.
+ */
+function completions(text) {
+  const lines = text.replace(/\r\n?/g, "\n").split("\n");
+  const o = outline(text);
+  const terms = [];
+  const seen = new Set();
+  for (const d of o.definitions) {
+    const key = fold(d.term);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    terms.push({ label: d.term, kind: "definition", detail: d.cond ? `{${d.cond}}` : "",
+                 doc: definitionMarkdown(definitionBody(lines, d)) });
+  }
+  for (const c of o.components) {
+    const key = fold(c.name);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    terms.push({ label: c.name, kind: "component", detail: `${c.quantity}x`,
+                 doc: plainRefs(lines[c.line].trim().replace(/^[-*+]\s+/, "")) });
+  }
+  const sections = [];
+  for (const h of o.headings) {
+    const title = plainRefs(h.title);
+    if (!title) continue;
+    sections.push({ label: title, kind: "section", detail: (h.key ? "★ " : "") + "#".repeat(h.level), doc: "" });
+    for (const role of (h.attrs.match(/#[\w-]+/g) || [])) {
+      sections.push({ label: role.slice(1), kind: "role", detail: `→ ${title}`, doc: "" });
+    }
+  }
+  return { terms, sections };
+}
+
+/** Markdown for hovering a [[reference]] (name as written, with or without "#"), or null if it matches nothing. */
+function hoverText(text, name) {
+  const lines = text.replace(/\r\n?/g, "\n").split("\n");
+  const o = outline(text);
+  if (name.startsWith("#")) {
+    const target = findTargets(text, name)[0];
+    if (target === undefined) return null;
+    const h = o.headings.find((x) => x.line === target);
+    const body = lines.slice(h.line + 1, Math.min(h.end, h.line + 12) + 1).join("\n").trim();
+    const more = h.end > h.line + 12 ? "\n\n…" : "";
+    return `**${h.key ? "★ " : ""}${plainRefs(h.title)}**${h.attrs ? ` \`{${h.attrs}}\`` : ""}\n\n${plainRefs(body)}${more}`.trim();
+  }
+  const key = fold(name);
+  const defs = o.definitions.filter((d) => fold(d.term) === key);
+  const comps = o.components.filter((c) => fold(c.name) === key);
+  if (!defs.length && !comps.length) return null;
+  const parts = defs.map((d) => `**${d.term}**${d.cond ? ` \`{${d.cond}}\`` : ""}\n\n${definitionMarkdown(definitionBody(lines, d))}`);
+  if (comps.length) {
+    parts.push(comps.map((c) => "- " + plainRefs(lines[c.line].trim().replace(/^[-*+]\s+/, ""))).join("\n"));
+  }
+  return parts.join("\n\n---\n\n");
+}
+
+module.exports = {
+  checkArgs, expand, parseCheckOutput, issueColumns, fold, outline, refAt, findTargets,
+  plainRefs, definitionBody, definitionMarkdown, completionContext, completions, hoverText,
+};
