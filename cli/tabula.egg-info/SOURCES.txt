@@ -1,8 +1,0 @@
-pyproject.toml
-tabula.py
-tabula.egg-info/PKG-INFO
-tabula.egg-info/SOURCES.txt
-tabula.egg-info/dependency_links.txt
-tabula.egg-info/entry_points.txt
-tabula.egg-info/requires.txt
-tabula.egg-info/top_level.txt

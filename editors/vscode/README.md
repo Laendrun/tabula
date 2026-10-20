@@ -36,7 +36,7 @@ npm run package
 | Setting | Default | |
 |---|---|---|
 | `tabula.path` | `tabula` | The command. If `tabula` isn't on your PATH, the full path to `tabula.exe`, e.g. `C:\Users\you\.local\bin\tabula.exe`. |
-| `tabula.extraArgs` | `[]` | Arguments before `check`. To run the script from the repo without installing it: `tabula.path` = `python`, `tabula.extraArgs` = `["${workspaceFolder}/cli/tabula.py"]`. |
+| `tabula.extraArgs` | `[]` | Arguments before `check`. To run the script from the repo without installing it: `tabula.path` = `python`, `tabula.extraArgs` = `["${workspaceFolder}/cli/tabula"]`. |
 | `tabula.vault` | (found from the file) | The vault folder, if it can't be found automatically (it is found from the folder with `vault.yaml`, or the folder around the game's folder). |
 | `tabula.run` | `onType` | `onType`: check after a short pause in typing. `onSave`: only when saving. |
 | `tabula.delay` | `500` | The pause, in milliseconds. |

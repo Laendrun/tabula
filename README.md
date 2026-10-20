@@ -37,6 +37,23 @@ tabula check -d                        # ...and require a glossary definition fo
 
 `editors/vscode/` is a VS Code extension: highlighting, `tabula check` while you type (squiggles and the Problems panel), an outline, and Ctrl+click on `[[references]]`. Download the `.vsix` from the *vscode-extension* artifact of the latest CI run (Actions tab) and install it with `code --install-extension tabula-game-files-<version>.vsix`. See [its README](editors/vscode/README.md) for the settings.
 
+## Code layout
+
+`cli/tabula/` is a small Python package. Each module handles one thing:
+
+| Module | |
+|---|---|
+| `syntax.py` | regular expressions, names (`norm`, `fold`), player ranges, conditions |
+| `source.py` | reading a `.game` file (frontmatter, comments), issues |
+| `blocks.py` | parsing the body into blocks (headings, lists, tables, definitions…) |
+| `filtering.py` | keeping what applies: players, variants, extensions, sections |
+| `vault.py` | finding and loading games and translations |
+| `terminal.py` | terminal and JSON rendering |
+| `show.py`, `lookup.py`, `cards.py`, `check.py`, `export.py` | one command each |
+| `cli.py` | the command line (`tabula …`) |
+
+Without installing: `python cli/tabula show hearts`.
+
 ## Tests
 
 ```sh

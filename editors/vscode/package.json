@@ -64,7 +64,7 @@
             "type": "string"
           },
           "default": [],
-          "markdownDescription": "Arguments put before `check`, e.g. `[\"${workspaceFolder}/cli/tabula.py\"]` with `#tabula.path#` set to `python`."
+          "markdownDescription": "Arguments put before `check`, e.g. `[\"${workspaceFolder}/cli/tabula\"]` with `#tabula.path#` set to `python`."
         },
         "tabula.vault": {
           "type": "string",
