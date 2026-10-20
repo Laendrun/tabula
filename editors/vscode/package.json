@@ -1,9 +1,9 @@
 {
-  "name": "tabula-game-files",
+  "name": "tabula-syntax",
   "displayName": "Tabula Game Files",
   "description": "Highlighting and live checks for Tabula .game files (board and card game rules).",
   "version": "0.4.0",
-  "publisher": "tabula-rules",
+  "publisher": "Laendrun",
   "license": "MIT",
   "repository": {
     "type": "git",

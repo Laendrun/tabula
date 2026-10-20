@@ -27,7 +27,7 @@ jobs:
           cache-dependency-path: editors/vscode/package-lock.json
       - run: npm ci
       - run: npm test                          # the extension's logic and its grammar
-      - run: npm run package                   # builds tabula-game-files-<version>.vsix
+      - run: npm run package                   # builds <name>-<version>.vsix (tabula-syntax-0.4.0.vsix)
       - uses: actions/upload-artifact@v4       # downloadable from the run's page, kept 30 days
         with:
           name: vscode-extension
@@ -66,6 +66,7 @@ jobs:
             exit 0
           fi
           id=$(node -p "const p = require('./package.json'); p.publisher + '.' + p.name")
+          name=$(node -p "require('./package.json').name")
           version=$(node -p "require('./package.json').version")
           published=$(npx vsce show "$id" --json 2>/dev/null \
             | node -e "let s = ''; process.stdin.on('data', d => s += d).on('end', () => {
@@ -75,4 +76,4 @@ jobs:
             exit 0
           fi
           echo "publishing $id $version (Marketplace has: ${published:-nothing yet})"
-          npx vsce publish --packagePath "tabula-game-files-$version.vsix" --skip-license
+          npx vsce publish --packagePath "$name-$version.vsix" --skip-license

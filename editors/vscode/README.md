@@ -18,14 +18,14 @@ The extension needs tabula 0.7 or newer on your computer. If `tabula --version` 
 Install **Tabula Game Files** from the Extensions panel (search "Tabula Game Files"), or:
 
 ```
-code --install-extension tabula-rules.tabula-game-files
+code --install-extension Laendrun.tabula-syntax
 ```
 
 VS Code then keeps it up to date by itself.
 
-To try a build that isn't published yet, take the `.vsix` from GitHub: **Actions** tab → a green *tests* run → **Artifacts** → *vscode-extension* (a zip with `tabula-game-files-<version>.vsix` inside), then `code --install-extension tabula-game-files-<version>.vsix`, or Extensions panel → `…` menu → *Install from VSIX…*.
+To try a build that isn't published yet, take the `.vsix` from GitHub: **Actions** tab → a green *tests* run → **Artifacts** → *vscode-extension* (a zip with `tabula-syntax-<version>.vsix` inside), then `code --install-extension tabula-syntax-<version>.vsix`, or Extensions panel → `…` menu → *Install from VSIX…*.
 
-The extension's ID is `tabula-rules.tabula-game-files`. If you installed an earlier build (ID `tabula.tabula`, which clashed with another extension on the Marketplace), remove it first: `code --uninstall-extension tabula.tabula`.
+The extension's ID is `Laendrun.tabula-syntax`. If you installed an earlier build, remove it first: `code --uninstall-extension tabula-rules.tabula-game-files` (or `tabula.tabula` for the very first ones).
 
 To build the `.vsix` yourself (Node.js needed):
 
@@ -64,7 +64,7 @@ Bump `"version"` in `package.json` (e.g. `0.4.0` → `0.5.0`) in the pull reques
 
 ### One-time setup
 
-1. **Publisher:** sign in at https://marketplace.visualstudio.com/manage with a Microsoft account and create a publisher whose ID is `tabula-rules` (the `"publisher"` in `package.json`). If that ID is taken, pick another and change `"publisher"` to match; the extension's ID changes with it, so uninstall the old one once.
+1. **Publisher:** sign in at https://marketplace.visualstudio.com/manage with a Microsoft account and create a publisher whose ID is `Laendrun` (the `"publisher"` in `package.json`). If that ID is taken, pick another and change `"publisher"` to match; the extension's ID changes with it, so uninstall the old one once.
 2. **Token:** at https://dev.azure.com (same account), *User settings → Personal access tokens → New token*: organization **All accessible organizations**, scope **Marketplace → Manage**. Copy it.
 3. **Secret:** in the GitHub repo, *Settings → Secrets and variables → Actions → New repository secret*, named `VSCE_PAT`, with the token as its value.
 
