@@ -192,3 +192,10 @@ test("hover: definitions, components and sections", () => {
   assert.equal(core.hoverText(SAMPLE, "nothing"), null);
   assert.equal(core.hoverText(SAMPLE, "#nothing"), null);
 });
+
+test("TODO reminders are information, not warnings", () => {
+  const S = { Error: 0, Warning: 1, Information: 2 };
+  assert.equal(core.severity("error", S), 0);
+  assert.equal(core.severity("warning", S), 1);
+  assert.equal(core.severity("todo", S), 2);
+});

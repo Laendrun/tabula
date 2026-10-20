@@ -2,7 +2,7 @@
 
 Highlighting and live checks for Tabula `.game` files.
 
-- **Checks while you type.** `tabula check` runs on the file you're editing, even before you save. Problems show up as squiggles and in the Problems panel (Ctrl+Shift+M). The squiggle goes on what the message is about, for example the `[[ref]]` that matches nothing. Translations of the same game (`slug.fr.game`) are checked at the same time.
+- **Checks while you type.** `tabula check` runs on the file you're editing, even before you save. Problems show up as squiggles and in the Problems panel (Ctrl+Shift+M). The squiggle goes on what the message is about, for example the `[[ref]]` that matches nothing. Translations of the same game (`slug.fr.game`) are checked at the same time. `<!-- TODO: … -->` reminders show up as information (blue), not as warnings.
 - **Highlighting** for `[[references]]` and `[[#section links]]`, `{conditions}` and `{choices | *: …}`, `#roles`, component counts (`60x`), `key:: value` fields, `!` key rules and `## !` key sections, the `---` section end, player tables and the frontmatter.
 - **Autocomplete inside `[[ ]]`.** Type `[[` to pick a glossary term or component (definitions first, with their text as a preview). Type `[[#` to pick a section title or a role like `setup`. The closing `]]` is added when it's missing.
 - **Hover a `[[reference]]`** to see its definition (fields included), its component lines, or the start of the section it links to. In a translation, terms missing from the file are looked up in the default-language file.
@@ -18,7 +18,7 @@ The extension needs tabula 0.7 or newer on your computer. If `tabula --version` 
 Get the `.vsix` from GitHub: **Actions** tab → the latest green *tests* run → **Artifacts** → *vscode-extension*. It downloads as a zip; unzip it to get `tabula-game-files-<version>.vsix`, then:
 
 ```
-code --install-extension tabula-game-files-0.3.0.vsix
+code --install-extension tabula-game-files-0.4.0.vsix
 ```
 
 Or, from VS Code: Extensions panel → `…` menu → *Install from VSIX…*.

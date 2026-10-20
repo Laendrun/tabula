@@ -67,7 +67,13 @@
     "comment": {
       "begin": "<!--",
       "end": "-->",
-      "name": "comment.block.html.tabula"
+      "name": "comment.block.html.tabula",
+      "patterns": [
+        {
+          "match": "\\b(?:TODO|FIXME)\\b",
+          "name": "keyword.other.todo.tabula"
+        }
+      ]
     },
     "fence": {
       "begin": "^\\s*(```|~~~).*$",

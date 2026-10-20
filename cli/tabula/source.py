@@ -26,14 +26,32 @@ class Issues(list):
     def warn(self, path, line, msg):
         self.append(Issue("warning", Path(path), line, msg))
 
+    def todo(self, path, line, msg):
+        """A reminder left in the file (<!-- TODO: … -->): reported, but neither an error nor a warning."""
+        self.append(Issue("todo", Path(path), line, msg))
+
 
 UNSAVED: dict[Path, str] = {}        # check --stdin: file contents from an editor, used instead of the disk
 
 
-def read_source(path: Path, issues: Issues) -> tuple[dict, list[tuple[int, str]]]:
+TODO_RE = re.compile(r"<!--\s*(?:TODO|FIXME)\b[\s:\-–—]*(.*?)\s*-->", re.S | re.I)
+
+
+def raw_text(path: Path) -> str:
+    """A file's text, or the unsaved text an editor sent with check --stdin."""
     text = UNSAVED.get(Path(path).resolve())
-    if text is None:
-        text = path.read_text(encoding="utf-8")
+    return path.read_text(encoding="utf-8") if text is None else text
+
+
+def find_todos(path: Path) -> list[tuple[int, str]]:
+    """The <!-- TODO: … --> (or FIXME) comments of a file: (line, text)."""
+    text = raw_text(path).lstrip("\ufeff").replace("\r\n", "\n")
+    return [(text.count("\n", 0, m.start()) + 1, " ".join(m.group(1).split()) or "TODO")
+            for m in TODO_RE.finditer(text)]
+
+
+def read_source(path: Path, issues: Issues) -> tuple[dict, list[tuple[int, str]]]:
+    text = raw_text(path)
     text = text.lstrip("\ufeff").replace("\r\n", "\n")
     text = re.sub(r"<!--.*?-->", lambda m: "\n" * m.group(0).count("\n"), text, flags=re.S)
     if (i := text.find("<!--")) >= 0:

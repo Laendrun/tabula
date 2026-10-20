@@ -30,6 +30,7 @@ tabula cards frantic -e supercharge --sort points   # card catalog: counts and f
 tabula lookup frantic                  # list every term
 tabula site                            # the whole vault as a website in ./site (open site/index.html)
 tabula check                           # find mistakes in every game and translation
+tabula todo                            # the <!-- TODO: … --> reminders left in game files
 tabula check -d                        # ...and require a glossary definition for every component
 ```
 
