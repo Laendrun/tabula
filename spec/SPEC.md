@@ -107,6 +107,8 @@ Série
 | `cover` | path | `media/box.jpg` | relative to the game folder |
 | `links` | map | `{bgg: https://…}` | |
 | `source` | text | `Rulebook 2nd ed.` | where the rules come from |
+| `require_definitions` | true/false | `true` | `tabula check`: every component needs a glossary definition (see 5) |
+| `unused_definitions` | true/false | `false` | `tabula check`: warn about definitions nothing refers to (default `true`, see 5) |
 
 Count ranges: `4`, `2-5`, `3+`, `2,4`. Unknown keys are allowed and kept, so add your own.
 
@@ -121,6 +123,8 @@ All the usual Markdown: headings `#` to `######`, paragraphs, `*italic*` and `**
 ```markdown
 <!-- TODO: check the 5-player setup -->
 ```
+
+A comment that starts with `TODO` or `FIXME` (any case, with or without `:`) is a **reminder**. `tabula todo` lists them for the whole vault, or for some games, with file and line. `tabula check` counts them without treating them as warnings, and editors show them as information.
 
 **Continuing a list item:** indent the extra lines under the item, with no blank line in between:
 
@@ -170,6 +174,7 @@ Une [[Super-Chaussette]] compte comme n'importe quelle [[série]].
   ```
 
   (or `require_definitions: true` in one game's frontmatter).
+- `tabula check` also warns about **definitions that nothing refers to**, so a long glossary doesn't collect forgotten terms. Links to sections (`[[#…]]`) don't count, and cards in a catalog (`{#cards}`) are exempt, since the catalog lists them. Turn it off with `unused_definitions: false` in a game's frontmatter, or under `check:` in `vault.yaml`.
 - Renderers show the visible text, highlighted. The HTML export makes it a link to the term, with its definition as a tooltip.
 
 **Links to a section** start with `#`: `[[#Si la tour tombe]]` points to the heading with that title, matched the same way (case, accents and plurals ignored). It can also name a role: `[[#setup]]`. An alias works too: `[[#Si la tour tombe|cette section]]`.
@@ -474,7 +479,8 @@ The reference CLI is `tabula`. Point it at a vault with `--vault PATH`, or set `
 | `tabula lookup GAME [TERM] [-p N] [-e …] [-v …] [-a] [-l CODE] [--json]` | show one glossary term or component, for use at the table. Case, accents, plurals and small typos are ignored, and partial names work. Filters apply inside the definition. A term from an extension that isn't turned on is still shown, marked "only with +name". The output ends with "see also" for the terms it refers to. When no term has the exact name, it also looks for a section by role or title (`tabula lookup frantic components`). Without a term, lists every term. |
 | `tabula export GAME [-p N] [-e …] [-v …] [-a] [-s SECTION…] [-k] [-l CODE] [-o FILE]` | write a self-contained HTML page with the same filtering as `show`: table of contents from the headings, glossary entries as cards, `[[references]]` as links with the definition as a tooltip, extension content highlighted, images embedded. Works offline, prints cleanly, and has a dark mode. The default file name describes the selection, e.g. `frantic-4p-supercharge.html`. `-k` exports the cheat sheet (`hearts-4p-key.html`). |
 | `tabula site [-o FOLDER]` | write the whole vault as a small website (default folder: `site/`): an `index.html` listing every game, with filters for player count, duration and tags and a search, and for each game a page per language (`index.html`, `index.fr.html`) with every extension and variant marked, plus a cheat sheet (`key.html`) when it has key rules. Works offline from the folder, or on any static host. The folder is replaced on every run, but only if `tabula site` made it. |
-| `tabula check [GAME…] [--strict] [-d]` | find mistakes: frontmatter, references that match nothing, invalid or never-applying conditions, undeclared variants, missing images, duplicate terms, leftover v0.3 syntax, translation problems. `-d`/`--definitions`: every component must also have a glossary definition. `--json`: the issues as JSON, with absolute paths. `--stdin`: check unsaved text for the one file given (used by editors) |
+| `tabula todo [GAME…] [--json]` | list the `<!-- TODO: … -->` and `FIXME` reminders, with file and line, translations included. |
+| `tabula check [GAME…] [--strict] [-d]` | find mistakes: frontmatter, references that match nothing, invalid or never-applying conditions, undeclared variants, missing images, duplicate terms, leftover v0.3 syntax, translation problems. Also warns about definitions nothing refers to, and counts TODO reminders (they never fail `--strict`). `-d`/`--definitions`: every component must also have a glossary definition. `--json`: the issues as JSON, with absolute paths. `--stdin`: check unsaved text for the one file given (used by editors) |
 
 Planned: `new`, PDF export, `cheatsheet`, `server`.
 

@@ -115,7 +115,7 @@ function toDiagnostics(issues) {
     const d = new vscode.Diagnostic(
       new vscode.Range(line, a, line, Math.max(b, a + 1)),
       i.message,
-      i.level === "error" ? vscode.DiagnosticSeverity.Error : vscode.DiagnosticSeverity.Warning
+      core.severity(i.level, vscode.DiagnosticSeverity)
     );
     d.source = "tabula";
     if (!byFile.has(i.path)) byFile.set(i.path, []);

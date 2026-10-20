@@ -51,6 +51,11 @@ function issueColumns(lineText, message) {
   return first < 0 ? [0, lineText.length] : [first, lineText.trimEnd().length];
 }
 
+/** VS Code severity for a tabula issue level: TODO reminders are information, not warnings. */
+function severity(level, S) {
+  return level === "error" ? S.Error : level === "todo" ? S.Information : S.Warning;
+}
+
 /** Search key used by tabula for references: case, accents and plurals ignored. */
 function fold(text) {
   const plain = text.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase();
@@ -312,6 +317,6 @@ function hoverText(text, name) {
 }
 
 module.exports = {
-  checkArgs, expand, parseCheckOutput, issueColumns, fold, outline, refAt, findTargets,
+  severity, checkArgs, expand, parseCheckOutput, issueColumns, fold, outline, refAt, findTargets,
   plainRefs, definitionBody, definitionMarkdown, completionContext, completions, hoverText,
 };

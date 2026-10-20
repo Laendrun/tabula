@@ -141,3 +141,9 @@ test("key sections and section links", () => {
   assert.match(scopesOf(l, "setup"), /entity.name.section.link/);
   assert.match(scopesOf(l, "this section"), /string.other.reference.shown/);
 });
+
+test("TODO stands out in comments", () => {
+  const l = tokenize("<!-- TODO: write the cards -->");
+  assert.match(scopesOf(l, "TODO"), /comment.block.*keyword.other.todo/);
+  assert.match(scopesOf(l, ": write the cards "), /comment.block/);
+});

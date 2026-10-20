@@ -6,6 +6,7 @@
   tabula cards GAME [-p N] [-e EXT] [--all] [--sort COLUMN]
   tabula lookup GAME [TERM] [-p N] [-e EXT] [-v VARIANT] [--all]
   tabula site [-o FOLDER]
+  tabula todo [GAME ...]
   tabula check [GAME ...] [--strict] [-d]
 
 GAME is a slug, a path to a .game file, or a game folder.
@@ -22,6 +23,7 @@ from .cards import cmd_cards
 from .check import cmd_check
 from .export import cmd_export
 from .site import cmd_site
+from .todo import cmd_todo
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="tabula", description="Tabula: board & card game rules in Markdown.")
@@ -98,6 +100,13 @@ def main(argv=None) -> int:
                    help="folder to write (default: ./site); replaced on every run, but only if tabula made it")
     p.add_argument("--vault", default=argparse.SUPPRESS)
     p.set_defaults(func=cmd_site)
+
+    p = sub.add_parser("todo", help="list the <!-- TODO: … --> reminders left in game files")
+    p.add_argument("games", nargs="*", help="games to look in (default: all)")
+    p.add_argument("--json", action="store_true")
+    p.add_argument("--no-color", action="store_true")
+    p.add_argument("--vault", default=argparse.SUPPRESS)
+    p.set_defaults(func=cmd_todo)
 
     p = sub.add_parser("check", help="find mistakes in game files")
     p.add_argument("games", nargs="*", help="games to check (default: all)")

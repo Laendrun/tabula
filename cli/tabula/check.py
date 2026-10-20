@@ -12,7 +12,7 @@ from .syntax import (
     IMAGE_RE, P_TOKEN, REF_RE, bounds, in_range, norm, parse_attrs, parse_choice, parse_cond,
     parse_range,
 )
-from .source import Issue, Issues, UNSAVED
+from .source import Issue, Issues, UNSAVED, find_todos
 from .blocks import Block, components_of, is_sep_row, player_columns, player_rows
 from .vault import Game, Vault, open_vault
 from .terminal import Style, find_section
@@ -21,7 +21,8 @@ from .cards import card_catalog
 STRUCTURAL_KEYS = ("players", "best_players", "duration", "age", "year", "cover")
 
 
-def check_game(game: Game, vault: Vault, require_defs: bool = False) -> Issues:
+def check_game(game: Game, vault: Vault, require_defs: bool = False,
+               unused: bool = True) -> Issues:
     iss = Issues()
     iss.extend(game.issues)
     path = game.body_path or game.path
@@ -236,6 +237,29 @@ def check_game(game: Game, vault: Vault, require_defs: bool = False) -> Issues:
         if norm(name) in known:
             iss.warn(path, ln, f"'[{name}]' has single brackets; write [[{name}]] to make it a reference")
     seen = set()
+    # ---- definitions nothing refers to (cards in a catalog are listed there, so they don't count)
+    if unused:
+        referenced = {norm(name) for name, _, _ in refs if not name.startswith("#")}
+        cards = {id(c["def"]) for c in card_catalog(game.blocks)}
+
+        def defs(blocks):
+            for b in blocks:
+                if b.kind == "def":
+                    yield b
+                    yield from defs(b.children)
+        reported = set()
+        for d in defs(game.blocks):
+            k = norm(d.term)
+            if id(d) in cards or k in referenced or k in reported or REF_RE.fullmatch(d.term):
+                continue
+            reported.add(k)
+            iss.warn(path, d.line, f"'{d.term}' is defined but nothing refers to it; link to it with [[{d.term}]] "
+                                   f"or remove it")
+
+    # ---- reminders left in the file
+    for ln, text in find_todos(path):
+        iss.todo(path, ln, f"TODO: {text}")
+
     for name, ln, raw in refs:
         if name.startswith("#"):
             if not find_section(game.blocks, name):
@@ -250,10 +274,11 @@ def check_game(game: Game, vault: Vault, require_defs: bool = False) -> Issues:
     return iss
 
 
-def check_translation(default: Game, tr: Game, vault: Vault, require_defs: bool = False) -> Issues:
+def check_translation(default: Game, tr: Game, vault: Vault, require_defs: bool = False,
+                      unused: bool = True) -> Issues:
     iss = Issues()
     tp = tr.body_path
-    for i in check_game(tr, vault, require_defs=require_defs):
+    for i in check_game(tr, vault, require_defs=require_defs, unused=unused):
         if Path(i.path) == tp and not i.msg.startswith(("cover image",)):
             iss.append(i)
     declared = tr.tr_meta.get("language")
@@ -297,6 +322,8 @@ def cmd_check(args) -> int:
         lvl = st.red("error  ") if i.level == "error" else st.yellow("warning")
         print(f"{indent}{lvl}  {loc}  {i.msg}")
 
+    tt = 0
+
     if not args.games:
         for i in vault.issues:
             show(i, "")
@@ -304,27 +331,39 @@ def cmd_check(args) -> int:
         tw += sum(i.level == "warning" for i in vault.issues)
     for p in paths:
         game, iss = check_all_languages(vault, p, args.definitions)
+        todos = [i for i in iss if i.level == "todo"]
+        iss = [i for i in iss if i.level != "todo"]
         e = sum(i.level == "error" for i in iss)
         w = len(iss) - e
-        te, tw = te + e, tw + w
+        te, tw, tt = te + e, tw + w, tt + len(todos)
         status = st.green("ok") if not iss else ", ".join(
             x for x in (st.red(f"{e} error(s)") if e else "", st.yellow(f"{w} warning(s)") if w else "") if x)
+        if todos:
+            status += st.dim(f"  ({len(todos)} TODO)")
         langs = f"  [{', '.join(game.languages)}]" if len(game.languages) > 1 else ""
         print(f"{st.bold(game.slug):<30} {status}{st.dim(langs)}")
         for i in iss:
             show(i)
-    print(f"\n{len(paths)} game(s), {te} error(s), {tw} warning(s)")
+    todo_note = f", {tt} TODO (tabula todo)" if tt else ""
+    print(f"\n{len(paths)} game(s), {te} error(s), {tw} warning(s){todo_note}")
     return 1 if te or (args.strict and tw) else 0
+
+
+def check_setting(vault: Vault, game: Game, key: str, default: bool) -> bool:
+    """A check option from the game's frontmatter, else vault.yaml's `check:`, else the default."""
+    if key in game.meta:
+        return bool(game.meta[key])
+    return bool((vault.config.get("check") or {}).get(key, default))
 
 
 def check_all_languages(vault: Vault, p: Path, definitions: bool) -> tuple[Game, list[Issue]]:
     game = vault.load(p)
-    req = bool(definitions or (vault.config.get("check") or {}).get("require_definitions")
-               or game.meta.get("require_definitions"))
-    iss = list(check_game(game, vault, require_defs=req))
+    req = definitions or check_setting(vault, game, "require_definitions", False)
+    unused = check_setting(vault, game, "unused_definitions", True)
+    iss = list(check_game(game, vault, require_defs=req, unused=unused))
     for lang in game.languages:
         if lang != game.default_language:
-            iss += check_translation(game, vault.load(p, lang), vault, require_defs=req)
+            iss += check_translation(game, vault.load(p, lang), vault, require_defs=req, unused=unused)
     iss.sort(key=lambda i: (str(i.path), i.line))
     return game, iss
 
@@ -343,4 +382,5 @@ def check_json(vault: Vault, paths: list[Path], args) -> int:
                       for i in found]}
     print(json.dumps(out, indent=2))
     errors = sum(i.level == "error" for i in found)
-    return 1 if errors or (args.strict and len(found) > errors) else 0
+    warnings = sum(i.level == "warning" for i in found)
+    return 1 if errors or (args.strict and warnings) else 0
