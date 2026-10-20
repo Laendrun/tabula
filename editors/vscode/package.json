@@ -5,12 +5,28 @@
   "version": "0.4.0",
   "publisher": "tabula-rules",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Laendrun/tabula",
+    "directory": "editors/vscode"
+  },
+  "homepage": "https://github.com/Laendrun/tabula/tree/main/editors/vscode#readme",
+  "bugs": {
+    "url": "https://github.com/Laendrun/tabula/issues"
+  },
   "engines": {
     "vscode": "^1.75.0"
   },
   "categories": [
     "Programming Languages",
     "Linters"
+  ],
+  "keywords": [
+    "tabula",
+    "board games",
+    "card games",
+    "rules",
+    "game rules"
   ],
   "main": "./src/extension.js",
   "activationEvents": [],
@@ -99,7 +115,7 @@
   },
   "scripts": {
     "test": "node --test test/*.test.js",
-    "package": "vsce package --skip-license --allow-missing-repository"
+    "package": "vsce package --skip-license"
   },
   "devDependencies": {
     "vscode-oniguruma": "^2.0.1",

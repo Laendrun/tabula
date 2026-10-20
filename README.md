@@ -47,7 +47,7 @@ Open `site/index.html` in a browser; it works offline. You can also put the fold
 
 ## Editor
 
-`editors/vscode/` is a VS Code extension: highlighting, `tabula check` while you type (squiggles and the Problems panel), an outline, and Ctrl+click on `[[references]]`. Download the `.vsix` from the *vscode-extension* artifact of the latest CI run (Actions tab) and install it with `code --install-extension tabula-game-files-<version>.vsix`. See [its README](editors/vscode/README.md) for the settings.
+`editors/vscode/` is a VS Code extension: highlighting, `tabula check` while you type (squiggles and the Problems panel), an outline, and Ctrl+click on `[[references]]`. Install it from the VS Code Marketplace ("Tabula Game Files"); VS Code keeps it up to date. See [its README](editors/vscode/README.md) for the settings.
 
 ## Code layout
 
