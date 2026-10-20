@@ -11,7 +11,7 @@ from .syntax import (
     parse_choice, parse_range, via_of,
 )
 from .blocks import Block, is_sep_row
-from .filtering import filter_blocks, section_names, select_sections
+from .filtering import filter_blocks, section_end, section_names, select_key, select_sections
 from .vault import Game, open_vault
 from .terminal import find_section, plain
 from .lookup import Entry, lookup_entries
@@ -23,21 +23,21 @@ UI = {
            "legend": "marks what the enabled extensions and variants add or change",
            "only_with": "only with {}", "by": "Design", "art": "Art", "publisher": "Publisher",
            "exported": "Exported with tabula {} on {}.", "players_n": "{} players",
-           "card": "card", "count": "count", "ext": "extension"},
+           "card": "card", "count": "count", "ext": "extension", "key": "key rules"},
     "fr": {"players": "joueurs", "best": "idéal à {}", "min": "min", "age": "{} ans et +", "toc": "Sommaire",
            "showing": "Affichage", "base": "jeu de base", "no_variants": "sans variante",
            "all": "toutes les extensions et variantes",
            "legend": "signale ce que les extensions et variantes activées ajoutent ou modifient",
            "only_with": "seulement avec {}", "by": "Auteurs", "art": "Illustrations", "publisher": "Éditeur",
            "exported": "Exporté avec tabula {} le {}.", "players_n": "{} joueurs",
-           "card": "carte", "count": "nombre", "ext": "extension"},
+           "card": "carte", "count": "nombre", "ext": "extension", "key": "règles clés"},
     "de": {"players": "Spieler", "best": "am besten zu {}", "min": "Min.", "age": "ab {}", "toc": "Inhalt",
            "showing": "Ansicht", "base": "Grundspiel", "no_variants": "ohne Varianten",
            "all": "alle Erweiterungen und Varianten",
            "legend": "markiert, was die aktiven Erweiterungen und Varianten hinzufügen oder ändern",
            "only_with": "nur mit {}", "by": "Autoren", "art": "Illustration", "publisher": "Verlag",
            "exported": "Exportiert mit tabula {} am {}.", "players_n": "{} Spieler",
-           "card": "Karte", "count": "Anzahl", "ext": "Erweiterung"},
+           "card": "Karte", "count": "Anzahl", "ext": "Erweiterung", "key": "Kernregeln"},
 }
 
 
@@ -174,10 +174,10 @@ def html_slug(text: str) -> str:
 
 
 class HtmlRenderer:
-    def __init__(self, game: Game, blocks: list[Block], ctx: Ctx):
+    def __init__(self, game: Game, blocks: list[Block], ctx: Ctx, key_only: bool = False):
         import html as _html
         self.esc = _html.escape
-        self.game, self.blocks, self.ctx = game, blocks, ctx
+        self.game, self.blocks, self.ctx, self.key_only = game, blocks, ctx, key_only
         self.lang = game.language if game.language in UI else game.language.split("-")[0]
         self.t = UI.get(self.lang, UI["en"])
         self.ids: set[str] = set()
@@ -351,9 +351,7 @@ class HtmlRenderer:
                 close_lists()
                 counters = {}
             if b.kind == "heading" and b.key:      # a key section: framed with everything under it
-                end = next((j for j in range(k + 1, len(blocks)) if blocks[j].kind == "heading"
-                            and blocks[j].level <= b.level
-                            and not (blocks[j].reopens and blocks[j].level == b.level)), len(blocks))
+                end = section_end(blocks, k)
                 out.append('<section class="key-section">' + self.block(b, in_card)
                            + self.render(blocks[k + 1:end], in_card) + "</section>")
                 k = end
@@ -482,7 +480,7 @@ class HtmlRenderer:
         if meta.get("cover") and (g.base_dir / str(meta["cover"])).exists():
             cover = f'<img class="cover" src="{esc(self.data_uri(str(meta["cover"])))}" alt="">'
 
-        sel = []
+        sel = [t["key"]] if self.key_only else []
         if ctx.players is not None:
             sel.append(t["players_n"].format(ctx.players))
         if ctx.everything:
@@ -551,7 +549,7 @@ class HtmlRenderer:
 """
 
 
-def export_name(game: Game, ctx: Ctx, sections) -> str:
+def export_name(game: Game, ctx: Ctx, sections, key: bool = False) -> str:
     parts = [game.slug]
     if ctx.players is not None:
         parts.append(f"{ctx.players}p")
@@ -560,6 +558,8 @@ def export_name(game: Game, ctx: Ctx, sections) -> str:
     parts += sorted(ctx.variants)
     if sections:
         parts += [html_slug(s) for s in sections]
+    if key:
+        parts.append("key")
     name = "-".join(parts)
     if game.language != game.default_language:
         name += f".{game.language}"
@@ -589,13 +589,20 @@ def cmd_export(args) -> int:
                   f"available: {', '.join(section_names(blocks)) or '(none)'}", file=sys.stderr)
             return 2
         blocks = picked
-    html_text = HtmlRenderer(game, blocks, ctx).page()
+    if args.key:
+        blocks = select_key(blocks)
+        if not blocks:
+            print(f"tabula: no key rules in {game.title} (mark them with '! ' or '## ! Title')", file=sys.stderr)
+            return 1
+    renderer = HtmlRenderer(game, blocks, ctx, key_only=args.key)
+    html_text = renderer.page(f" — {renderer.t['key']}" if args.key else "")
     if args.output == "-":
         sys.stdout.write(html_text)
         return 0
-    out = Path(args.output) if args.output else Path.cwd() / export_name(game, ctx, args.section)
+    name = export_name(game, ctx, args.section, key=args.key)
+    out = Path(args.output) if args.output else Path.cwd() / name
     if out.is_dir():
-        out = out / export_name(game, ctx, args.section)
+        out = out / name
     out.write_text(html_text, encoding="utf-8")
     print(f"wrote {out}")
     if any(i.level == "error" for i in game.issues):

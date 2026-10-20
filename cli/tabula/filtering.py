@@ -116,3 +116,63 @@ def filter_table(b: Block, ctx: Ctx) -> Block:
             cells = [cells[j] if j < len(cells) else "" for j in keep]
         rows.append((ln, cells))
     return Block("table", line=b.line, rows=rows, cond=b.cond, level=b.level)
+
+
+def section_end(blocks: list[Block], i: int) -> int:
+    """Index just past the section whose heading is blocks[i]: the next heading of the same or a higher
+    level, except a "---" that reopens this very section (it continues it)."""
+    level = blocks[i].level
+    return next((j for j in range(i + 1, len(blocks)) if blocks[j].kind == "heading"
+                 and blocks[j].level <= level and not (blocks[j].reopens and blocks[j].level == level)),
+                len(blocks))
+
+
+def is_key(b: Block) -> bool:
+    """A key rule: `! …` paragraph, `- ! …` item, or a definition containing one."""
+    return (b.kind == "key" or (b.kind == "item" and b.key)
+            or (b.kind == "def" and any(is_key(c) for c in b.children)))
+
+
+def select_key(blocks: list[Block]) -> list[Block]:
+    """Only the key rules and key sections (`## ! Title`, whole), with the headings above them for context."""
+    keep = [False] * len(blocks)
+    open_heads: list[int] = []          # indices of the headings we are under
+    i = 0
+    while i < len(blocks):
+        b = blocks[i]
+        if b.kind == "heading":
+            while open_heads and blocks[open_heads[-1]].level >= b.level:
+                open_heads.pop()
+            if b.reopens:          # "---": back under the section it reopens, shown with its own heading
+                orig = next((j for j in range(i - 1, -1, -1) if blocks[j].kind == "heading"
+                             and blocks[j].line == b.reopens and not blocks[j].reopens), None)
+                if orig is not None:
+                    open_heads.append(orig)
+                i += 1
+                continue
+            if b.key:
+                for h in open_heads:
+                    keep[h] = True
+                end = section_end(blocks, i)
+                for j in range(i, end):
+                    keep[j] = True
+                i = end
+                continue
+            open_heads.append(i)
+            i += 1
+            continue
+        if is_key(b):
+            for h in open_heads:
+                keep[h] = True
+            keep[i] = True
+            if b.kind == "item":           # what is nested under a key item belongs to it
+                j = i + 1
+                while j < len(blocks) and blocks[j].kind in ("item", "note", "table", "para", "key") \
+                        and blocks[j].level > b.level:
+                    keep[j] = True
+                    j += 1
+                i = j
+                continue
+        i += 1
+    return [b for b, k in zip(blocks, keep) if k]
+
