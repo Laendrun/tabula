@@ -5,13 +5,14 @@ import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 
-# Always test the tabula.py from this repo (cli/ or the root), never another installed
-# package with the same module name (e.g. tabula-py, the PDF table extractor).
+# Always test the tabula package from this repo (cli/tabula/), never another installed
+# package with the same name (e.g. tabula-py, the PDF table extractor).
 for candidate in (ROOT / "cli", ROOT):
-    if (candidate / "tabula.py").exists():
+    if (candidate / "tabula" / "__init__.py").exists():
         sys.path.insert(0, str(candidate))
         break
-sys.modules.pop("tabula", None)
+for name in [m for m in sys.modules if m == "tabula" or m.startswith("tabula.")]:
+    sys.modules.pop(name)
 import tabula  # noqa: E402
 
 if not hasattr(tabula, "Vault"):

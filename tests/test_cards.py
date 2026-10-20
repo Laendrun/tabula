@@ -99,3 +99,13 @@ def test_field_problems(check_body, body, expected):
 def test_no_warning_when_few_cards_have_a_field(check_body):
     body = "# C {#cards}\n\nA\n: points:: 1\n  a\n\nB\n: b\n\nC\n: c\n"
     assert check_body(body) == []
+
+
+def test_field_that_depends_on_a_variant(tmp_path, capsys):
+    v = game(tmp_path, "# Cartes {#cards}\n\nCurse\n: points:: {+points: 13}\n  type:: particulière\n  Injouable.\n",
+             meta="title: G\nplayers: 2-4\nvariants: [points]")
+    tabula.main(["--vault", str(v), "show", "g", "--no-color"])
+    out = capsys.readouterr().out
+    assert "points:" not in out and "type: particulière" in out
+    tabula.main(["--vault", str(v), "show", "g", "-v", "points", "--no-color"])
+    assert "points: 13" in capsys.readouterr().out
