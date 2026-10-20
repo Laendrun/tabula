@@ -33,6 +33,10 @@ tabula check -d                        # ...and require a glossary definition fo
 
 `examples/vault/` has four example games: `oh-my-socks` (fr), `hearts` (en + fr, with a variant), `stone-circle` (homemade, en + fr, team variant, image) and `crazy-eights` (standalone file).
 
+## Editor
+
+`editors/vscode/` is a VS Code extension: highlighting, `tabula check` while you type (squiggles and the Problems panel), an outline, and Ctrl+click on `[[references]]`. Install it with `code --install-extension editors/vscode/tabula-game-files-0.2.0.vsix`. See [its README](editors/vscode/README.md) for the settings.
+
 ## Tests
 
 ```sh

@@ -170,7 +170,15 @@ Une [[Super-Chaussette]] compte comme n'importe quelle [[série]].
   ```
 
   (or `require_definitions: true` in one game's frontmatter).
-- Renderers show the visible text, highlighted. The web view will later make it a link or tooltip.
+- Renderers show the visible text, highlighted. The HTML export makes it a link to the term, with its definition as a tooltip.
+
+**Links to a section** start with `#`: `[[#Si la tour tombe]]` points to the heading with that title, matched the same way (case, accents and plurals ignored). It can also name a role: `[[#setup]]`. An alias works too: `[[#Si la tour tombe|cette section]]`.
+
+```markdown
+Si la tour tombe pendant ton tour, voir [[#Si la tour tombe]].
+```
+
+`tabula show` writes it `→ Si la tour tombe`, and the HTML export makes it a link to the section. `tabula check` warns when no heading matches. If filtering hides the section (`## Si la tour tombe {2p}` with `-p 4`), the text is shown without a link.
 
 ---
 
@@ -320,6 +328,17 @@ A line, or a list item, that starts with `! ` is a **key rule**. Key rules are h
 - ! Seuls les effets des cartes gardées s'appliquent.
 ```
 
+**A key section** is a heading that starts with `!`. Use it when what matters is a whole procedure rather than one rule. Everything under the heading belongs to it, sub-sections included, until the next heading of the same or a higher level (or its `---`):
+
+```markdown
+## ! Si la tour tombe {2-4p}
+
+1. Arrêtez la partie.
+2. Celui qui l'a fait tomber perd.
+```
+
+The `!` can be combined with conditions and roles. `tabula show` marks the heading with ★, and the HTML export frames the whole section like a key rule.
+
 ### 8.4 Escaping
 
 Use `\[[`, `\{` and `\!` (at the start of a line) to write those characters literally. Curly braces that don't contain valid codes are shown as normal text. `tabula check` warns when they look like a broken condition.
@@ -452,7 +471,7 @@ The reference CLI is `tabula`. Point it at a vault with `--vault PATH`, or set `
 | `tabula cards GAME [-p N] [-e …] [-v …] [-a] [-l CODE] [--sort COLUMN] [--json]` | the card catalog (section 9.1): one row per card, counts from the component list for the current selection, and fields as columns |
 | `tabula lookup GAME [TERM] [-p N] [-e …] [-v …] [-a] [-l CODE] [--json]` | show one glossary term or component, for use at the table. Case, accents, plurals and small typos are ignored, and partial names work. Filters apply inside the definition. A term from an extension that isn't turned on is still shown, marked "only with +name". The output ends with "see also" for the terms it refers to. When no term has the exact name, it also looks for a section by role or title (`tabula lookup frantic components`). Without a term, lists every term. |
 | `tabula export GAME [-p N] [-e …] [-v …] [-a] [-s SECTION…] [-l CODE] [-o FILE]` | write a self-contained HTML page with the same filtering as `show`: table of contents from the headings, glossary entries as cards, `[[references]]` as links with the definition as a tooltip, extension content highlighted, images embedded. Works offline, prints cleanly, and has a dark mode. The default file name describes the selection, e.g. `frantic-4p-supercharge.html`. |
-| `tabula check [GAME…] [--strict] [-d]` | find mistakes: frontmatter, references that match nothing, invalid or never-applying conditions, undeclared variants, missing images, duplicate terms, leftover v0.3 syntax, translation problems. `-d`/`--definitions`: every component must also have a glossary definition |
+| `tabula check [GAME…] [--strict] [-d]` | find mistakes: frontmatter, references that match nothing, invalid or never-applying conditions, undeclared variants, missing images, duplicate terms, leftover v0.3 syntax, translation problems. `-d`/`--definitions`: every component must also have a glossary definition. `--json`: the issues as JSON, with absolute paths. `--stdin`: check unsaved text for the one file given (used by editors) |
 
 Planned: `new`, PDF export, `cheatsheet`, `server`.
 
@@ -480,6 +499,8 @@ Curse                                  card with fields
 | Joueurs | 3p | 4p |                  player table (or codes in the first column)
 extensions: [supercharge]              in frontmatter; then {+supercharge}
 ! key rule                             cheat-sheet line
+## ! Si la tour tombe                  key section (the whole section)
+[[#Si la tour tombe]]                  link to a section (by title, or a role: [[#setup]])
 <!-- comment -->                       hidden
 oh-my-socks.de.game                    translation
 ```

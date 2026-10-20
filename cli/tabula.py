@@ -30,7 +30,7 @@ try:
 except ImportError:  # pragma: no cover
     sys.exit("tabula needs PyYAML:  pip install pyyaml")
 
-__version__ = "0.6.0"
+__version__ = "0.7.0"
 
 # =========================================================================== syntax
 
@@ -222,8 +222,14 @@ class Issues(list):
 
 # =========================================================================== reading
 
+UNSAVED: dict[Path, str] = {}        # check --stdin: file contents from an editor, used instead of the disk
+
+
 def read_source(path: Path, issues: Issues) -> tuple[dict, list[tuple[int, str]]]:
-    text = path.read_text(encoding="utf-8").lstrip("\ufeff").replace("\r\n", "\n")
+    text = UNSAVED.get(Path(path).resolve())
+    if text is None:
+        text = path.read_text(encoding="utf-8")
+    text = text.lstrip("\ufeff").replace("\r\n", "\n")
     text = re.sub(r"<!--.*?-->", lambda m: "\n" * m.group(0).count("\n"), text, flags=re.S)
     if (i := text.find("<!--")) >= 0:
         issues.error(path, text.count("\n", 0, i) + 1, "unclosed comment '<!--' (missing '-->')")
@@ -326,9 +332,13 @@ def parse_blocks(lines: list[tuple[int, str]]) -> list[Block]:
             continue
         if m := HEADING_RE.match(t):
             title, cond, roles = m.group(2), None, []
+            key = title.startswith("!") and not title.startswith("![")       # "## ! Title": a key section
+            if key:
+                title = title[1:].lstrip()
             if (cm := HEADING_COND_RE.search(title)) and (attrs := parse_attrs(cm.group(1))):
                 (cond, roles), title = attrs, title[: cm.start()]
-            blocks.append(Block("heading", title.strip(), ln, level=len(m.group(1)), cond=cond, roles=roles))
+            blocks.append(Block("heading", title.strip(), ln, level=len(m.group(1)), cond=cond, roles=roles,
+                                key=key))
             while heads and heads[-1].level >= blocks[-1].level:
                 heads.pop()
             heads.append(blocks[-1])
@@ -761,8 +771,9 @@ ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 
 
 class Style:
-    def __init__(self, on: bool):
+    def __init__(self, on: bool, plain: bool = False):
         self.on = on
+        self.plain = plain        # bare text (JSON, matching): no arrows or other decorations
 
     def _w(self, code, s):
         return f"\x1b[{code}m{s}\x1b[0m" if self.on and s else s
@@ -823,9 +834,28 @@ def resolve_choices(text: str, ctx: Ctx, st: Style) -> str:
     return re.sub(r" ([.,])", r"\1", text).strip()
 
 
+def find_section(blocks: list[Block], name: str) -> Block | None:
+    """The heading a [[#Section]] link points to: by title (like any reference), else by role."""
+    want = name.lstrip("#").strip()
+    heads = [b for b in blocks if b.kind == "heading" and not b.reopens]
+    return (next((b for b in heads if fold(b.text) == fold(want)), None)
+            or next((b for b in heads if want.lower() in b.roles), None))
+
+
+def ref_text(m: re.Match, st: Style) -> str:
+    """How a [[reference]] reads in the terminal; [[#Section]] links get an arrow."""
+    name, alias = m.group(1).strip(), (m.group(2) or "").strip()
+    if not name.startswith("#"):
+        return st.cyan(alias or name)
+    title = name[1:].strip()
+    if st.plain:
+        return alias or title
+    return st.cyan(alias) + st.dim(f" (→ {title})") if alias else st.cyan("→ " + title)
+
+
 def render_inline(text: str, ctx: Ctx, st: Style) -> str:
     text = resolve_choices(text, ctx, st)
-    text = REF_RE.sub(lambda m: st.cyan((m.group(2) or m.group(1)).strip()), text)
+    text = REF_RE.sub(lambda m: ref_text(m, st), text)
     text = IMAGE_RE.sub(lambda m: st.dim(f"[image: {m.group(1) or m.group(2)}]"), text)
     text = LINK_RE.sub(lambda m: f"{m.group(1)} {st.dim('(' + m.group(2) + ')')}", text)
     text = re.sub(r"\*\*(.+?)\*\*", lambda m: st.bold(m.group(1)), text)
@@ -836,7 +866,7 @@ def render_inline(text: str, ctx: Ctx, st: Style) -> str:
 
 
 def plain(text: str, ctx: Ctx) -> str:
-    return render_inline(text, ctx, Style(False))
+    return render_inline(text, ctx, Style(False, plain=True))
 
 
 def render_blocks(blocks: list[Block], ctx: Ctx, st: Style, width: int) -> list[str]:
@@ -869,6 +899,8 @@ def render_blocks(blocks: list[Block], ctx: Ctx, st: Style, width: int) -> list[
         elif b.kind == "heading":
             if out and out[-1] != "":
                 out.append("")
+            if b.key:
+                txt = st.green("★ ") + txt
             if b.level == 1:
                 out.append(badge(b) + st.bold(st.yellow(txt.upper())))
                 out.append(st.dim("─" * min(width, max(vlen(txt), 3))))
@@ -980,6 +1012,8 @@ def block_json(b: Block, ctx: Ctx) -> dict:
         d["level"] = b.level
         if b.roles:
             d["roles"] = b.roles
+        if b.key:
+            d["key"] = True
     if b.kind == "table":
         d["player_table"] = player_columns(b) is not None
         d["rows"] = [[plain(re.sub(r"\x01.*?\x01", "", c), ctx) for c in cells] for _, cells in b.rows if not is_sep_row(cells)]
@@ -1041,6 +1075,7 @@ def cmd_show(args) -> int:
             "glossary": [{"term": b.term, "definition": [plain(k.text, ctx) for k in b.children if k.text]}
                          for b in blocks if b.kind == "def"],
             "key_rules": [plain(b.text, ctx) for b in blocks if b.kind == "key" or (b.kind == "item" and b.key)],
+            "key_sections": [plain(b.text, ctx) for b in blocks if b.kind == "heading" and b.key],
             "blocks": [block_json(b, ctx) for b in blocks],
         }, indent=2, ensure_ascii=False, default=str))
         return 0
@@ -1161,6 +1196,8 @@ def see_also(entry: Entry, entries: list[Entry]) -> list[str]:
 
     for t in texts(entry.blocks):
         for m in REF_RE.finditer(t or ""):
+            if m.group(1).strip().startswith("#"):
+                continue          # a link to a section, not a term
             name = known.get(fold(m.group(1)))
             if name and fold(name) != fold(entry.name) and name not in out:
                 out.append(name)
@@ -1606,6 +1643,11 @@ def check_game(game: Game, vault: Vault, require_defs: bool = False) -> Issues:
             iss.warn(path, ln, f"'[{name}]' has single brackets; write [[{name}]] to make it a reference")
     seen = set()
     for name, ln, raw in refs:
+        if name.startswith("#"):
+            if not find_section(game.blocks, name):
+                iss.warn(path, ln, f"{raw} matches no section (a heading titled '{name[1:].strip()}', "
+                                   f"or a role like #setup)")
+            continue
         k = norm(name)
         if k not in known and k not in seen:
             seen.add(k)
@@ -1645,8 +1687,14 @@ def rel(p: Path, vault: Vault) -> str:
 
 
 def cmd_check(args) -> int:
+    if args.stdin:
+        if len(args.games) != 1 or not Path(args.games[0]).is_file():
+            raise SystemExit("tabula: --stdin needs exactly one .game file (the file being edited)")
+        UNSAVED[Path(args.games[0]).resolve()] = sys.stdin.buffer.read().decode("utf-8", errors="replace")
     vault = open_vault(args.vault, args.games[0] if args.games else None)
     paths = [vault.find(g) for g in args.games] if args.games else vault.discover()
+    if args.json:
+        return check_json(vault, paths, args)
     st = Style(sys.stdout.isatty() and not os.environ.get("NO_COLOR") and not args.no_color)
     te = tw = 0
 
@@ -1661,14 +1709,7 @@ def cmd_check(args) -> int:
         te += sum(i.level == "error" for i in vault.issues)
         tw += sum(i.level == "warning" for i in vault.issues)
     for p in paths:
-        game = vault.load(p)
-        req = bool(args.definitions or (vault.config.get("check") or {}).get("require_definitions")
-                   or game.meta.get("require_definitions"))
-        iss = list(check_game(game, vault, require_defs=req))
-        for lang in game.languages:
-            if lang != game.default_language:
-                iss += check_translation(game, vault.load(p, lang), vault, require_defs=req)
-        iss.sort(key=lambda i: (str(i.path), i.line))
+        game, iss = check_all_languages(vault, p, args.definitions)
         e = sum(i.level == "error" for i in iss)
         w = len(iss) - e
         te, tw = te + e, tw + w
@@ -1680,6 +1721,35 @@ def cmd_check(args) -> int:
             show(i)
     print(f"\n{len(paths)} game(s), {te} error(s), {tw} warning(s)")
     return 1 if te or (args.strict and tw) else 0
+
+
+def check_all_languages(vault: Vault, p: Path, definitions: bool) -> tuple[Game, list[Issue]]:
+    game = vault.load(p)
+    req = bool(definitions or (vault.config.get("check") or {}).get("require_definitions")
+               or game.meta.get("require_definitions"))
+    iss = list(check_game(game, vault, require_defs=req))
+    for lang in game.languages:
+        if lang != game.default_language:
+            iss += check_translation(game, vault.load(p, lang), vault, require_defs=req)
+    iss.sort(key=lambda i: (str(i.path), i.line))
+    return game, iss
+
+
+def check_json(vault: Vault, paths: list[Path], args) -> int:
+    """check --json: every issue with an absolute path, for editors and scripts."""
+    found = list(vault.issues) if not args.games else []
+    files = []
+    for p in paths:
+        game, iss = check_all_languages(vault, p, args.definitions)
+        found += iss
+        files += [str(p.parent / (f"{game.slug}.game" if lang == game.default_language else f"{game.slug}.{lang}.game"))
+                  for lang in game.languages]
+    out = {"vault": str(vault.root), "files": files,
+           "issues": [{"path": str(Path(i.path).resolve()), "line": i.line, "level": i.level, "message": i.msg}
+                      for i in found]}
+    print(json.dumps(out, indent=2))
+    errors = sum(i.level == "error" for i in found)
+    return 1 if errors or (args.strict and len(found) > errors) else 0
 
 
 # =========================================================================== html export
@@ -1754,6 +1824,10 @@ ol>li::marker{font:600 .95em var(--sans);color:var(--muted)}
 p.key{font-weight:600;padding:.55rem .8rem;border-left:4px solid var(--key);background:var(--card);margin:1rem 0}
 p.key::before,li.key::before{content:"★ ";color:var(--open)}
 li.key{font-weight:600}
+.key-section{border-left:4px solid var(--key);background:var(--card);padding:.2rem 1rem .4rem;margin:1.4rem 0}
+.key-section>h2:first-child,.key-section>h3:first-child,.key-section>h4:first-child{margin-top:.6rem}
+h2.key::before,h3.key::before,h4.key::before,h5.key::before{content:"★ ";color:var(--open)}
+a.ref.section::before{content:"→ ";color:var(--muted)}
 aside.note{margin:.8rem 0 1rem;padding:.5rem .9rem;border-left:2px solid var(--rule);color:var(--muted);font-size:.95rem}
 aside.note p{margin:0}
 a{color:var(--term)}
@@ -1849,6 +1923,11 @@ class HtmlRenderer:
         shown = lookup_entries(blocks)
         self.anchor = {fold(e.name): ("t-" if e.kind == "definition" else "c-") + html_slug(e.name) for e in shown}
         self.tip = {k: self._tooltip(e) for k, e in self.entries.items()}
+        self.heading_ids: dict[int, str] = {}               # id(heading) -> its HTML id, for [[#Section]] links
+        for b in blocks:
+            if b.kind == "heading" and not b.reopens:
+                self.heading_ids[id(b)] = self.uid(
+                    b.roles[0] if b.roles else html_slug(plain(CHOICE_RE.sub("", b.text), ctx)))
         self.catalogs: dict[int, list[dict]] = {}          # id(#cards heading) -> its cards
         for c in card_catalog(blocks):
             if c["catalog"] is not None:
@@ -1909,7 +1988,7 @@ class HtmlRenderer:
 
         text = ESCAPE_RE.sub(lambda m: keep(self.esc(m.group(1))), text)
         text = CHOICE_RE.sub(lambda m: keep(self.choice(m)), text)
-        text = REF_RE.sub(lambda m: keep(self.ref(m.group(1).strip(), (m.group(2) or m.group(1)).strip())), text)
+        text = REF_RE.sub(lambda m: keep(self.ref(m.group(1).strip(), (m.group(2) or m.group(1).lstrip("#")).strip())), text)
         text = IMAGE_RE.sub(lambda m: keep(f'<img src="{self.esc(self.data_uri(m.group(2)))}" alt="{self.esc(m.group(1))}">'), text)
         text = LINK_RE.sub(lambda m: keep(self.link(m.group(1), m.group(2))), text)
         text = re.sub(r"`([^`]+)`", lambda m: keep(f"<code>{self.esc(m.group(1))}</code>"), text)
@@ -1944,6 +2023,11 @@ class HtmlRenderer:
         return next((self.inline(t) for _, t, star in remaining if star), "")
 
     def ref(self, name: str, shown: str) -> str:
+        if name.startswith("#"):
+            target = find_section(self.blocks, name)
+            if target is not None and id(target) in self.heading_ids:
+                return f'<a class="ref section" href="#{self.heading_ids[id(target)]}">{self.esc(shown)}</a>'
+            return f'<span class="ref section">{self.esc(shown)}</span>'      # not on this page
         k = fold(name)
         tip = self.tip.get(k, "")
         if k in self.anchor:
@@ -2002,6 +2086,14 @@ class HtmlRenderer:
             if not nested:
                 close_lists()
                 counters = {}
+            if b.kind == "heading" and b.key:      # a key section: framed with everything under it
+                end = next((j for j in range(k + 1, len(blocks)) if blocks[j].kind == "heading"
+                            and blocks[j].level <= b.level
+                            and not (blocks[j].reopens and blocks[j].level == b.level)), len(blocks))
+                out.append('<section class="key-section">' + self.block(b, in_card)
+                           + self.render(blocks[k + 1:end], in_card) + "</section>")
+                k = end
+                continue
             if b.kind == "def":
                 group = []
                 while k < len(blocks) and blocks[k].kind == "def":
@@ -2038,10 +2130,12 @@ class HtmlRenderer:
         if b.kind == "heading":
             level = min(6, b.level + (3 if in_card else 1))
             title = self.inline(b.text)
-            hid = self.uid(b.roles[0] if b.roles else html_slug(plain(CHOICE_RE.sub("", b.text), self.ctx)))
+            hid = self.heading_ids.get(id(b)) or self.uid(
+                b.roles[0] if b.roles else html_slug(plain(CHOICE_RE.sub("", b.text), self.ctx)))
             if not in_card and b.level <= 2:
                 self.toc.append((b.level, hid, title))
-            head = f'<h{level} id="{hid}">{self.badges(b)}{title}</h{level}>'
+            cls = ' class="key"' if b.key else ""
+            head = f'<h{level} id="{hid}"{cls}>{self.badges(b)}{title}</h{level}>'
             if not in_card and id(b) in self.catalogs:
                 head += self.catalog_table(self.catalogs[id(b)])
             return head
@@ -2317,6 +2411,9 @@ def main(argv=None) -> int:
     p = sub.add_parser("check", help="find mistakes in game files")
     p.add_argument("games", nargs="*", help="games to check (default: all)")
     p.add_argument("--strict", action="store_true", help="fail on warnings too")
+    p.add_argument("--json", action="store_true", help="print the issues as JSON (absolute paths)")
+    p.add_argument("--stdin", action="store_true",
+                   help="read the one GAME file given from standard input instead of the disk (for editors)")
     p.add_argument("-d", "--definitions", action="store_true",
                    help="every component must also have a glossary definition "
                         "(or set 'check: {require_definitions: true}' in vault.yaml)")

@@ -1,0 +1,382 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Tabula",
+  "scopeName": "source.tabula",
+  "fileTypes": [
+    "game"
+  ],
+  "patterns": [
+    {
+      "include": "#frontmatter"
+    },
+    {
+      "include": "#comment"
+    },
+    {
+      "include": "#fence"
+    },
+    {
+      "include": "#section-end"
+    },
+    {
+      "include": "#heading"
+    },
+    {
+      "include": "#table-row"
+    },
+    {
+      "include": "#field"
+    },
+    {
+      "include": "#definition-marker"
+    },
+    {
+      "include": "#list-item"
+    },
+    {
+      "include": "#quote"
+    },
+    {
+      "include": "#key-rule"
+    },
+    {
+      "include": "#inline"
+    }
+  ],
+  "repository": {
+    "frontmatter": {
+      "begin": "\\A(---)\\s*$",
+      "end": "^(---)\\s*$",
+      "beginCaptures": {
+        "1": {
+          "name": "punctuation.definition.frontmatter.tabula"
+        }
+      },
+      "endCaptures": {
+        "1": {
+          "name": "punctuation.definition.frontmatter.tabula"
+        }
+      },
+      "contentName": "meta.embedded.block.frontmatter.tabula",
+      "patterns": [
+        {
+          "include": "source.yaml"
+        }
+      ]
+    },
+    "comment": {
+      "begin": "<!--",
+      "end": "-->",
+      "name": "comment.block.html.tabula"
+    },
+    "fence": {
+      "begin": "^\\s*(```|~~~).*$",
+      "end": "^\\s*\\1\\s*$",
+      "name": "markup.fenced_code.block.tabula",
+      "contentName": "markup.raw.block.tabula"
+    },
+    "section-end": {
+      "match": "^-{3,}\\s*$",
+      "name": "keyword.control.section-end.tabula"
+    },
+    "heading": {
+      "begin": "^(#{1,6})\\s+(?:(!)(?!\\[)\\s*)?",
+      "end": "$",
+      "beginCaptures": {
+        "1": {
+          "name": "punctuation.definition.heading.tabula"
+        },
+        "2": {
+          "name": "keyword.other.key-rule.tabula"
+        }
+      },
+      "name": "markup.heading.tabula",
+      "contentName": "entity.name.section.tabula",
+      "patterns": [
+        {
+          "include": "#inline"
+        }
+      ]
+    },
+    "table-row": {
+      "begin": "^\\s*(?=\\|)",
+      "end": "$",
+      "name": "markup.table.tabula",
+      "patterns": [
+        {
+          "match": "\\|",
+          "name": "punctuation.separator.table.tabula"
+        },
+        {
+          "match": "(?<=\\|)\\s*:?-+:?\\s*(?=\\|)",
+          "name": "punctuation.separator.table.tabula"
+        },
+        {
+          "match": "(?<=\\|)\\s*!?\\d+(?:-\\d+|\\+)?(?:,\\d+(?:-\\d+|\\+)?)*p\\s*(?=\\|)",
+          "name": "constant.numeric.players.tabula"
+        },
+        {
+          "include": "#inline"
+        }
+      ]
+    },
+    "field": {
+      "match": "^(\\s*)(?:(:)(\\s+))?([^\\W\\d][\\w -]*?)(::)(?=\\s|$)",
+      "captures": {
+        "2": {
+          "name": "keyword.operator.definition.tabula"
+        },
+        "4": {
+          "name": "variable.other.field.tabula"
+        },
+        "5": {
+          "name": "punctuation.separator.field.tabula"
+        }
+      }
+    },
+    "definition-marker": {
+      "match": "^(:)(?=\\s|$)",
+      "captures": {
+        "1": {
+          "name": "keyword.operator.definition.tabula"
+        }
+      }
+    },
+    "list-item": {
+      "begin": "^\\s*([-*+]|\\d+[.)])\\s+(?:(!)\\s*)?",
+      "end": "$",
+      "beginCaptures": {
+        "1": {
+          "name": "punctuation.definition.list.begin.tabula"
+        },
+        "2": {
+          "name": "keyword.other.key-rule.tabula"
+        }
+      },
+      "patterns": [
+        {
+          "match": "\\b(\\d+(?:-\\d+)?\\s*[x×X])(?=\\s+[^\\[\\]\\n]*?\\[\\[)",
+          "name": "constant.numeric.quantity.tabula"
+        },
+        {
+          "include": "#inline"
+        }
+      ]
+    },
+    "quote": {
+      "begin": "^\\s*(>)",
+      "end": "$",
+      "beginCaptures": {
+        "1": {
+          "name": "punctuation.definition.quote.begin.tabula"
+        }
+      },
+      "name": "markup.quote.tabula",
+      "patterns": [
+        {
+          "include": "#inline"
+        }
+      ]
+    },
+    "key-rule": {
+      "begin": "^\\s*(!)(?!\\[)\\s*",
+      "end": "$",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.other.key-rule.tabula"
+        }
+      },
+      "name": "markup.bold.key-rule.tabula",
+      "patterns": [
+        {
+          "include": "#inline"
+        }
+      ]
+    },
+    "inline": {
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#escape"
+        },
+        {
+          "include": "#section-link"
+        },
+        {
+          "include": "#reference"
+        },
+        {
+          "include": "#braces"
+        },
+        {
+          "include": "#image"
+        },
+        {
+          "include": "#link"
+        },
+        {
+          "include": "#code"
+        },
+        {
+          "include": "#bold"
+        },
+        {
+          "include": "#italic"
+        }
+      ]
+    },
+    "escape": {
+      "match": "\\\\[\\\\{}\\[\\]*_`|!#]",
+      "name": "constant.character.escape.tabula"
+    },
+    "reference": {
+      "match": "(\\[\\[)([^\\]|\\n]+)(?:(\\|)([^\\]\\n]*))?(\\]\\])",
+      "captures": {
+        "1": {
+          "name": "punctuation.definition.reference.begin.tabula"
+        },
+        "2": {
+          "name": "entity.name.tag.reference.tabula"
+        },
+        "3": {
+          "name": "punctuation.separator.reference.tabula"
+        },
+        "4": {
+          "name": "string.other.reference.shown.tabula"
+        },
+        "5": {
+          "name": "punctuation.definition.reference.end.tabula"
+        }
+      }
+    },
+    "braces": {
+      "begin": "(?<!\\\\)(\\{)",
+      "end": "(\\})|$",
+      "beginCaptures": {
+        "1": {
+          "name": "punctuation.definition.condition.begin.tabula"
+        }
+      },
+      "endCaptures": {
+        "1": {
+          "name": "punctuation.definition.condition.end.tabula"
+        }
+      },
+      "name": "meta.condition.tabula",
+      "patterns": [
+        {
+          "match": "#[\\w-]+",
+          "name": "entity.other.attribute-name.role.tabula"
+        },
+        {
+          "match": "!?\\b\\d+(?:-\\d+|\\+)?(?:,\\d+(?:-\\d+|\\+)?)*p\\b",
+          "name": "constant.numeric.players.tabula"
+        },
+        {
+          "match": "(?<![\\w])[+-][\\p{L}\\w-]+",
+          "name": "keyword.control.option.tabula"
+        },
+        {
+          "match": "(?<=[{|]|\\|\\s|\\{\\s)\\s*\\*(?=\\s*:)",
+          "name": "keyword.control.otherwise.tabula"
+        },
+        {
+          "match": "[|:]",
+          "name": "punctuation.separator.choice.tabula"
+        },
+        {
+          "include": "#section-link"
+        },
+        {
+          "include": "#reference"
+        },
+        {
+          "include": "#code"
+        },
+        {
+          "include": "#bold"
+        },
+        {
+          "include": "#italic"
+        }
+      ]
+    },
+    "image": {
+      "match": "(!\\[)([^\\]]*)(\\]\\()([^)]+)(\\))",
+      "captures": {
+        "1": {
+          "name": "punctuation.definition.image.tabula"
+        },
+        "2": {
+          "name": "string.other.link.description.tabula"
+        },
+        "3": {
+          "name": "punctuation.definition.image.tabula"
+        },
+        "4": {
+          "name": "markup.underline.link.image.tabula"
+        },
+        "5": {
+          "name": "punctuation.definition.image.tabula"
+        }
+      }
+    },
+    "link": {
+      "match": "(?<!\\[)(\\[)([^\\[\\]]+)(\\]\\()([^)]+)(\\))",
+      "captures": {
+        "1": {
+          "name": "punctuation.definition.link.tabula"
+        },
+        "2": {
+          "name": "string.other.link.title.tabula"
+        },
+        "3": {
+          "name": "punctuation.definition.link.tabula"
+        },
+        "4": {
+          "name": "markup.underline.link.tabula"
+        },
+        "5": {
+          "name": "punctuation.definition.link.tabula"
+        }
+      }
+    },
+    "code": {
+      "match": "(`)[^`]+(`)",
+      "name": "markup.inline.raw.tabula"
+    },
+    "bold": {
+      "match": "(\\*\\*|__)(?=\\S)(.+?)(?<=\\S)\\1",
+      "name": "markup.bold.tabula"
+    },
+    "italic": {
+      "match": "(?<![\\w*])(\\*|_)(?=[^\\s*_])(.+?)(?<=[^\\s*_])\\1(?![\\w*])",
+      "name": "markup.italic.tabula"
+    },
+    "section-link": {
+      "match": "(\\[\\[)(#)([^\\]|\\n]+)(?:(\\|)([^\\]\\n]*))?(\\]\\])",
+      "captures": {
+        "1": {
+          "name": "punctuation.definition.reference.begin.tabula"
+        },
+        "2": {
+          "name": "punctuation.definition.section-link.tabula"
+        },
+        "3": {
+          "name": "entity.name.section.link.tabula markup.underline.link.tabula"
+        },
+        "4": {
+          "name": "punctuation.separator.reference.tabula"
+        },
+        "5": {
+          "name": "string.other.reference.shown.tabula"
+        },
+        "6": {
+          "name": "punctuation.definition.reference.end.tabula"
+        }
+      }
+    }
+  }
+}
