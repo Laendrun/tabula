@@ -15,15 +15,13 @@ Highlighting and live checks for Tabula `.game` files.
 
 The extension needs tabula 0.7 or newer on your computer. If `tabula --version` works in a terminal, there's nothing more to set up.
 
-Install **Tabula Game Files** from the Extensions panel (search "Tabula Game Files"), or:
+Get the `.vsix` from GitHub: **Actions** tab → a green *tests* run → **Artifacts** → *vscode-extension*. It downloads as a zip; unzip it to get `tabula-syntax-<version>.vsix`, then:
 
 ```
-code --install-extension Laendrun.tabula-syntax
+code --install-extension tabula-syntax-<version>.vsix
 ```
 
-VS Code then keeps it up to date by itself.
-
-To try a build that isn't published yet, take the `.vsix` from GitHub: **Actions** tab → a green *tests* run → **Artifacts** → *vscode-extension* (a zip with `tabula-syntax-<version>.vsix` inside), then `code --install-extension tabula-syntax-<version>.vsix`, or Extensions panel → `…` menu → *Install from VSIX…*.
+Or, from VS Code: Extensions panel → `…` menu → *Install from VSIX…*. Installing a newer `.vsix` the same way replaces the old version.
 
 The extension's ID is `Laendrun.tabula-syntax`. If you installed an earlier build, remove it first: `code --uninstall-extension tabula-rules.tabula-game-files` (or `tabula.tabula` for the very first ones).
 
@@ -57,15 +55,3 @@ npm test          # the logic and the grammar (with VS Code's own TextMate engin
 ```
 
 To try changes, open `editors/vscode` in VS Code and press F5. A second VS Code window opens with the extension loaded.
-
-## Releasing
-
-Bump `"version"` in `package.json` (e.g. `0.4.0` → `0.5.0`) in the pull request. When it's merged into `main` and the tests pass, CI publishes that version to the Marketplace, and VS Code updates everyone's copy within a few hours. Pushes that don't change the version publish nothing.
-
-### One-time setup
-
-1. **Publisher:** sign in at https://marketplace.visualstudio.com/manage with a Microsoft account and create a publisher whose ID is `Laendrun` (the `"publisher"` in `package.json`). If that ID is taken, pick another and change `"publisher"` to match; the extension's ID changes with it, so uninstall the old one once.
-2. **Token:** at https://dev.azure.com (same account), *User settings → Personal access tokens → New token*: organization **All accessible organizations**, scope **Marketplace → Manage**. Copy it.
-3. **Secret:** in the GitHub repo, *Settings → Secrets and variables → Actions → New repository secret*, named `VSCE_PAT`, with the token as its value.
-
-Without the secret, CI skips publishing (and says so). The token expires (one year at most), so renew it and update the secret when publishing starts failing with an authentication error.
