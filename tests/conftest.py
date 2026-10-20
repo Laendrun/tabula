@@ -4,12 +4,21 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
 
+# Always test the tabula.py from this repo (cli/ or the root), never another installed
+# package with the same module name (e.g. tabula-py, the PDF table extractor).
+for candidate in (ROOT / "cli", ROOT):
+    if (candidate / "tabula.py").exists():
+        sys.path.insert(0, str(candidate))
+        break
+sys.modules.pop("tabula", None)
 import tabula  # noqa: E402
 
+if not hasattr(tabula, "Vault"):
+    raise ImportError(f"imported the wrong 'tabula' module: {tabula.__file__}")
+
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "vault"
-EXAMPLES = ROOT / "vault"
+EXAMPLES = next(p for p in (ROOT / "examples" / "vault", ROOT / "vault") if p.exists())
 
 
 @pytest.fixture
