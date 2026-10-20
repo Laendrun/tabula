@@ -8,6 +8,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
-      - run: pip install pyyaml pytest
+      - run: pip install -e ".[test]"
       - run: pytest -q
-      - run: python tabuly.py --vault vault check
+      - run: tabula --vault vault check
