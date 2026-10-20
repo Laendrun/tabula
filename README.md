@@ -21,9 +21,19 @@ tabula show hearts -p 4 -v omnibus     # ...with a variant on
 tabula show frantic -p 4 -e pandora    # ...with an extension
 tabula show frantic --all              # every extension and variant, with badges
 tabula show hearts -l fr               # French version
+tabula show frantic -s glossary        # only one section (role or title)
 tabula show hearts --json              # parsed structure
 tabula check                           # find mistakes in every game and translation
 tabula check -d                        # ...and require a glossary definition for every component
 ```
 
 `vault/` has four example games: `oh-my-socks` (fr), `hearts` (en + fr, with a variant), `stone-circle` (homemade, en + fr, team variant, image) and `crazy-eights` (standalone file).
+
+## Tests
+
+```sh
+pip install pytest
+pytest                                 # runs tests/ against tests/fixtures and the example vault
+```
+
+`tests/fixtures/vault/kitchen-sink/` is a test game that uses every feature of the format. When you add a feature, add an example of it there and a test in `tests/`.

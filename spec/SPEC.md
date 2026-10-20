@@ -1,4 +1,4 @@
-# Tabula — specification v0.5 (draft)
+# Tabula — specification v0.6 (draft)
 
 A plain-text format for board, card, dice, dexterity, outdoor and homemade games. Each game is a single `.game` file: a game description and its rules, written in Markdown with three small additions.
 
@@ -357,11 +357,29 @@ Convention: keep the base rules first and readable, put each extension's new rul
 
 ---
 
-## 9. Ideas for later (not part of v0.5)
+## 9. Section roles
+
+Headings are written in the game's language, so tools can't rely on their text. A **role** tells tools what a section contains. Write it as `#name` in the heading's braces:
+
+```markdown
+# Matériel {#components}
+# Mise en place {#setup}
+# Glossaire {#glossary}
+## Cartes Puissance {+supercharge #cards}     ← a role and a condition together
+```
+
+Suggested roles: `components`, `goal`, `setup`, `play`, `scoring`, `end`, `glossary`, `cards`, `events`, `variants`, `notes`, `faq`. You can use your own names too. Roles are optional and a section can have several (`{#glossary #cards}`).
+
+Tools use roles to show part of a game. `tabula show frantic -s glossary` shows only the glossary, and `-s components -s setup` shows two sections. Filters still apply. `-s` also accepts a heading's title (`-s "fin de la partie"`), so it works on games without roles too. Later, roles will let tools build cheat sheets, card catalogs and a web view with a table of contents.
+
+---
+
+## 10. Ideas for later (not part of v0.6)
 
 These came up while designing. They'll be added once real games need them.
 
-- **Card catalogs:** per-type cards with a count, an effect and an icon (Cadeau ×9, Sauvetage ×9), rendered as a reference sheet.
+- **Card catalogs:** structured cards in a `{#cards}` section (count, effect, points, timing, extension), rendered as a printable reference sheet or a points table.
+- **Lookup:** `tabula lookup frantic "black hole"` shows one term (with fuzzy matching) and what it refers to, for use at the table.
 - **Extension files:** large extensions in their own file next to the game (e.g. `frantic/frantic+pandora.game`) that is merged into the base game when the extension is on.
 - **Extension metadata:** extensions that change the player count or duration (`extensions: {pandora: {players: 2-10}}`), or that require or exclude each other.
 - **Shared fragments:** one definition of "standard 52-card deck" included by many card games.
@@ -379,21 +397,21 @@ These came up while designing. They'll be added once real games need them.
 
 ---
 
-## 10. CLI (informative)
+## 11. CLI (informative)
 
 The reference CLI is `tabula`. Point it at a vault with `--vault PATH`, or set `$TABULA_VAULT`, or run it from inside the vault.
 
 | Command | What it does |
 |---|---|
 | `tabula list [-p N] [-l CODE]` | list games, optionally only those playable with N players |
-| `tabula show GAME [-p N] [-v VARIANT…] [-e EXTENSION…] [-a] [-l CODE] [--json]` | print a game, by default the base game (no extensions or variants), filtered by player count, extensions, variants and language. `-a`/`--all` shows every extension and variant with badges. `--json` prints the parsed structure. |
+| `tabula show GAME [-p N] [-v VARIANT…] [-e EXTENSION…] [-a] [-s SECTION…] [-l CODE] [--json]` | print a game, by default the base game (no extensions or variants), filtered by player count, extensions, variants and language. `-a`/`--all` shows every extension and variant with badges. `-s` shows only some sections (role or title). `--json` prints the parsed structure. |
 | `tabula check [GAME…] [--strict] [-d]` | find mistakes: frontmatter, references that match nothing, invalid or never-applying conditions, undeclared variants, missing images, duplicate terms, leftover v0.3 syntax, translation problems. `-d`/`--definitions`: every component must also have a glossary definition |
 
 Planned: `new`, `export --pdf`, `cheatsheet`, `server`.
 
 ---
 
-## 11. Cheat sheet
+## 12. Cheat sheet
 
 ```
 ---  frontmatter (YAML)  ---          title, players, variants, language…
@@ -405,6 +423,7 @@ Term                                   definition
   - indented lines continue it
 {2p} paragraph / - item {3-4p}         block condition (start or end of the line)
 ## Section {4p}   ## Variante {+quick} section condition
+# Glossaire {#glossary}                section role (tabula show GAME -s glossary)
 {3p: 17 | 4p: 13 | *: 10}              inline choice
 {-pandora} … / {+pandora} …            base rule / extension's replacement
 | Joueurs | 3p | 4p |                  player table (or codes in the first column)

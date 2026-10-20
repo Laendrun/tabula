@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""tabula — reference CLI for the Tabula game format (spec v0.5).
+"""tabula — reference CLI for the Tabula game format (spec v0.6).
 
   tabula list  [-p N] [-l CODE]
   tabula show  GAME [-p N] [-v VARIANT ...] [-l CODE] [--json]
@@ -25,7 +25,7 @@ try:
 except ImportError:  # pragma: no cover
     sys.exit("tabula needs PyYAML:  pip install pyyaml")
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 # =========================================================================== syntax
 
@@ -46,6 +46,9 @@ LANG_RE = re.compile(r"^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})?$")
 
 P_TOKEN = re.compile(r"^(!?)(\d+(?:-\d+|\+)?(?:,\d+(?:-\d+|\+)?)*)p$")
 V_TOKEN = re.compile(r"^([+-])([A-Za-z0-9][A-Za-z0-9_-]*)$")
+ROLE_TOKEN = re.compile(r"^#([A-Za-z][A-Za-z0-9_-]*)$")
+KNOWN_ROLES = ("components", "goal", "setup", "play", "scoring", "end", "glossary", "cards", "events",
+               "variants", "notes", "faq")
 CONDISH_RE = re.compile(r"(\d\s*p\b|^\s*[+!-]\w|\bp\s*=|^\s*\*\s*$)")
 
 
@@ -105,6 +108,20 @@ class Cond:
     @property
     def variants(self):
         return [v for k, _, v in self.tokens if k == "v"]
+
+
+def parse_attrs(s: str) -> tuple[Cond | None, list[str]] | None:
+    """Heading braces: '#glossary', '+supercharge #cards', '4p' -> (condition, roles); None if invalid."""
+    roles, rest = [], []
+    for t in s.split():
+        if m := ROLE_TOKEN.match(t):
+            roles.append(m.group(1).lower())
+        else:
+            rest.append(t)
+    if not rest:
+        return (None, roles) if roles else None
+    cond = parse_cond(" ".join(rest))
+    return (cond, roles) if cond else None
 
 
 def parse_cond(s: str) -> Cond | None:
@@ -245,6 +262,7 @@ class Block:
     start: int = 1            # ordered item: its number (a list continues from its first number)
     parent: str = ""          # component nested under another component
     via: tuple = ()           # filtered view: the enabled extensions/variants this block comes from
+    roles: list = field(default_factory=list)   # heading: section roles like "glossary", "components"
     tint: bool = False        # filtered view: nested under a block that comes from an extension
 
 
@@ -285,12 +303,10 @@ def parse_blocks(lines: list[tuple[int, str]]) -> list[Block]:
             blocks.append(Block("code", "\n".join(body), ln))
             continue
         if m := HEADING_RE.match(t):
-            title, cond = m.group(2), None
-            if cm := HEADING_COND_RE.search(title):
-                c = parse_cond(cm.group(1))
-                if c:
-                    cond, title = c, title[: cm.start()]
-            blocks.append(Block("heading", title.strip(), ln, level=len(m.group(1)), cond=cond))
+            title, cond, roles = m.group(2), None, []
+            if (cm := HEADING_COND_RE.search(title)) and (attrs := parse_attrs(cm.group(1))):
+                (cond, roles), title = attrs, title[: cm.start()]
+            blocks.append(Block("heading", title.strip(), ln, level=len(m.group(1)), cond=cond, roles=roles))
             i += 1
             continue
         if t.lstrip().startswith("|"):
@@ -477,6 +493,36 @@ def filter_blocks(blocks: list[Block], ctx: Ctx) -> list[Block]:
                 continue
         keep.append(b)
     return keep
+
+
+def section_names(blocks: list[Block]) -> list[str]:
+    out = []
+    for b in blocks:
+        if b.kind == "heading":
+            out += [f"#{r}" for r in b.roles] or [CHOICE_RE.sub("", b.text).strip()]
+    return out
+
+
+def select_sections(blocks: list[Block], names: list[str]) -> list[Block]:
+    """Keep only the sections whose role (#glossary) or heading title matches one of `names`."""
+    wanted = [n.lower().lstrip("#") for n in names]
+
+    def matches(b: Block) -> bool:
+        if any(r in wanted for r in b.roles):
+            return True
+        title = norm(re.sub(r"[^\w\s'-]", " ", plain(b.text, Ctx(everything=True))))
+        return any(title == norm(w) or title.startswith(norm(w) + " ") for w in wanted)
+
+    out, capture = [], None          # capture: level of the matched heading being copied
+    for b in blocks:
+        if b.kind == "heading":
+            if capture is not None and b.level <= capture:
+                capture = None
+            if capture is None and matches(b):
+                capture = b.level
+        if capture is not None:
+            out.append(b)
+    return out
 
 
 def player_columns(b: Block):
@@ -884,6 +930,8 @@ def block_json(b: Block, ctx: Ctx) -> dict:
         d["from"] = list(b.via)
     if b.kind == "heading":
         d["level"] = b.level
+        if b.roles:
+            d["roles"] = b.roles
     if b.kind == "table":
         d["player_table"] = player_columns(b) is not None
         d["rows"] = [[plain(re.sub(r"\x01.*?\x01", "", c), ctx) for c in cells] for _, cells in b.rows if not is_sep_row(cells)]
@@ -926,6 +974,14 @@ def cmd_show(args) -> int:
             return 2
 
     blocks = filter_blocks(game.blocks, ctx)
+    if args.section:
+        picked = select_sections(blocks, args.section)
+        if not picked:
+            avail = section_names(blocks)
+            print(f"tabula: no section {', '.join(args.section)} in {game.title}; "
+                  f"available: {', '.join(avail) or '(none)'}", file=sys.stderr)
+            return 2
+        blocks = picked
     if args.json:
         print(json.dumps({
             "slug": game.slug, "title": game.title, "path": str(game.body_path or game.path),
@@ -1120,6 +1176,10 @@ def check_game(game: Game, vault: Vault, require_defs: bool = False) -> Issues:
             if b.cond:
                 check_cond(b.cond, b.line)
             if b.kind == "heading":
+                if (cm := HEADING_COND_RE.search(b.text)) and not parse_attrs(cm.group(1)):
+                    iss.error(path, b.line, f"invalid heading attributes '{{{cm.group(1)}}}' (roles look like "
+                                            f"#glossary, conditions like 2p or +name)")
+                    continue
                 check_text(b.text, b.line)
             elif b.kind in ("para", "item", "note", "key"):
                 src = b.src or [(b.line, b.text)]
@@ -1279,6 +1339,8 @@ def main(argv=None) -> int:
     p.add_argument("-a", "--all", action="store_true",
                    help="show every extension and variant, marked with badges (default: base game only)")
     p.add_argument("-l", "--lang", help="language (falls back to the default language)")
+    p.add_argument("-s", "--section", action="append", metavar="NAME",
+                   help="only this section: a role like 'glossary' or 'components', or a heading title (repeatable)")
     p.add_argument("--json", action="store_true", help="print the parsed structure as JSON")
     p.add_argument("--no-color", action="store_true")
     p.add_argument("--vault", default=argparse.SUPPRESS)

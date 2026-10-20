@@ -1,0 +1,97 @@
+---
+title: Kitchen Sink
+players: 2-5
+best_players: 4
+duration: 20-40
+age: 8
+type: [card]
+cover: media/box.png
+variants:
+  quick: "Shorter game"
+extensions:
+  expo: "The expansion"
+---
+
+<!-- A test game that uses every feature of the format.
+     Every line has a unique marker word (ALPHA, BRAVO…) so tests can look for it. -->
+
+# Components {#components}
+
+- 60x [[card]] — ALPHA
+  - 40x [[number card]]
+  - 20x [[action card]]
+- 1x [[board]] — BRAVO {4+p}
+- {+expo} 10x [[expo card]] — CHARLIE
+  - 4x [[rocket]]
+  - 6x [[comet]]
+
+![The box](media/box.png)
+
+# Setup {#setup}
+
+1. Shuffle the [[cards]]. DELTA
+2. Deal {2p: 9 | 3-4p: 7 | *: 5} cards to each player. ECHO
+3. {+expo} Shuffle in the [[expo cards]]. FOXTROT
+4. {2p} Remove the [[action cards]]. GOLF
+5. Place the [[board]] in the middle. HOTEL {4+p}
+6. Agree on a target score:
+  | Players | short | long |
+  |---------|-------|------|
+  | 2-3p    | 50    | 80   |
+  | 4-5p    | 40    | 60   |
+
+  INDIA, attached to the target-score step.
+7. JULIET is the last step.
+
+| Hand size | 2p | 3p | 4-5p |
+|-----------|----|----|------|
+| Cards     | 9  | 7  | 5    |
+| {+quick} Quick hand | 6 | 5 | 4 |
+
+## Two-player rules {2p}
+
+KILO only for two players.
+
+## Expansion setup {+expo}
+
+LIMA only with the expansion.
+
+# Play {#play}
+
+! MIKE is a key rule.
+
+- {-quick} NOVEMBER without the quick variant.
+- {+quick} OSCAR with the quick variant.
+- PAPA has a nested note:
+  > QUEBEC is the note.
+- A [[comet]] shows up in ROMEO.
+
+{3-5p} SIERRA for three to five players.
+
+TANGO is written with \{escaped\} braces and a \[[literal]] bracket.
+
+```
+UNIFORM is code: {2p} [[not a ref]]
+```
+
+# Glossary {#glossary}
+
+Card
+: The basic piece. VICTOR
+
+Number card
+:
+  - WHISKEY first point
+    - XRAY nested point
+  > YANKEE note inside a definition.
+
+{+expo} Rocket
+: ZULU rocket text.
+
+Comet {+expo}
+: COMET-TEXT with a [[rocket]] reference.
+  ## Comet details
+  AFTER-HEADING text in the definition.
+
+Action card
+: ACTION-TEXT {+quick: (quick) | *: (normal)}.
