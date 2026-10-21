@@ -9,10 +9,11 @@ from pathlib import Path
 from ._version import __version__
 from .syntax import (
     CHOICE_RE, Ctx, ESCAPE_RE, IMAGE_RE, LINK_RE, REF_RE, cond_ok, fold, in_range, open_label,
-    Cond, parse_choice, parse_cond, parse_range, via_of,
+    Cond, parse_choice, parse_cond, parse_range, split_lang, via_of,
 )
 from .blocks import Block, components_of, is_sep_row, player_columns, player_rows
 from .filtering import filter_blocks, section_end, section_names, select_key, select_sections
+from .source import UNSAVED
 from .vault import Game, open_vault
 from .terminal import find_section, plain
 from .lookup import Entry, lookup_entries
@@ -270,7 +271,14 @@ FILTER_JS = r"""
     var h = [];
     if (S.p !== null) h.push('p=' + S.p);
     if (!S.all) h.push('o=' + Object.keys(S.o).filter(function (k) { return S.o[k]; }).join(','));
-    history.replaceState(null, '', h.length ? '#' + h.join('&') : location.pathname + location.search);
+    var state = h.length ? '#' + h.join('&') : '';
+    if (window.tabulaVscode) {           // in the VS Code preview: keep the choice across refreshes
+      var api = window.tabulaVscode, saved = api.getState() || {};
+      saved.hash = state;
+      api.setState(saved);
+    } else {
+      history.replaceState(null, '', state || location.pathname + location.search);
+    }
   }
   function read() {
     S.p = sel && sel.value ? parseInt(sel.value, 10) : null;
@@ -280,9 +288,10 @@ FILTER_JS = r"""
     apply();
   }
   // the choice lives in the address (#p=4&o=pandora,points), so a link opens the same view
-  function fromHash() {
-    var m = location.hash.match(/^#((?:p|o)=[^#]*)$/);
-    if (!m && location.hash) return false;            // an anchor (#t-card): keep the current choice
+  function fromHash(given) {
+    var hash = given === undefined ? location.hash : given;
+    var m = hash.match(/^#((?:p|o)=[^#]*)$/);
+    if (!m && hash) return false;                     // an anchor (#t-card): keep the current choice
     if (sel) sel.value = '';
     if (all) all.checked = true;
     boxes.forEach(function (b) { b.checked = false; });
@@ -299,7 +308,8 @@ FILTER_JS = r"""
   }
   bar.addEventListener('change', read);
   window.addEventListener('hashchange', function () { if (fromHash()) read(); });
-  fromHash();
+  var saved = window.tabulaVscode && (window.tabulaVscode.getState() || {}).hash;
+  fromHash(saved !== undefined && saved !== null ? saved : undefined);
   read();
 })();
 """
@@ -821,8 +831,17 @@ def export_name(game: Game, ctx: Ctx, sections, key: bool = False) -> str:
 
 
 def cmd_export(args) -> int:
+    if args.stdin:                 # an editor's unsaved text for this file (the VS Code preview)
+        if not Path(args.game).is_file():
+            raise SystemExit("tabula: --stdin needs the path of the .game file being edited")
+        UNSAVED[Path(args.game).resolve()] = sys.stdin.buffer.read().decode("utf-8", errors="replace")
+    lang = args.lang
+    if lang is None and Path(args.game).is_file():
+        lang = split_lang(Path(args.game).stem)[1]      # slug.fr.game: the French version
     vault = open_vault(args.vault, args.game)
-    game = vault.load(vault.find(args.game), args.lang)
+    game = vault.load(vault.find(args.game), lang)
+    if args.interactive:           # the site's page: everything, with the filter bar
+        args.players, args.variant, args.ext, args.all = None, None, None, True
     if args.all and (args.ext or args.variant):
         print("tabula: --all already shows every extension and variant; drop either --all or -e/-v", file=sys.stderr)
         return 2
@@ -848,7 +867,7 @@ def cmd_export(args) -> int:
         if not blocks:
             print(f"tabula: no key rules in {game.title} (mark them with '! ' or '## ! Title')", file=sys.stderr)
             return 1
-    renderer = HtmlRenderer(game, blocks, ctx, key_only=args.key)
+    renderer = HtmlRenderer(game, blocks, ctx, key_only=args.key, interactive=args.interactive)
     html_text = renderer.page(f" — {renderer.t['key']}" if args.key else "")
     if args.output == "-":
         sys.stdout.write(html_text)

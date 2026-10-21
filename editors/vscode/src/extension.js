@@ -40,7 +40,7 @@ function isGame(doc) {
  * Start tabula. Returns { child, done }: `done` resolves with the parsed JSON, or null when tabula
  * couldn't run, failed, or was cancelled (the reason goes to the Output panel).
  */
-function runTabula(args, cfg, input) {
+function runTabula(args, cfg, input, raw = false) {
   let child;
   try {
     child = cp.spawn(cfg.command, args, { cwd: cfg.cwd, env: { ...process.env, NO_COLOR: "1", PYTHONIOENCODING: "utf-8" } });
@@ -62,6 +62,7 @@ function runTabula(args, cfg, input) {
     });
     child.on("close", (code, signal) => {
       if (signal || failed) return resolve(null);          // cancelled by a newer check, or couldn't start
+      if (raw) return resolve({ code, out, err });          // the preview: the page itself, or why it failed
       try {
         resolve(core.parseCheckOutput(out));
       } catch (e) {
@@ -271,7 +272,8 @@ const definitionProvider = {
       const lines = core.findTargets(text, ref.name);
       if (lines.length) return lines.map((l) => new vscode.Location(vscode.Uri.file(f), new vscode.Position(l, 0)));
     }
-    return null;
+    const inFragments = fragmentTargets(doc, ref.name);
+    return inFragments.length ? inFragments : null;
   },
 };
 
@@ -329,6 +331,30 @@ function readText(file) {
   }
 }
 
+/** The document with its `![[fragment]]` lines replaced by what they include. */
+function expandedText(doc) {
+  return core.expandIncludes(doc.getText(), (name) => {
+    const file = fragmentFile(doc.uri.fsPath, name);
+    return file ? readText(file) : null;
+  });
+}
+
+/** Terms defined in the fragments a document includes: their locations in the fragment files. */
+function fragmentTargets(doc, name) {
+  const out = [];
+  const seen = new Set();
+  for (const line of doc.getText().split(/\r?\n/)) {
+    const inc = core.includeAt(line, line.indexOf("!"));
+    if (!inc) continue;
+    const file = fragmentFile(doc.uri.fsPath, inc.name);
+    if (!file || seen.has(file)) continue;
+    seen.add(file);
+    const text = readText(file) || "";
+    for (const l of core.findTargets(text, name)) out.push(new vscode.Location(vscode.Uri.file(file), new vscode.Position(l, 0)));
+  }
+  return out;
+}
+
 function includeCompletions(doc, pos, ctx) {
   const range = new vscode.Range(pos.line, ctx.start, pos.line, pos.character);
   const end = ctx.closed ? "" : "]]";
@@ -356,7 +382,7 @@ const completionProvider = {
     if (inc) return includeCompletions(doc, pos, inc);
     const ctx = core.completionContext(doc.lineAt(pos.line).text, pos.character);
     if (!ctx) return undefined;
-    const all = core.completions(doc.getText());
+    const all = core.completions(expandedText(doc));
     const list = ctx.section ? all.sections : all.terms;
     const range = new vscode.Range(pos.line, ctx.start, pos.line, pos.character);
     return list.map((x, i) => {
@@ -385,7 +411,7 @@ const hoverProvider = {
     }
     const ref = core.refAt(doc.lineAt(pos.line).text, pos.character);
     if (!ref) return null;
-    let text = core.hoverText(doc.getText(), ref.name);
+    let text = core.hoverText(expandedText(doc), ref.name);
     // in a translation, terms may only be defined in the default-language file
     const m = path.basename(doc.uri.fsPath).match(/^(.*)\.([a-z]{2}(?:-[A-Za-z]{2})?)\.game$/);
     if (!text && m) {
@@ -400,6 +426,78 @@ const hoverProvider = {
     return new vscode.Hover(new vscode.MarkdownString(text), range);
   },
 };
+
+// ------------------------------------------------------------------ preview
+
+let preview = null;              // { panel, doc, child, timer }
+
+function previewDocument(doc) {
+  if (!preview || !isGame(doc)) return;
+  preview.doc = doc;
+  preview.panel.title = `Preview: ${path.basename(doc.uri.fsPath)}`;
+  if (path.basename(path.dirname(doc.uri.fsPath)) === "_shared") {
+    preview.panel.webview.html = message("A shared fragment is shown in the games that include it (open one of them).");
+    return;
+  }
+  const cfg = settings(doc.uri);
+  if (preview.child && preview.child.exitCode === null) preview.child.kill();
+  const args = [...cfg.extraArgs, ...(cfg.vault ? ["--vault", cfg.vault] : []),
+                "export", doc.uri.fsPath, "--interactive", "--stdin", "-o", "-"];
+  const { child, done } = runTabula(args, cfg, doc.getText(), true);
+  preview.child = child;
+  done.then((r) => {
+    if (!preview || preview.child !== child || !r) return;
+    if (r.code !== 0) {
+      preview.panel.webview.html = message(`tabula couldn't render this file:\n\n${(r.err || r.out).trim()}`);
+      return;
+    }
+    const nonce = Array.from({ length: 24 }, () => Math.floor(Math.random() * 36).toString(36)).join("");
+    preview.panel.webview.html = core.previewHtml(r.out, nonce, preview.panel.webview.cspSource);
+  });
+}
+
+function message(text) {
+  const esc = text.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  return `<!doctype html><html><body style="font-family:sans-serif;padding:2rem;white-space:pre-wrap">${esc}</body></html>`;
+}
+
+function schedulePreview(doc, delay) {
+  if (!preview || !isGame(doc) || (preview.doc && doc.uri.toString() !== preview.doc.uri.toString())) return;
+  clearTimeout(preview.timer);
+  preview.timer = setTimeout(() => previewDocument(doc), delay);
+}
+
+function openPreview() {
+  const ed = vscode.window.activeTextEditor;
+  if (!ed || !isGame(ed.document)) {
+    vscode.window.showInformationMessage("Tabula: open a .game file to preview it.");
+    return;
+  }
+  if (preview) {
+    preview.panel.reveal(vscode.ViewColumn.Beside, true);
+    previewDocument(ed.document);
+    return;
+  }
+  const panel = vscode.window.createWebviewPanel("tabulaPreview", "Preview", { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
+                                                 { enableScripts: true, localResourceRoots: [] });
+  preview = { panel, doc: null, child: null, timer: null };
+  panel.onDidDispose(() => {
+    if (preview && preview.child && preview.child.exitCode === null) preview.child.kill();
+    preview = null;
+  });
+  panel.webview.onDidReceiveMessage((msg) => {
+    const target = msg && msg.open ? core.previewLink(msg.open) : null;
+    if (!target) return;
+    if (target.url) vscode.env.openExternal(vscode.Uri.parse(target.url));
+    if (target.game && preview && preview.doc) {
+      const root = vaultRoot(preview.doc.uri.fsPath);
+      const file = [path.join(root, target.game, `${target.game}.game`), path.join(root, `${target.game}.game`)]
+        .find((f) => fs.existsSync(f));
+      if (file) vscode.window.showTextDocument(vscode.Uri.file(file), { viewColumn: vscode.ViewColumn.One });
+    }
+  });
+  previewDocument(ed.document);
+}
 
 // ------------------------------------------------------------------ activation
 
@@ -416,15 +514,18 @@ function activate(context) {
     vscode.languages.registerCompletionItemProvider(sel, completionProvider, "[", "#"),
     vscode.languages.registerHoverProvider(sel, hoverProvider),
     vscode.commands.registerCommand("tabula.checkVault", checkVault),
+    vscode.commands.registerCommand("tabula.openPreview", openPreview),
+    vscode.window.onDidChangeActiveTextEditor((ed) => { if (ed && preview && isGame(ed.document)) previewDocument(ed.document); }),
     vscode.commands.registerCommand("tabula.checkFile", () => {
       const ed = vscode.window.activeTextEditor;
       if (ed) checkDocument(ed.document);
     }),
     vscode.workspace.onDidOpenTextDocument((doc) => schedule(doc, 0)),
-    vscode.workspace.onDidSaveTextDocument((doc) => schedule(doc, 0)),
+    vscode.workspace.onDidSaveTextDocument((doc) => { schedule(doc, 0); schedulePreview(doc, 0); }),
     vscode.workspace.onDidChangeTextDocument((e) => {
       const cfg = settings(e.document.uri);
       if (cfg.run === "onType" && e.contentChanges.length) schedule(e.document, cfg.delay);
+      if (e.contentChanges.length) schedulePreview(e.document, cfg.delay);
     }),
     vscode.workspace.onDidCloseTextDocument((doc) => {
       const key = doc.uri.toString();

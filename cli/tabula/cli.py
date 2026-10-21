@@ -93,7 +93,11 @@ def main(argv=None) -> int:
     p.add_argument("-a", "--all", action="store_true", help="every extension and variant, with badges")
     p.add_argument("-s", "--section", action="append", metavar="NAME", help="only some sections (repeatable)")
     p.add_argument("-k", "--key", action="store_true", help="only the key rules and key sections: a cheat sheet")
-    p.add_argument("-l", "--lang", help="language")
+    p.add_argument("-i", "--interactive", action="store_true",
+                   help="everything, with a bar to choose players and extensions in the page (like tabula site)")
+    p.add_argument("--stdin", action="store_true",
+                   help="read the .game file given from standard input instead of the disk (for editors)")
+    p.add_argument("-l", "--lang", help="language (default: the game's; slug.fr.game gives fr)")
     p.add_argument("-o", "--output", help="file or folder to write (default: a name like frantic-4p-supercharge.html "
                                           "in the current folder; '-' for standard output)")
     p.add_argument("--vault", default=argparse.SUPPRESS)
