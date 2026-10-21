@@ -725,7 +725,7 @@ function symbolContext(lineText, column) {
 
 /** The :name: under the cursor: { name, start, end }, or null. */
 function symbolAt(lineText, column) {
-  for (const m of lineText.matchAll(/(?<![\p{L}_:\\/]):([A-Za-z0-9][\w+-]*):(?![\w:/])/gu)) {
+  for (const m of lineText.matchAll(/(?<![\p{L}_:\\/]):([A-Za-z][\w+-]*):(?![\w:/])/gu)) {
     if (column >= m.index && column <= m.index + m[0].length) return { name: m[1], start: m.index, end: m.index + m[0].length };
   }
   return null;
