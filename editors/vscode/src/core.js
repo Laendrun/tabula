@@ -80,12 +80,8 @@ const COMPONENT = /^\s*[-*+]\s+(?:\{[^{}]*\}\s*)?(\d+(?:-\d+)?)\s*[x×X]\s+[^\[\
 const END_MARK = /^-{3,}\s*$/;
 const DEF_LINE = /^:(\s|$)/;
 
-/**
- * Outline of a .game file: headings (with their end line), definitions and components.
- * Lines are 0-based. Skips the frontmatter, code blocks and comments.
- */
-function outline(text) {
-  const lines = text.replace(/\r\n?/g, "\n").split("\n");
+/** Lines that aren't rules text: the frontmatter, code blocks and comments (true = skip). */
+function skippedLines(lines) {
   const skip = new Array(lines.length).fill(false);
   let i = 0;
   if (lines[0] !== undefined && lines[0].trim() === "---") {
@@ -118,7 +114,16 @@ function outline(text) {
       skip[k] = true;
     }
   }
+  return skip;
+}
 
+/**
+ * Outline of a .game file: headings (with their end line), definitions and components.
+ * Lines are 0-based. Skips the frontmatter, code blocks and comments.
+ */
+function outline(text) {
+  const lines = text.replace(/\r\n?/g, "\n").split("\n");
+  const skip = skippedLines(lines);
   const headings = [];
   const definitions = [];
   const components = [];
@@ -429,9 +434,192 @@ function previewLink(href) {
   return m ? { game: m[1] } : null;
 }
 
+// ------------------------------------------------------------------ rename (F2)
+
+const REF_ALL = /(?<!\\)\[\[([^\[\]|\n]+?)(?:\|([^\[\]\n]+?))?\]\]/g;
+const BAD_NAME = /[\[\]{}|\n]|^\s*$/;
+
+/** A reference rewritten for a renamed term or section: alias, case and plurals of the old text are kept. */
+function renamedRef(name, alias, oldName, newName, prefix) {
+  if (alias !== undefined) return `[[${prefix}${newName}|${alias}]]`;
+  if (name === oldName) return `[[${prefix}${newName}]]`;
+  if (name.toLowerCase() === oldName.toLowerCase()) {          // "[[bateau]]" for the term "Bateau"
+    const first = name[0] === name[0].toLowerCase() ? newName[0].toLowerCase() : newName[0].toUpperCase();
+    return `[[${prefix}${first}${newName.slice(1)}]]`;
+  }
+  return `[[${prefix}${newName}|${name}]]`;                     // "[[bateaux]]": the text stays as written
+}
+
+/**
+ * What F2 renames at a position: a [[reference]], a glossary term, a component, or a heading.
+ * Returns { kind: "term" | "section", name, start, end } (the range of the name on that line), or throws.
+ */
+function renameTarget(text, line, column) {
+  const lines = text.replace(/\r\n?/g, "\n").split("\n");
+  const lt = lines[line] || "";
+  const o = outline(text);
+  const ref = refAt(lt, column);
+  if (ref) {
+    const at = lt.indexOf(ref.name, ref.start);
+    if (ref.name.startsWith("#")) {
+      const want = fold(ref.name.slice(1));
+      const h = o.headings.find((x) => fold(x.title) === want);
+      if (!h) throw new Error(`${lt.slice(ref.start, ref.end)} links to a role or to no heading: nothing to rename`);
+      return { kind: "section", name: h.title, start: at + 1, end: at + ref.name.length };
+    }
+    const def = o.definitions.find((x) => fold(x.term) === fold(ref.name));
+    return { kind: "term", name: ref.name, placeholder: def ? def.term : ref.name, start: at, end: at + ref.name.length };
+  }
+  const d = o.definitions.find((x) => x.line === line);
+  if (d) {
+    const at = lt.indexOf(d.term);
+    return { kind: "term", name: d.term, start: at, end: at + d.term.length };
+  }
+  const h = o.headings.find((x) => x.line === line);
+  if (h && h.title) {
+    const at = lt.indexOf(h.title, lt.indexOf("#") + h.level);
+    return { kind: "section", name: h.title, start: at, end: at + h.title.length };
+  }
+  throw new Error("Put the cursor on a [[reference]], a glossary term or a heading to rename it");
+}
+
+/**
+ * The edits that rename what is at (line, column): its definition or heading and every reference to it.
+ * Returns [{ line, start, end, text }], or throws with a message for the user.
+ */
+function renameEdits(text, line, column, newName) {
+  newName = newName.trim();
+  if (BAD_NAME.test(newName)) throw new Error("A name can't be empty or contain [ ] { } or |");
+  const target = renameTarget(text, line, column);
+  const lines = text.replace(/\r\n?/g, "\n").split("\n");
+  const skip = skippedLines(lines);
+  const o = outline(text);
+  const key = fold(target.name);
+  const edits = [];
+  let oldName = target.name;
+  if (target.kind === "term") {
+    const defs = o.definitions.filter((d) => fold(d.term) === key);
+    const comps = o.components.filter((c) => fold(c.name) === key);
+    if (!defs.length && !comps.length) {
+      throw new Error(`'${target.name}' isn't defined in this file (maybe in a shared fragment): rename it there`);
+    }
+    if (defs.length) oldName = defs[0].term;
+    for (const d of defs) {
+      const at = lines[d.line].indexOf(d.term);
+      edits.push({ line: d.line, start: at, end: at + d.term.length, text: newName });
+    }
+  } else {
+    for (const h of o.headings.filter((x) => fold(x.title) === key)) {
+      const at = lines[h.line].indexOf(h.title, lines[h.line].indexOf("#") + h.level);
+      edits.push({ line: h.line, start: at, end: at + h.title.length, text: newName });
+    }
+  }
+  const prefix = target.kind === "section" ? "#" : "";
+  for (let k = 0; k < lines.length; k++) {
+    if (skip[k]) continue;
+    const code = [...lines[k].matchAll(/`[^`\n]*`/g)].map((c) => [c.index, c.index + c[0].length]);
+    for (const m of lines[k].matchAll(REF_ALL)) {
+      if (code.some(([a, b]) => m.index >= a && m.index < b)) continue;       // `[[x]]` in code
+      let name = m[1].trim();
+      if (prefix ? !name.startsWith("#") : name.startsWith("#")) continue;
+      if (prefix) name = name.slice(1).trim();
+      if (fold(name) !== key) continue;
+      edits.push({ line: k, start: m.index, end: m.index + m[0].length, text: renamedRef(name, m[2], oldName, newName, prefix) });
+    }
+  }
+  return edits;
+}
+
+// ------------------------------------------------------------------ quick fixes
+
+/** Edit distance between two folded names (for "did you mean"). */
+function distance(a, b) {
+  const row = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    let prev = row[0];
+    row[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const cur = row[j];
+      row[j] = Math.min(row[j] + 1, row[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1));
+      prev = cur;
+    }
+  }
+  return row[b.length];
+}
+
+/** The names closest to `name` (up to 3), for a reference that matches nothing. */
+function closest(name, names) {
+  const key = fold(name);
+  const seen = new Set();
+  return names
+    .filter((n) => !seen.has(fold(n)) && seen.add(fold(n)))
+    .map((n) => ({ n, d: distance(key, fold(n)) }))
+    .filter((x) => x.d > 0 && x.d <= Math.max(2, Math.floor(key.length / 3)))
+    .sort((a, b) => a.d - b.d)
+    .slice(0, 3)
+    .map((x) => x.n);
+}
+
+/** Where a new glossary term goes: after the glossary's own text, before its sub-sections. */
+function glossaryInsertLine(text) {
+  const o = outline(text);
+  const g = o.headings.find((h) => h.attrs.split(/\s+/).includes("#glossary"))
+    || o.headings.find((h) => /^(glossary|glossaire|glossar|glosario|glossario)$/i.test(h.title));
+  if (!g) return -1;
+  const sub = o.headings.find((h) => h.line > g.line && h.line <= g.end && h.level > g.level);
+  return sub ? sub.line : g.end + 1;
+}
+
+/**
+ * Quick fixes for one tabula issue. `range` is where the squiggle is ({ start, end } columns on `line`);
+ * `names` are the terms and components the file can use (included fragments too); `sections` its headings.
+ * Returns [{ title, edits: [{ line, start, end, text }], preferred?, addWord? }].
+ */
+function quickFixes(text, line, message, range, names = [], sections = []) {
+  const lines = text.replace(/\r\n?/g, "\n").split("\n");
+  const lt = lines[line] || "";
+  const out = [];
+  let m;
+  if ((m = message.match(/^unknown word '(.+?)'(?: \(did you mean '(.+?)'\?\))?$/))) {
+    const word = m[1];
+    if (m[2]) {
+      const fix = word[0] === word[0].toUpperCase() ? m[2][0].toUpperCase() + m[2].slice(1) : m[2];
+      out.push({ title: `Change to '${fix}'`, edits: [{ line, start: range.start, end: range.end, text: fix }], preferred: true });
+    }
+    const plain = word.includes("'") ? word.split("'").pop() : word;    // "d'Eveline": add "Eveline"
+    out.push({ title: `Add '${plain}' to words.txt`, edits: [], addWord: plain });
+  } else if ((m = message.match(/^'(.+?):' in frontmatter: did you mean '(.+?)'\?/))) {
+    const k = lines.findIndex((l, i) => i > 0 && i < 200 && l.startsWith(m[1] + ":"));
+    if (k > 0) out.push({ title: `Change to '${m[2]}:'`, edits: [{ line: k, start: 0, end: m[1].length, text: m[2] }], preferred: true });
+  } else if ((m = message.match(/^role '#(.+?)': did you mean '#(.+?)'\?/))) {
+    const at = lt.search(new RegExp(`#${m[1].replace(/[-]/g, "\\-")}(?![\\w-])`));
+    if (at >= 0) out.push({ title: `Change to '#${m[2]}'`, edits: [{ line, start: at + 1, end: at + 1 + m[1].length, text: m[2] }], preferred: true });
+  } else if ((m = message.match(/^'\[(.+?)\]' has single brackets/))) {
+    const at = lt.indexOf(`[${m[1]}]`);
+    if (at >= 0) out.push({ title: `Change to [[${m[1]}]]`, edits: [{ line, start: at, end: at + m[1].length + 2, text: `[[${m[1]}]]` }], preferred: true });
+  } else if ((m = message.match(/^(\[\[(#?)([^\]|]+?)(?:\|([^\]]*))?\]\]) matches no/))) {
+    const [, raw, hash, name, alias] = m;
+    const at = lt.indexOf(raw);
+    if (at < 0) return out;
+    const pool = hash ? sections : names;
+    for (const c of closest(name.trim(), pool)) {
+      out.push({ title: `Change to [[${hash}${c}]]`, edits: [{ line, start: at, end: at + raw.length, text: `[[${hash}${c}${alias !== undefined ? "|" + alias : ""}]]` }] });
+    }
+    if (out.length === 1) out[0].preferred = true;
+    const g = hash ? -1 : glossaryInsertLine(text);
+    if (g >= 0) {
+      const term = name.trim()[0].toUpperCase() + name.trim().slice(1);
+      const before = g > 0 && lines[g - 1].trim() ? "\n" : "";
+      out.push({ title: `Define '${term}' in the glossary`, edits: [{ line: g, start: 0, end: 0, text: `${before}${term}\n: \n\n` }] });
+    }
+  }
+  return out;
+}
+
 module.exports = {
   severity, checkArgs, expand, parseCheckOutput, issueColumns, fold, outline, refAt, findTargets,
   plainRefs, definitionBody, definitionMarkdown, completionContext, completions, hoverText,
   includeAt, includeContext, includeHover,
   fragmentSection, expandIncludes, previewHtml, previewLink,
+  skippedLines, renameTarget, renameEdits, quickFixes, closest, glossaryInsertLine,
 };

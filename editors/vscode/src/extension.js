@@ -140,6 +140,7 @@ async function checkDocument(doc) {
   const result = await done;
   if (running.get(key) !== child || !result) return;      // a newer check is on its way, or this one failed
   running.delete(key);
+  if (result.vault) vaults.set(key, result.vault);
 
   const byFile = toDiagnostics(result.issues);
   const touched = new Set();
@@ -500,6 +501,78 @@ function openPreview() {
   previewDocument(ed.document);
 }
 
+// ------------------------------------------------------------------ quick fixes and rename
+
+const vaults = new Map();        // document -> the vault folder its last check reported (for words.txt)
+
+/** A WorkspaceEdit from core edits ({ line, start, end, text }); a line past the end appends. */
+function workspaceEdit(doc, edits) {
+  const we = new vscode.WorkspaceEdit();
+  for (const e of edits) {
+    if (e.line >= doc.lineCount) {
+      const last = doc.lineCount - 1;
+      const end = doc.lineAt(last).text.length;
+      we.insert(doc.uri, new vscode.Position(last, end), "\n" + e.text);
+    } else {
+      we.replace(doc.uri, new vscode.Range(e.line, e.start, e.line, e.end), e.text);
+    }
+  }
+  return we;
+}
+
+const codeActionProvider = {
+  provideCodeActions(doc, _range, context) {
+    const mine = context.diagnostics.filter((d) => d.source === "tabula");
+    if (!mine.length) return [];
+    const o = core.outline(expandedText(doc));
+    const names = [...o.definitions.map((d) => d.term), ...o.components.map((c) => c.name)];
+    const sections = o.headings.map((h) => h.title).filter(Boolean);
+    const text = doc.getText();
+    const actions = [];
+    for (const d of mine) {
+      const range = { start: d.range.start.character, end: d.range.end.character };
+      for (const f of core.quickFixes(text, d.range.start.line, d.message, range, names, sections)) {
+        const a = new vscode.CodeAction(f.title, vscode.CodeActionKind.QuickFix);
+        a.diagnostics = [d];
+        a.isPreferred = !!f.preferred;
+        if (f.addWord) a.command = { command: "tabula.addWord", title: f.title, arguments: [doc.uri, f.addWord] };
+        else a.edit = workspaceEdit(doc, f.edits);
+        actions.push(a);
+      }
+    }
+    return actions;
+  },
+};
+
+/** Add a word to the vault's words.txt (created if needed), then check the open files again. */
+function addWord(uri, word) {
+  const root = vaults.get(uri.toString()) || vaultRoot(uri.fsPath);
+  const file = path.join(root, "words.txt");
+  let text = "";
+  try {
+    text = fs.readFileSync(file, "utf8");
+  } catch {
+    text = "# Words the spell check accepts (tabula check --spell), one per line\n";
+  }
+  const words = new Set(text.split(/\r?\n/).map((l) => l.split("#")[0].trim().toLowerCase()));
+  if (!words.has(word.toLowerCase())) {
+    if (text && !text.endsWith("\n")) text += "\n";
+    fs.writeFileSync(file, text + word + "\n", "utf8");
+  }
+  vscode.window.setStatusBarMessage(`Tabula: '${word}' added to ${file}`, 4000);
+  vscode.workspace.textDocuments.forEach((d) => schedule(d, 0));
+}
+
+const renameProvider = {
+  prepareRename(doc, pos) {
+    const t = core.renameTarget(doc.getText(), pos.line, pos.character);     // throws a message for the user
+    return { range: new vscode.Range(pos.line, t.start, pos.line, t.end), placeholder: t.placeholder || t.name };
+  },
+  provideRenameEdits(doc, pos, newName) {
+    return workspaceEdit(doc, core.renameEdits(doc.getText(), pos.line, pos.character, newName));
+  },
+};
+
 // ------------------------------------------------------------------ activation
 
 function activate(context) {
@@ -514,6 +587,9 @@ function activate(context) {
     vscode.languages.registerDefinitionProvider(sel, definitionProvider),
     vscode.languages.registerCompletionItemProvider(sel, completionProvider, "[", "#"),
     vscode.languages.registerHoverProvider(sel, hoverProvider),
+    vscode.languages.registerCodeActionsProvider(sel, codeActionProvider, { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] }),
+    vscode.languages.registerRenameProvider(sel, renameProvider),
+    vscode.commands.registerCommand("tabula.addWord", addWord),
     vscode.commands.registerCommand("tabula.checkVault", checkVault),
     vscode.commands.registerCommand("tabula.openPreview", openPreview),
     vscode.window.onDidChangeActiveTextEditor((ed) => { if (ed && preview && isGame(ed.document)) previewDocument(ed.document); }),

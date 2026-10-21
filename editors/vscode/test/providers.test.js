@@ -11,9 +11,16 @@ class MarkdownString { constructor(v) { this.value = v; } }
 class Hover { constructor(contents, range) { this.contents = contents; this.range = range; } }
 class Location { constructor(uri, pos) { this.uri = uri; this.range = { start: pos }; } }
 class Position { constructor(line, character) { this.line = line; this.character = character; } }
+class WorkspaceEdit {
+  constructor() { this.ops = []; }
+  replace(uri, range, text) { this.ops.push({ uri, range, text }); }
+  insert(uri, pos, text) { this.ops.push({ uri, range: { start: pos, end: pos }, text }); }
+}
+class CodeAction { constructor(title, kind) { this.title = title; this.kind = kind; } }
 const disposable = { dispose() {} };
 const vscode = {
-  Range, CompletionItem, MarkdownString, Hover, Location, Position,
+  Range, CompletionItem, MarkdownString, Hover, Location, Position, WorkspaceEdit, CodeAction,
+  CodeActionKind: { QuickFix: "quickfix" },
   Uri: { file: (f) => ({ fsPath: f }), parse: (u) => ({ toString: () => u }) },
   CompletionItemKind: { Reference: 17, Constant: 20, Module: 8, Keyword: 13, File: 16 },
   languages: {
@@ -23,6 +30,8 @@ const vscode = {
     registerDefinitionProvider: (sel, p) => { registered.definition = p; return disposable; },
     registerCompletionItemProvider: (sel, p, ...triggers) => { registered.completion = { p, triggers }; return disposable; },
     registerHoverProvider: (sel, p) => { registered.hover = p; return disposable; },
+    registerCodeActionsProvider: (sel, p) => { registered.actions = p; return disposable; },
+    registerRenameProvider: (sel, p) => { registered.rename = p; return disposable; },
   },
   window: {
     createOutputChannel: () => ({ appendLine() {}, dispose() {} }),
@@ -60,7 +69,7 @@ require("../src/extension").activate({ subscriptions: [] });
 
 function doc(text, file = "/vault/g/g.game") {
   const lines = text.split("\n");
-  return { getText: () => text, lineAt: (i) => ({ text: lines[i] }), languageId: "tabula",
+  return { getText: () => text, lineAt: (i) => ({ text: lines[i] }), languageId: "tabula", lineCount: lines.length,
            uri: { fsPath: file, scheme: "file", toString: () => "file://" + file } };
 }
 const TEXT = "# Setup {#setup}\n\n- 1x [[Deck]]\n\nRead [[#\nUse the [[de\nUse the [[de]] now\n\n# Glossary\n\nDeck\n: points:: 2\n  52 cards.\n";
@@ -169,4 +178,36 @@ test("preview: renders the open file with tabula and handles links", async () =>
   panel.receive({ open: "https://example.com/x" });
   assert.equal(String(registered.opened), "https://example.com/x");
   void shown;
+});
+
+
+test("quick fixes and rename, through the VS Code API", () => {
+  const fs = require("fs"), os = require("os"), path = require("path");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "tabula-fix-"));
+  fs.writeFileSync(path.join(root, "vault.yaml"), "language: en\n");
+  fs.mkdirSync(path.join(root, "g"));
+  const file = path.join(root, "g", "g.game");
+  const text = "# Play\n\nDraw a [[Dek]], or a crad.\n\n# Glossary {#glossary}\n\nDeck\n: 52 cards.\n";
+  fs.writeFileSync(file, text);
+  const d = doc(text, file);
+  const diag = (line, a, b, message) => ({ source: "tabula", message, range: new Range(line, a, line, b) });
+  const actions = registered.actions.provideCodeActions(d, null, { diagnostics: [
+    diag(2, 7, 14, "[[Dek]] matches no component ('- 1x [[Dek]]' in a list) and no definition ('Dek' then ': …')"),
+    diag(2, 21, 25, "unknown word 'crad'"),
+    { source: "other", message: "x", range: new Range(0, 0, 0, 1) },
+  ] });
+  assert.deepEqual(actions.map((a) => a.title), ["Change to [[Deck]]", "Define 'Dek' in the glossary", "Add 'crad' to words.txt"]);
+  assert.equal(actions[0].isPreferred, true);
+  assert.equal(actions[0].edit.ops[0].text, "[[Deck]]");
+  assert.equal(actions[1].edit.ops[0].range.start.line, 8);          // past the end: appended
+  assert.equal(actions[1].edit.ops[0].text, "\nDek\n: \n\n");
+  registered.commands["tabula.addWord"](...actions[2].command.arguments);
+  registered.commands["tabula.addWord"](...actions[2].command.arguments);   // only once
+  assert.equal(fs.readFileSync(path.join(root, "words.txt"), "utf8").split("\n").filter((l) => l === "crad").length, 1);
+
+  const prep = registered.rename.prepareRename(d, { line: 6, character: 1 });
+  assert.equal(prep.placeholder, "Deck");
+  const we = registered.rename.provideRenameEdits(d, { line: 6, character: 1 }, "Pack");
+  assert.deepEqual(we.ops.map((o) => o.text), ["Pack"]);             // [[Dek]] isn't a reference to Deck
+  assert.throws(() => registered.rename.prepareRename(d, { line: 1, character: 0 }), /Put the cursor/);
 });
