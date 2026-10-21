@@ -5,15 +5,18 @@ duration: 10-20
 age: 6
 type: [card]
 tags: [classic, shedding, quick, public-domain]
+language: en
+variants:
+  points: "Play several rounds and keep score"
 ---
 
 # Overview
 
-A quick shedding game: match the top card by suit or rank and be the first to empty your hand. Eights are wild.
+A quick shedding game: match the top card by [[suit]] or [[rank]] and be the first to empty your hand. Eights are wild.
 
 # Components
 
-- 1x [[deck]] — standard 52 cards
+![[deck-52#components]]
 
 # Setup
 
@@ -31,7 +34,13 @@ A quick shedding game: match the top card by suit or rank and be the first to em
 
 ! The first player to empty their hand wins the round.
 
+## Scoring {+points}
+
+The winner scores the cards left in the other players' hands: 50 for each 8, 10 for each [[face card]], 1 for each ace, and the rank of the others. The first player to reach 100 points wins.
+
 # Glossary
+
+![[deck-52#glossary]]
 
 Discard pile
 : Face-up pile you play onto.

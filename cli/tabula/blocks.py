@@ -60,11 +60,14 @@ def parse_blocks(lines: list[tuple[int, str]]) -> list[Block]:
     blocks: list[Block] = []
     heads: list[Block] = []          # open sections, outermost first
     i, n = 0, len(lines)
+    list_start: dict[int, int] = {}  # indentation -> the first number of the numbered list open there
     while i < n:
         ln, t = lines[i]
         if not t.strip():
             i += 1
             continue
+        if not t[0].isspace() and not ITEM_RE.match(t):
+            list_start.clear()       # a paragraph, heading… at the margin ends the lists
         if END_RE.match(t) or t == QUIET_END:
             # "---" ends the innermost section: what follows belongs to the section around it again.
             # It becomes an invisible heading that reopens that section (or no section at all).
@@ -120,8 +123,14 @@ def parse_blocks(lines: list[tuple[int, str]]) -> list[Block]:
                 src.append((lines[i][0], nt.strip()))
                 i += 1
             marker = m.group(2)
+            for lvl in [l for l in list_start if l > indent]:
+                del list_start[lvl]
+            if marker in "-*+":
+                list_start.pop(indent, None)
+            else:            # numbered: counted from the list's first number, even if filtering hides that step
+                list_start.setdefault(indent, int(marker[:-1]))
             blocks.append(Block("item", text, ln, level=indent, ordered=marker not in "-*+", src=src,
-                                start=int(marker[:-1]) if marker not in "-*+" else 1))
+                                start=list_start.get(indent, 1)))
             continue
         if t.lstrip().startswith(">"):
             parts, src = [], []

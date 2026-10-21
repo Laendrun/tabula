@@ -60,7 +60,7 @@ check:
 
 Unknown words never count as warnings, so `--strict` still passes.
 
-`examples/vault/` has four example games: `oh-my-socks` (fr), `hearts` (en + fr, with a variant), `stone-circle` (homemade, en + fr, team variant, image) and `crazy-eights` (standalone file).
+`examples/vault/` has five example games: `maree-haute` (an original game written to show every feature of the format: fr + en, a shared fragment, conditions, player tables, key rules and sections, section links, a card catalog with fields, variants and an extension, a cover found by its name), `oh-my-socks` (fr), `hearts` (en + fr, with a variant), `stone-circle` (homemade, en + fr, team variant, image) and `crazy-eights` (standalone file). `maree-haute` and `crazy-eights` share the standard deck from `_shared/deck-52.game` (and its English version `deck-52.en.game`).
 
 ## Starting a game from BoardGameGeek
 

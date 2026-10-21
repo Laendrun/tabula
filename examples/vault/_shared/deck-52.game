@@ -1,0 +1,24 @@
+---
+title: Paquet de 52 cartes
+---
+
+<!-- Un fragment partagé : chaque jeu qui utilise un paquet classique l'inclut avec ![[deck-52#components]]
+     et ![[deck-52#glossary]]. Les jeux en anglais reçoivent deck-52.en.game. -->
+
+# Matériel {#components}
+
+- 1x [[paquet]] de 52 cartes à jouer
+
+# Glossaire {#glossary}
+
+Paquet
+: 52 cartes à jouer : quatre [[couleurs]] de 13 cartes, de l'as au roi.
+
+Couleur
+: ♥ cœur, ♦ carreau, ♣ trèfle ou ♠ pique. Le cœur et le carreau sont rouges, le trèfle et le pique sont noirs.
+
+Valeur
+: Dans l'ordre : as, 2, 3… 10, valet, dame, roi. Sauf mention contraire, l'as est la plus faible.
+
+Figure
+: Un valet, une dame ou un roi.
