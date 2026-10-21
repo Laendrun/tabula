@@ -167,8 +167,12 @@ def parse_blocks(lines: list[tuple[int, str]]) -> list[Block]:
                 key = fm.group(1).strip().lower()
                 if key in fields:
                     field_lines.setdefault("__dup__", []).append((key, body[0][0]))
-                fields[key], field_lines[key] = fm.group(2).strip(), body[0][0]
+                value, field_ln = fm.group(2).strip(), body[0][0]
                 body = body[1:]
+                while body and body[0][1][:1] == " " and body[0][1].strip():   # indented lines continue it
+                    value = f"{value} {body[0][1].strip()}".strip()
+                    body = body[1:]
+                fields[key], field_lines[key] = value, field_ln
             kids = parse_blocks(body)
             blocks.append(Block("def", line=ln, term=term, cond=cond, children=kids, fields=fields,
                                 field_lines=field_lines, items=[["p", k.text, k.line] for k in kids if k.text]))

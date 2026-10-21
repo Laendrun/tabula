@@ -4,13 +4,14 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import sys
 
 from .syntax import Ctx, fold
 from .blocks import Block, components_of
 from .filtering import filter_blocks
 from .vault import open_vault
-from .terminal import Style, plain, render_inline, vlen
+from .terminal import Style, plain, render_inline, vlen, wrap
 
 def card_catalog(blocks: list[Block]) -> list[dict]:
     """Cards: definitions inside a {#cards} section (with its sub-sections), or, in a game without
@@ -72,6 +73,27 @@ def sort_rows(rows: list[dict], key: str | None) -> list[dict]:
     return sorted(rows, key=k)
 
 
+def fit_widths(widths: list[int], total: int, gap: int = 2, least: int = 16) -> list[int]:
+    """Column widths that fit in `total` characters: the widest columns are narrowed first (their text wraps)."""
+    widths = list(widths)
+    while sum(widths) + gap * (len(widths) - 1) > total:
+        j = max(range(len(widths)), key=lambda k: widths[k])
+        if widths[j] <= least:
+            break                                 # can't narrow further: let the terminal wrap the rest
+        widths[j] -= 1
+    return widths
+
+
+def table_row(cells: list[str], widths: list[int], gap: int = 2) -> list[str]:
+    """One table row as one or more lines, each cell wrapped to its column."""
+    wrapped = [wrap(c, w) if vlen(c) > w else [c] for c, w in zip(cells, widths)]
+    lines = []
+    for i in range(max(len(w) for w in wrapped)):
+        parts = [(w[i] if i < len(w) else "") for w in wrapped]
+        lines.append((" " * gap).join(p + " " * (widths[j] - vlen(p)) for j, p in enumerate(parts)).rstrip())
+    return lines
+
+
 def cmd_cards(args) -> int:
     vault = open_vault(args.vault, args.game)
     game = vault.load(vault.find(args.game), args.lang)
@@ -102,6 +124,7 @@ def cmd_cards(args) -> int:
                          indent=2, ensure_ascii=False))
         return 0
     st = Style(sys.stdout.isatty() and not os.environ.get("NO_COLOR") and not args.no_color)
+    term_width = shutil.get_terminal_size((100, 20)).columns
     groups = {} if args.sort else {}
     order: list[str] = []
     for r in (sort_rows(rows, args.sort) if args.sort else rows):
@@ -113,14 +136,14 @@ def cmd_cards(args) -> int:
     for g in order:
         table = [cols] + [[render_inline(str(r.get(c, "")), ctx, st) if c != "card" else st.bold(r["card"])
                            for c in cols] for r in groups[g]]
-        widths = [max(vlen(row[j]) for row in table) for j in range(len(cols))]
-        fmt = lambda row: "  ".join(cell + " " * (widths[j] - vlen(cell)) for j, cell in enumerate(row)).rstrip()
+        widths = fit_widths([max(vlen(row[j]) for row in table) for j in range(len(cols))], term_width)
         if out:
             out.append("")
         if g:
             out.append(st.bold(st.yellow(render_inline(g, ctx, st))))
-        out.append(st.dim(fmt(table[0])))
-        out += [fmt(row) for row in table[1:]]
+        out += [st.dim(line) for line in table_row(table[0], widths)]
+        for row in table[1:]:
+            out += table_row(row, widths)
     total = len(rows)
     out += ["", st.dim(f"{total} card{'s' if total != 1 else ''}" + (" · sorted by " + args.sort if args.sort else ""))]
     print("\n".join(out))

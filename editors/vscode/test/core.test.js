@@ -212,3 +212,9 @@ test("include lines: under the cursor, while typing, hover", () => {
   assert.equal(core.includeHover(frag, "deck-52", null), "**Fragment `deck-52`**\n\n- Components\n- Glossary");
   assert.equal(core.includeHover(frag, "deck-52", "nothing"), null);
 });
+
+test("a field can continue on indented lines", () => {
+  const text = "# Cards {#cards}\n\n8\n: effet:: Vous ne pouvez pas\n    vous défausser d'un 8.\n    Terminez la manche.\n  valeur:: 8\n  Texte.\n";
+  assert.equal(core.hoverText(text, "8"),
+    "**8**\n\n**effet:** Vous ne pouvez pas vous défausser d'un 8. Terminez la manche.  \n**valeur:** 8\n\nTexte.");
+});
