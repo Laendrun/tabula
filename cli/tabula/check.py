@@ -1,6 +1,7 @@
 """`tabula check`: finding mistakes in game files."""
 from __future__ import annotations
 
+import difflib
 import json
 import os
 import re
@@ -9,7 +10,7 @@ from pathlib import Path
 
 from .syntax import (
     BLOCK_COND_RE, BRACES_RE, CHOICE_RE, CONDISH_RE, Cond, FENCE_RE, FIELD_RE, HEADING_COND_RE,
-    IMAGE_RE, P_TOKEN, REF_RE, bounds, in_range, norm, parse_attrs, parse_choice, parse_cond,
+    IMAGE_RE, KNOWN_ROLES, P_TOKEN, REF_RE, bounds, in_range, norm, parse_attrs, parse_choice, parse_cond,
     parse_range, split_lang,
 )
 from .fragments import SHARED_DIR, fragment_files
@@ -18,8 +19,12 @@ from .blocks import Block, components_of, is_sep_row, player_columns, player_row
 from .vault import Game, Vault, open_vault
 from .terminal import Style, find_section
 from .cards import card_catalog
+from .spell import SpellError, check_spelling
 
 STRUCTURAL_KEYS = ("players", "best_players", "duration", "age", "year", "cover")
+FRONTMATTER_KEYS = ("title", "players", "best_players", "duration", "age", "type", "tags", "designer", "artist",
+                    "publisher", "year", "language", "variants", "extensions", "location", "cover", "links",
+                    "source", "require_definitions", "unused_definitions", "spelling", "words")
 
 
 def unique(iss: Issues) -> Issues:
@@ -67,6 +72,12 @@ def check_game(game: Game, vault: Vault, require_defs: bool = False,
     for key in ("rules",):
         if key in meta:
             iss.warn(path, 1, f"'{key}:' in frontmatter is from v0.3; move 'variants' (and others) to the top level")
+
+    for key in (game.tr_meta if game.body_path != game.path else meta):
+        # unknown keys are allowed (your own), but one close to a known key is probably a typo
+        close = difflib.get_close_matches(str(key), [k for k in FRONTMATTER_KEYS if k not in meta], n=1, cutoff=0.8)
+        if str(key) not in FRONTMATTER_KEYS and close:
+            iss.warn(path, 1, f"'{key}:' in frontmatter: did you mean '{close[0]}'? (other keys are kept as they are)")
 
     game_rng = parse_range(meta.get("players"))
     declared = {k.lower() for k in game.options}
@@ -170,6 +181,11 @@ def check_game(game: Game, vault: Vault, require_defs: bool = False,
                     iss.error(path, b.line, f"invalid heading attributes '{{{cm.group(1)}}}' (roles look like "
                                             f"#glossary, conditions like 2p or +name)")
                     continue
+                for role in b.roles:
+                    close = difflib.get_close_matches(role, KNOWN_ROLES, n=1, cutoff=0.7)
+                    if role not in KNOWN_ROLES and close:
+                        iss.warn(path, b.line, f"role '#{role}': did you mean '#{close[0]}'? Tools only know "
+                                               f"'#{close[0]}' (your own role names are fine otherwise)")
                 check_text(b.text, b.line)
             elif b.kind in ("para", "item", "note", "key"):
                 src = b.src or [(b.line, b.text)]
@@ -346,10 +362,11 @@ def cmd_check(args) -> int:
 
     def show(i: Issue, indent="  "):
         loc = rel(i.path, vault) + (f":{i.line}" if i.line else "")
-        lvl = st.red("error  ") if i.level == "error" else st.yellow("warning")
+        lvl = (st.red("error  ") if i.level == "error" else st.dim("spelling") if i.level == "spelling"
+               else st.yellow("warning"))
         print(f"{indent}{lvl}  {loc}  {i.msg}")
 
-    tt = 0
+    tt = ts = 0
 
     if not args.games:
         for i in vault.issues:
@@ -357,22 +374,28 @@ def cmd_check(args) -> int:
         te += sum(i.level == "error" for i in vault.issues)
         tw += sum(i.level == "warning" for i in vault.issues)
     for p in paths:
-        game, iss = check_all_languages(vault, p, args.definitions)
+        game, iss = check_all_languages(vault, p, args.definitions, args.spell)
         todos = [i for i in iss if i.level == "todo"]
-        iss = [i for i in iss if i.level != "todo"]
+        words = [i for i in iss if i.level == "spelling"]
+        iss = [i for i in iss if i.level not in ("todo", "spelling")]
         e = sum(i.level == "error" for i in iss)
         w = len(iss) - e
-        te, tw, tt = te + e, tw + w, tt + len(todos)
+        te, tw, tt, ts = te + e, tw + w, tt + len(todos), ts + len(words)
         status = st.green("ok") if not iss else ", ".join(
             x for x in (st.red(f"{e} error(s)") if e else "", st.yellow(f"{w} warning(s)") if w else "") if x)
+        if words:
+            status += st.dim(f"  ({len(words)} unknown word(s))")
         if todos:
             status += st.dim(f"  ({len(todos)} TODO)")
         langs = f"  [{', '.join(game.languages)}]" if len(game.languages) > 1 else ""
         name = f"{SHARED_DIR}/{game.slug}" if p.parent.name == SHARED_DIR else game.slug
         print(f"{st.bold(name):<30} {status}{st.dim(langs)}")
-        for i in iss:
+        for i in iss + words:
             show(i)
     todo_note = f", {tt} TODO (tabula todo)" if tt else ""
+    if ts:
+        todo_note += (f", {ts} unknown word(s) (if they're right: words.txt in the vault, or 'words:' in "
+                      f"the frontmatter)")
     nfrag = sum(1 for p in paths if p.parent.name == SHARED_DIR)
     counted = f"{len(paths) - nfrag} game(s)" + (f", {nfrag} fragment(s)" if nfrag else "")
     print(f"\n{counted}, {te} error(s), {tw} warning(s){todo_note}")
@@ -391,27 +414,56 @@ def shared_fragments(vault: Vault) -> list[Path]:
     return [f for f in fragment_files(vault.root) if split_lang(f.stem)[1] is None]
 
 
-def check_fragment(vault: Vault, p: Path) -> tuple[Game, list[Issue]]:
+_spell_failed: set = set()
+
+
+def spelling(game: Game, vault: Vault, lang: str | None = None) -> Issues:
+    """The unknown words of one file, as "spelling" issues (a missing dictionary is one warning per run)."""
+    iss = Issues()
+    path = game.body_path or game.path
+    try:
+        for ln, msg in check_spelling(game, vault, lang):
+            iss.spelling(path, ln, msg)
+    except SpellError as e:
+        if str(e) not in _spell_failed:
+            _spell_failed.add(str(e))
+            iss.warn(path, 1, f"spell check: {e}")
+    return iss
+
+
+def check_fragment(vault: Vault, p: Path, spell: bool = False) -> tuple[Game, list[Issue]]:
     """A shared fragment and its translations, each checked on its own."""
     game = vault.load(p)
+    spell = spell or bool((vault.config.get("check") or {}).get("spelling", False))
     iss = list(check_game(game, vault, fragment=True))
+    if spell:
+        iss += spelling(game, vault, str(game.meta.get("language") or vault.language))
     for f in p.parent.glob(f"{p.stem}.*.game"):
-        if split_lang(f.stem)[0] == p.stem:
-            iss += check_game(vault.load(f), vault, fragment=True)
+        if (lang := split_lang(f.stem))[0] == p.stem:
+            tr = vault.load(f)
+            iss += check_game(tr, vault, fragment=True)
+            if spell:
+                iss += spelling(tr, vault, lang[1])
     iss.sort(key=lambda i: (str(i.path), i.line))
     return game, iss
 
 
-def check_all_languages(vault: Vault, p: Path, definitions: bool) -> tuple[Game, list[Issue]]:
+def check_all_languages(vault: Vault, p: Path, definitions: bool, spell: bool = False) -> tuple[Game, list[Issue]]:
     if p.parent.name == SHARED_DIR:
-        return check_fragment(vault, p)
+        return check_fragment(vault, p, spell)
     game = vault.load(p)
     req = definitions or check_setting(vault, game, "require_definitions", False)
     unused = check_setting(vault, game, "unused_definitions", True)
+    spell = (spell and game.meta.get("spelling") is not False) or check_setting(vault, game, "spelling", False)
     iss = list(check_game(game, vault, require_defs=req, unused=unused))
+    if spell:
+        iss += spelling(game, vault)
     for lang in game.languages:
         if lang != game.default_language:
-            iss += check_translation(game, vault.load(p, lang), vault, require_defs=req, unused=unused)
+            tr = vault.load(p, lang)
+            iss += check_translation(game, tr, vault, require_defs=req, unused=unused)
+            if spell:
+                iss += spelling(tr, vault)
     iss.sort(key=lambda i: (str(i.path), i.line))
     return game, iss
 
@@ -421,7 +473,7 @@ def check_json(vault: Vault, paths: list[Path], args) -> int:
     found = list(vault.issues) if not args.games else []
     files = []
     for p in paths:
-        game, iss = check_all_languages(vault, p, args.definitions)
+        game, iss = check_all_languages(vault, p, args.definitions, args.spell)
         found += iss
         files += [str(p.parent / (f"{game.slug}.game" if lang == game.default_language else f"{game.slug}.{lang}.game"))
                   for lang in game.languages]

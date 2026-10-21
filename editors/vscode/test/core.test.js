@@ -5,6 +5,7 @@ const core = require("../src/core");
 
 test("check arguments", () => {
   assert.deepEqual(core.checkArgs({ file: "a.game", stdin: true }), ["check", "a.game", "--json", "--stdin"]);
+  assert.deepEqual(core.checkArgs({ file: "a.game", spell: true }), ["check", "a.game", "--json", "--spell"]);
   assert.deepEqual(
     core.checkArgs({ vault: "V", extraArgs: ["cli/tabula.py"], definitions: true }),
     ["cli/tabula.py", "--vault", "V", "check", "--json", "--definitions"]
@@ -29,6 +30,9 @@ test("squiggle goes on what the message quotes", () => {
   assert.deepEqual(core.issueColumns("## Setup {2x}", "invalid heading attributes '{2x}' (roles look like #glossary)"), [9, 13]);
   assert.deepEqual(core.issueColumns("  some text  ", "something without quotes"), [2, 11]);
   assert.deepEqual(core.issueColumns("", "empty line"), [0, 0]);
+  // a word: the whole word, not the same letters inside a longer one
+  assert.deepEqual(core.issueColumns("Les cartes, la carte.", "unknown word 'carte'"), [15, 20]);
+  assert.deepEqual(core.issueColumns("coup d'oeil", "unknown word 'd'oeil'"), [5, 11]);
 });
 
 test("fold is case, accent and plural insensitive", () => {
@@ -198,6 +202,7 @@ test("TODO reminders are information, not warnings", () => {
   assert.equal(core.severity("error", S), 0);
   assert.equal(core.severity("warning", S), 1);
   assert.equal(core.severity("todo", S), 2);
+  assert.equal(core.severity("spelling", S), 2);
 });
 
 test("include lines: under the cursor, while typing, hover", () => {

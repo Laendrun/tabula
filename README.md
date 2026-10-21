@@ -38,9 +38,27 @@ tabula book frantic -p 4 -e pandora    # one game, for one setup
 tabula check                           # find mistakes in every game and translation
 tabula todo                            # the <!-- TODO: … --> reminders left in game files
 tabula check -d                        # ...and require a glossary definition for every component
+tabula check --spell                   # ...and check spelling, in each file's language (see below)
 ```
 
 Games can share parts, like a standard deck: put them once in `_shared/deck-52.game` and write `![[deck-52]]` (or `![[deck-52#Glossaire]]` for one section) in each game. See the spec, section 10.
+
+## Spell checking
+
+`tabula check --spell` underlines the words the dictionary doesn't know, in each file's language. It needs one extra package:
+
+```sh
+pipx inject tabula spylls
+```
+
+The first check in a language downloads its Hunspell dictionary (a few MB, once). Game terms, component names and the names in the frontmatter are accepted automatically. Add other correct words (place names, designers' names in credits…) to `words.txt` at the root of the vault, one per line, or to `words: [...]` in a game's frontmatter. To check spelling every time (and in VS Code), put this in `vault.yaml`:
+
+```yaml
+check:
+  spelling: true
+```
+
+Unknown words never count as warnings, so `--strict` still passes.
 
 `examples/vault/` has four example games: `oh-my-socks` (fr), `hearts` (en + fr, with a variant), `stone-circle` (homemade, en + fr, team variant, image) and `crazy-eights` (standalone file).
 
@@ -87,6 +105,7 @@ Open `site/index.html` in a browser; it works offline. You can also put the fold
 | `vault.py` | finding and loading games and translations |
 | `terminal.py` | terminal and JSON rendering |
 | `show.py`, `lookup.py`, `cards.py`, `check.py`, `export.py`, `site.py` | one command each |
+| `spell.py` | spelling for `check --spell`: dictionaries (downloaded once) and the words to skip |
 | `cli.py` | the command line (`tabula …`) |
 
 Without installing: `python cli/tabula show hearts`.

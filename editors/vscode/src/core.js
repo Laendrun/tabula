@@ -2,7 +2,7 @@
 "use strict";
 
 /** Command-line arguments for `tabula check` (file = the file being edited, or none for the whole vault). */
-function checkArgs({ file, vault, extraArgs = [], definitions = false, stdin = false }) {
+function checkArgs({ file, vault, extraArgs = [], definitions = false, stdin = false, spell = false }) {
   const args = [...extraArgs];
   if (vault) args.push("--vault", vault);
   args.push("check");
@@ -10,6 +10,7 @@ function checkArgs({ file, vault, extraArgs = [], definitions = false, stdin = f
   args.push("--json");
   if (stdin) args.push("--stdin");
   if (definitions) args.push("--definitions");
+  if (spell) args.push("--spell");
   return args;
 }
 
@@ -37,12 +38,17 @@ function parseCheckOutput(stdout) {
  */
 function issueColumns(lineText, message) {
   const candidates = [];
-  const patterns = [/\[\[[^\]]*\]\]?/g, /\{[^{}]*\}/g, /'([^']+)'/g, /"([^"]+)"/g, /‘([^’]+)’/g];
+  const patterns = [/^unknown word '(.+?)'(?= \(|$)/g, /\[\[[^\]]*\]\]?/g, /\{[^{}]*\}/g, /'([^']+)'/g, /"([^"]+)"/g, /‘([^’]+)’/g];
   for (const re of patterns) {
     for (const m of message.matchAll(re)) candidates.push(m[1] !== undefined ? m[1] : m[0]);
   }
   for (const c of candidates) {
     if (!c.trim()) continue;
+    if (/^[\p{L}']+$/u.test(c)) {     // a word ("unknown word 'carte'"): the whole word, not part of "cartes"
+      const esc = c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const w = new RegExp(`(?<![\\p{L}\\p{N}_'])${esc}(?![\\p{L}\\p{N}_])`, "u").exec(lineText);
+      if (w) return [w.index, w.index + c.length];
+    }
     let at = lineText.indexOf(c);
     if (at < 0) at = lineText.toLowerCase().indexOf(c.toLowerCase());
     if (at >= 0) return [at, at + c.length];
@@ -51,9 +57,9 @@ function issueColumns(lineText, message) {
   return first < 0 ? [0, lineText.length] : [first, lineText.trimEnd().length];
 }
 
-/** VS Code severity for a tabula issue level: TODO reminders are information, not warnings. */
+/** VS Code severity for a tabula issue level: TODO reminders and unknown words are information, not warnings. */
 function severity(level, S) {
-  return level === "error" ? S.Error : level === "todo" ? S.Information : S.Warning;
+  return level === "error" ? S.Error : level === "todo" || level === "spelling" ? S.Information : S.Warning;
 }
 
 /** Search key used by tabula for references: case, accents and plurals ignored. */

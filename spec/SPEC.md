@@ -113,8 +113,10 @@ Série
 | `source` | text | `Rulebook 2nd ed.` | where the rules come from |
 | `require_definitions` | true/false | `true` | `tabula check`: every component needs a glossary definition (see 5) |
 | `unused_definitions` | true/false | `false` | `tabula check`: warn about definitions nothing refers to (default `true`, see 5) |
+| `spelling` | true/false | `false` | `tabula check`: check spelling in this game (`false` turns it off even with `--spell`, see 12) |
+| `words` | list | `[Whitby, Lüthi]` | words the spell check should accept in this game (see 12) |
 
-Count ranges: `4`, `2-5`, `3+`, `2,4`. Unknown keys are allowed and kept, so add your own.
+Count ranges: `4`, `2-5`, `3+`, `2,4`. Unknown keys are allowed and kept, so add your own. `tabula check` only warns about a key that is one or two letters away from a known one (`durantion:`).
 
 ---
 
@@ -425,7 +427,7 @@ Headings are written in the game's language, so tools can't rely on their text. 
 ## Cartes Puissance {+supercharge #cards}     ← a role and a condition together
 ```
 
-Suggested roles: `components`, `goal`, `setup`, `play`, `scoring`, `end`, `glossary`, `cards`, `events`, `variants`, `notes`, `faq`. You can use your own names too. Roles are optional and a section can have several (`{#glossary #cards}`).
+Suggested roles: `components`, `goal`, `setup`, `play`, `scoring`, `end`, `glossary`, `cards`, `events`, `variants`, `notes`, `faq`. You can use your own names too (`tabula check` only warns about one that looks like a misspelt suggested role, like `#cartes` for `#cards`). Roles are optional and a section can have several (`{#glossary #cards}`).
 
 Tools use roles to show part of a game. `tabula show frantic -s glossary` shows only the glossary, and `-s components -s setup` shows two sections. Filters still apply. `-s` also accepts a heading's title (`-s "fin de la partie"`), so it works on games without roles too. Later, roles will let tools build cheat sheets, card catalogs and a web view with a table of contents.
 
@@ -530,9 +532,15 @@ The reference CLI is `tabula`. Point it at a vault with `--vault PATH`, or set `
 | `tabula book [GAME…] [-p N] [-e …] [-v …] [-k] [-l CODE] [-t TITLE] [-o FILE]` | write games as an EPUB 3 book (default: the whole vault, in `<vault-name>.epub`): a title page and a chapter per game (cover, facts, rules, glossary, card catalogs), with a table of contents of the games and their sections. Without `-e`/`-v` everything is included and marked; with them, only those extensions and variants. `-p` leaves out the games that aren't for that many players. `-k`: only the key rules. Images from the web can't be shown in a book, so their caption stays; links to games that aren't in the book become plain text. |
 | `tabula new SLUG [-t TITLE] [-p N] [-l CODE]` / `tabula new bgg ID [SLUG]` | start a game file: `<slug>/<slug>.game` with the frontmatter and the usual sections (with roles, headings in the game's language, a TODO in each). `new bgg ID` fills the frontmatter from BoardGameGeek (title, players, duration, age, year, designers, artists, publisher, box image saved as `media/cover.*`, found without a `cover:` line); `new bgg NAME` lists matching games and their IDs. Needs a BoardGameGeek token in `BGG_TOKEN`. Never replaces an existing game without `--force`. |
 | `tabula todo [GAME…] [--json]` | list the `<!-- TODO: … -->` and `FIXME` reminders, with file and line, translations included. |
-| `tabula check [GAME…] [--strict] [-d]` | find mistakes: frontmatter, references that match nothing, invalid or never-applying conditions, undeclared variants, missing images, duplicate terms, leftover v0.3 syntax, translation problems. Also checks the shared fragments in `_shared/`, warns about definitions nothing refers to, and counts TODO reminders (they never fail `--strict`). `-d`/`--definitions`: every component must also have a glossary definition. `--json`: the issues as JSON, with absolute paths. `--stdin`: check unsaved text for the one file given (used by editors) |
+| `tabula check [GAME…] [--strict] [-d] [-s]` | find mistakes: frontmatter, references that match nothing, invalid or never-applying conditions, undeclared variants, missing images, duplicate terms, leftover v0.3 syntax, translation problems. Also checks the shared fragments in `_shared/`, warns about definitions nothing refers to, and counts TODO reminders (they never fail `--strict`). `-d`/`--definitions`: every component must also have a glossary definition. `-s`/`--spell`: also check spelling (see below). `--json`: the issues as JSON, with absolute paths. `--stdin`: check unsaved text for the one file given (used by editors) |
 
-Planned: `new`, PDF export, `cheatsheet`, `server`.
+**Spell checking** (`tabula check --spell`, or `check: {spelling: true}` in `vault.yaml` to always do it) looks up every word of the text in a Hunspell dictionary for the file's language, so a translation is checked in its own language. Plain `en` accepts both American and British spellings. It needs the optional `spylls` package (`pipx inject tabula spylls`). The first check in a language downloads its dictionary (the free LibreOffice/Hunspell dictionaries, from the `dictionary-<lang>` packages on npm) into tabula's cache folder (`~/.cache/tabula/dictionaries`, `%LOCALAPPDATA%\tabula\dictionaries` on Windows; `TABULA_CACHE` to change it). Offline, put `<lang>.aff` and `<lang>.dic` there yourself.
+
+- Skipped: the frontmatter, `[[references]]` (but an alias's text is checked), conditions (but the texts of an inline choice are checked), `key::` field names, code, links' addresses, HTML tags, comments, words in capitals and words attached to a number (`1er`, `3x`).
+- Accepted: the game's terms and component names, the names in the frontmatter (title, designers, artists, publisher, series, source, location, variants and extensions), the frontmatter's `words:` list, and `words.txt` (or `words.fr.txt` for one language) at the root of the vault, one or more words per line, `#` for comments.
+- Unknown words are reported as "spelling", once per line, with a "did you mean" when one of the game's own words is close. Like TODOs, they never count as warnings and never fail `--strict`. Editors show them as information.
+
+Planned: PDF export, `cheatsheet`, `server`.
 
 ---
 

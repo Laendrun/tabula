@@ -159,6 +159,9 @@ def main(argv=None) -> int:
     p.add_argument("-d", "--definitions", action="store_true",
                    help="every component must also have a glossary definition "
                         "(or set 'check: {require_definitions: true}' in vault.yaml)")
+    p.add_argument("-s", "--spell", action="store_true",
+                   help="also check spelling, in each file's language (needs spylls; the dictionary is downloaded "
+                        "the first time). Or set 'check: {spelling: true}' in vault.yaml")
     p.add_argument("--no-color", action="store_true")
     p.add_argument("--vault", default=argparse.SUPPRESS)
     p.set_defaults(func=cmd_check)

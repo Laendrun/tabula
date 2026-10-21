@@ -30,6 +30,10 @@ class Issues(list):
         """A reminder left in the file (<!-- TODO: … -->): reported, but neither an error nor a warning."""
         self.append(Issue("todo", Path(path), line, msg))
 
+    def spelling(self, path, line, msg):
+        """A word the dictionary doesn't know (check --spell): reported, but neither an error nor a warning."""
+        self.append(Issue("spelling", Path(path), line, msg))
+
 
 UNSAVED: dict[Path, str] = {}        # check --stdin: file contents from an editor, used instead of the disk
 

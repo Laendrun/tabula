@@ -28,6 +28,7 @@ function settings(uri) {
     run: c.get("run") || "onType",
     delay: c.get("delay") ?? 500,
     definitions: !!c.get("requireDefinitions"),
+    spell: !!c.get("spellCheck"),
     cwd: ws || (uri ? path.dirname(uri.fsPath) : os.homedir()),
   };
 }
@@ -132,7 +133,7 @@ async function checkDocument(doc) {
   const prev = running.get(key);
   if (prev && prev.exitCode === null) prev.kill();
   const args = core.checkArgs({
-    file: doc.uri.fsPath, vault: cfg.vault, extraArgs: cfg.extraArgs, definitions: cfg.definitions, stdin: true,
+    file: doc.uri.fsPath, vault: cfg.vault, extraArgs: cfg.extraArgs, definitions: cfg.definitions, spell: cfg.spell, stdin: true,
   });
   const { child, done } = runTabula(args, cfg, doc.getText());
   running.set(key, child);
@@ -167,7 +168,7 @@ async function checkVault() {
   const editor = vscode.window.activeTextEditor;
   const uri = editor && isGame(editor.document) ? editor.document.uri : (vscode.workspace.workspaceFolders || [])[0]?.uri;
   const cfg = settings(uri);
-  const args = core.checkArgs({ vault: cfg.vault, extraArgs: cfg.extraArgs, definitions: cfg.definitions });
+  const args = core.checkArgs({ vault: cfg.vault, extraArgs: cfg.extraArgs, definitions: cfg.definitions, spell: cfg.spell });
   const result = await vscode.window.withProgress(
     { location: vscode.ProgressLocation.Window, title: "Tabula: checking the vault" },
     () => runTabula(args, cfg).done

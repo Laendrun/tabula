@@ -4,6 +4,7 @@ Highlighting, live checks and a live preview for Tabula `.game` files.
 
 - **Live preview.** Click the preview button in the editor's title bar, or press Ctrl+K V (Cmd+K V on a Mac). The game opens beside the editor as `tabula site` renders it, with the player and option filters. It updates as you type (before you save), follows the `.game` file you switch to, and keeps your filter choice and scroll position. Links to other games open their file, web links open in your browser.
 - **Checks while you type.** `tabula check` runs on the file you're editing, even before you save. Problems show up as squiggles and in the Problems panel (Ctrl+Shift+M). The squiggle goes on what the message is about, for example the `[[ref]]` that matches nothing. Translations of the same game (`slug.fr.game`) are checked at the same time. `<!-- TODO: … -->` reminders show up as information (blue), not as warnings.
+- **Spelling** (optional): words the dictionary doesn't know are underlined as information, in the game's language. Turn it on with the `tabula.spellCheck` setting, or `check: {spelling: true}` in `vault.yaml`. It needs tabula 0.12 with `spylls` (`pipx inject tabula spylls`). Correct words go in `words.txt` at the root of the vault.
 - **Highlighting** for `[[references]]` and `[[#section links]]`, `{conditions}` and `{choices | *: …}`, `#roles`, component counts (`60x`), `key:: value` fields, `!` key rules and `## !` key sections, the `---` section end, player tables and the frontmatter.
 - **Autocomplete inside `[[ ]]`.** Type `[[` to pick a glossary term or component, including those of the shared fragments the game includes with `![[…]]` (definitions first, with their text as a preview). Type `[[#` to pick a section title or a role like `setup`. The closing `]]` is added when it's missing.
 - **Hover a `[[reference]]`** (also one defined in an included fragment) to see its definition (fields included), its component lines, or the start of the section it links to. In a translation, terms missing from the file are looked up in the default-language file.
@@ -45,6 +46,7 @@ npm run package
 | `tabula.run` | `onType` | `onType`: check after a short pause in typing. `onSave`: only when saving. |
 | `tabula.delay` | `500` | The pause, in milliseconds (checks and preview). |
 | `tabula.requireDefinitions` | `false` | Same as `tabula check -d`. |
+| `tabula.spellCheck` | `false` | Same as `tabula check --spell`: underline unknown words. |
 
 If nothing happens, open *View → Output* and pick **Tabula** in the list: it shows the command that was run and its error.
 
