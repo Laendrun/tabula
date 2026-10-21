@@ -77,7 +77,7 @@ function doc(text, file = "/vault/g/g.game") {
 const TEXT = "# Setup {#setup}\n\n- 1x [[Deck]]\n\nRead [[#\nUse the [[de\nUse the [[de]] now\n\n# Glossary\n\nDeck\n: points:: 2\n  52 cards.\n";
 
 test("completion is triggered by [ and #", () => {
-  assert.deepEqual(registered.completion.triggers, ["[", "#"]);
+  assert.deepEqual(registered.completion.triggers, ["[", "#", "="]);
 });
 
 test("completes terms and adds ]] when missing", () => {
@@ -230,4 +230,19 @@ test("formatting runs tabula fmt FILE --stdin and replaces the text", async () =
   assert.deepEqual(await registered.formatter.provideDocumentFormattingEdits(doc("# Tidy\n", GAME_FILE)), []);
   assert.deepEqual(await registered.formatter.provideDocumentFormattingEdits(doc("BAD  \n", GAME_FILE)), []);
   assert.ok(registered.commands["tabula.formatFile"] && registered.commands["tabula.formatVault"]);
+});
+
+test("values: completion after {= and hover, from the game and vault.yaml", () => {
+  const root = fs.mkdtempSync(path.join(require("os").tmpdir(), "tabula-val-"));
+  fs.writeFileSync(path.join(root, "vault.yaml"), 'values:\n  target: 100\n  hand: {2p: 9, "*": 5}\n');
+  fs.mkdirSync(path.join(root, "g"));
+  const file = path.join(root, "g", "g.game");
+  const text = '---\ntitle: G\nvalues:\n  hand: {2p: 7, "*": 5}\n---\n# Rules\n\nDeal {=\nPlay to {=target} points.\n';
+  const d = doc(text, file);
+  const items = registered.completion.p.provideCompletionItems(d, { line: 7, character: 7 });
+  assert.deepEqual(items.map((i) => [i.label.label, i.insertText, i.detail]),
+    [["target", "target}", "value from vault.yaml"], ["hand", "hand}", "value from this game"]]);
+  assert.equal(items[1].label.description, '{2p: 7, "*": 5}');
+  const h = registered.hover.provideHover(d, { line: 8, character: 12 });
+  assert.equal(h.contents.value, "**target** = `100`\n\nfrom vault.yaml");
 });

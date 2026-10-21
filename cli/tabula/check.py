@@ -20,11 +20,12 @@ from .vault import Game, Vault, open_vault
 from .terminal import Style, find_section
 from .cards import card_catalog
 from .spell import SpellError, check_spelling
+from .values import value_problems
 
 STRUCTURAL_KEYS = ("players", "best_players", "duration", "age", "year", "cover")
 FRONTMATTER_KEYS = ("title", "players", "best_players", "duration", "age", "type", "tags", "designer", "artist",
                     "publisher", "year", "language", "variants", "extensions", "location", "cover", "links",
-                    "source", "require_definitions", "unused_definitions", "spelling", "words")
+                    "source", "require_definitions", "unused_definitions", "spelling", "words", "values", "symbols")
 
 
 def unique(iss: Issues) -> Issues:
@@ -78,6 +79,9 @@ def check_game(game: Game, vault: Vault, require_defs: bool = False,
         close = difflib.get_close_matches(str(key), [k for k in FRONTMATTER_KEYS if k not in meta], n=1, cutoff=0.8)
         if str(key) not in FRONTMATTER_KEYS and close:
             iss.warn(path, 1, f"'{key}:' in frontmatter: did you mean '{close[0]}'? (other keys are kept as they are)")
+
+    for msg in value_problems((game.tr_meta if game.body_path != game.path else meta).get("values")):
+        iss.error(path, 1, msg)
 
     game_rng = parse_range(meta.get("players"))
     declared = {k.lower() for k in game.options}

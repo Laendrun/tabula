@@ -217,6 +217,9 @@
           "include": "#reference"
         },
         {
+          "include": "#value"
+        },
+        {
           "include": "#braces"
         },
         {
@@ -408,6 +411,21 @@
         },
         "7": {
           "name": "punctuation.definition.include.end.tabula"
+        }
+      }
+    },
+    "value": {
+      "match": "(?<!\\\\)(\\{=)\\s*([\\w-]+)\\s*(\\})",
+      "name": "meta.value.tabula",
+      "captures": {
+        "1": {
+          "name": "punctuation.definition.value.begin.tabula"
+        },
+        "2": {
+          "name": "variable.other.value.tabula"
+        },
+        "3": {
+          "name": "punctuation.definition.value.end.tabula"
         }
       }
     }

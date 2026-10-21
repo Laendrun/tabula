@@ -6,7 +6,8 @@ from dataclasses import dataclass, field
 
 from .syntax import (
     BLOCK_COND_RE, COMPONENT_RE, Cond, DEF_LINE_RE, END_RE, FENCE_RE, FIELD_RE, HEADING_COND_RE,
-    HEADING_RE, IMAGE_RE, ITEM_RE, P_TOKEN, REF_RE, parse_attrs, parse_cond, parse_range, split_bars,
+    HEADING_RE, IMAGE_RE, ITEM_RE, P_TOKEN, REF_RE, parse_attrs, parse_choice, parse_cond, parse_range, split_bars,
+    CHOICE_RE, bounds, in_range,
 )
 
 QUIET_END = "---\x00quiet"     # see fragments.expand_includes
@@ -115,6 +116,7 @@ def parse_blocks(lines: list[tuple[int, str]]) -> list[Block]:
                 rows.append((lines[i][0], split_row(lines[i][1])))
                 i += 1
             blocks.append(Block("table", line=ln, rows=rows, level=len(t) - len(t.lstrip())))
+            resolve_player_cells(blocks[-1])
             continue
         if m := ITEM_RE.match(t):
             indent, text = len(m.group(1)), m.group(3)
@@ -267,6 +269,35 @@ def player_columns(b: Block):
             return None
         cols.append((j, parse_range(m.group(2))))
     return cols
+
+
+def choice_for(text: str, n: int) -> str:
+    """Inline choices that only depend on the player count, resolved for n players ({2p: 7 | *: 5} -> 5 at 3p)."""
+    def repl(m):
+        branches = parse_choice(m.group(1))
+        if not branches or any(k not in ("p", "*") for c, _ in branches for k, _, _ in c.tokens):
+            return m.group(0)
+        for c, text in branches:
+            if all(k == "*" or in_range(val, n) != neg for k, neg, val in c.tokens):
+                return text
+        return m.group(0)
+    return CHOICE_RE.sub(repl, text)
+
+
+def resolve_player_cells(b: Block):
+    """In a player table, a cell under "3p" (or in a "3p" row) shows its choices for 3 players."""
+    cols = player_columns(b)
+    rows = None if cols else player_rows(b)
+    for k, (ln, cells) in enumerate(b.rows):
+        if k == 0 or is_sep_row(cells):
+            continue
+        for j in range(1, len(cells)):
+            rng = dict(cols).get(j) if cols else (rows or {}).get(k)
+            lo, hi = bounds(rng) if rng else (0, 0)
+            if rng and hi < 99:            # "4-5p": resolved when 4 and 5 players give the same text
+                options = {choice_for(cells[j], n) for n in range(lo, int(hi) + 1) if in_range(rng, n)}
+                if len(options) == 1:
+                    cells[j] = options.pop()
 
 
 def player_rows(b: Block):

@@ -13,6 +13,7 @@ except ImportError:  # pragma: no cover
 
 from .syntax import split_lang
 from .fragments import SHARED_DIR, expand_includes
+from .values import expand_values, merged_values, value_problems
 from .source import Issues, read_source
 from .blocks import Block, parse_blocks
 
@@ -97,6 +98,8 @@ class Vault:
                 self.config = yaml.safe_load(cfg.read_text(encoding="utf-8")) or {}
             except yaml.YAMLError as e:
                 self.issues.error(cfg, 1, f"invalid YAML: {e}")
+            for msg in value_problems(self.config.get("values")):
+                self.issues.error(cfg, 1, msg)
         self.language = str(self.config.get("language") or "en")
 
     def discover(self) -> list[Path]:
@@ -159,13 +162,15 @@ class Vault:
                 tr_meta, lines = read_source(tr, issues)
                 lines = expand_includes(lines, self.root, lang, issues, tr)
                 merged = {**meta, **tr_meta}
-                for key in ("variants", "extensions"):
+                for key in ("variants", "extensions", "values", "symbols"):
                     if isinstance(meta.get(key), dict) and isinstance(tr_meta.get(key), dict):
                         merged[key] = {**meta[key], **tr_meta[key]}
                 meta, body_path = merged, tr
             else:
                 fallback = True
         language = lang if (lang and not fallback) else default_lang
+        lines = expand_values(lines, merged_values(self.config, meta), issues, body_path,
+                              strict=path.parent.name != SHARED_DIR)    # a fragment: the game's values
         return Game(slug, path, folder, meta, parse_blocks(lines), lines, issues, language,
                     default_lang, languages, fallback, body_path, tr_meta)
 

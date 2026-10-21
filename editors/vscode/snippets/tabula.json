@@ -239,5 +239,21 @@
       "  ${2:name}: \"${3:What it changes}\"",
       "$0"
     ]
+  },
+  "Value": {
+    "prefix": "val",
+    "description": "A value defined in the frontmatter or vault.yaml: {=name}",
+    "body": [
+      "{=${1:name}}$0"
+    ]
+  },
+  "Values (frontmatter)": {
+    "prefix": "values",
+    "description": "Values by player count, for {=name} in the text",
+    "body": [
+      "values:",
+      "  ${1:main}: {2p: ${2:7}, 3p: ${3:6}, \"*\": ${4:5}}",
+      "$0"
+    ]
   }
 }
