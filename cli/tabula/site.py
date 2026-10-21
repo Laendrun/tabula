@@ -99,12 +99,12 @@ def write_game(vault: Vault, path: Path, out: Path) -> dict:
     keys = {lang: select_key(blocks) for lang, blocks in filtered.items()}
     has_key = {lang: bool(k) for lang, k in keys.items()}
     for lang, g in versions.items():
-        r = HtmlRenderer(g, filtered[lang], ctx)
+        r = HtmlRenderer(g, filtered[lang], ctx, interactive=True)
         r.game_href = "../{}/index.html"
         nav = game_nav(base, lang, "index", has_key)
         (folder / page_name("index", lang, base.default_language)).write_text(r.page(nav=nav), encoding="utf-8")
         if keys[lang]:
-            r = HtmlRenderer(g, keys[lang], ctx, key_only=True)
+            r = HtmlRenderer(g, keys[lang], ctx, key_only=True, interactive=True)
             r.game_href = "../{}/index.html"
             nav = game_nav(base, lang, "key", has_key)
             (folder / page_name("key", lang, base.default_language)).write_text(

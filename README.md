@@ -56,7 +56,7 @@ Keep the token out of your vault, so it never ends up in git. Without internet o
 `tabula site` writes the whole vault to a `site/` folder (`-o` for another one):
 
 - `index.html` lists every game, with filters for player count, duration and tags, and a search.
-- Each game gets a page per language, showing everything with extensions and variants marked, plus a cheat sheet of its key rules.
+- Each game gets a page per language, plus a cheat sheet of its key rules. A bar at the top lets you choose the player count and the extensions and variants: the page then shows only what applies, like `tabula show -p 4 -e pandora`, and the address keeps your choice so you can share the link.
 
 Open `site/index.html` in a browser; it works offline. You can also put the folder on any static host. The folder is replaced on every run, but only if `tabula site` made it.
 
