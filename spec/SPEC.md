@@ -112,7 +112,7 @@ Série
 | `year` | number | `2019` | |
 | `language` | code | `fr` | default language of this game (overrides the vault) |
 | `variants` | map name → description, or list | `{omnibus: "…"}` | declares variants (other ways to play the same box), usable in `{+name}` conditions |
-| `extensions` | map name → description, or list | `[supercharge, pandora]` | declares extensions/expansions (extra boxes), usable in `{+name}` conditions, see 8.5 |
+| `extensions` | map name → description (or details), or list | `[supercharge, pandora]` | declares extensions/expansions (extra boxes), usable in `{+name}` conditions; details like `players`, `needs`, `excludes`: see 8.5 |
 | `location` | text | `Armoire de l'entrée` | where the game is stored |
 | `cover` | path | `media/box.jpg` | the box image, relative to the game folder. Optional: without it (or with `cover:` left empty), the image called `cover` or `<slug>_cover` in the game's `media/` folder is used (`cover.jpg`, `skyjo_cover.png`…; for a standalone game, only `<slug>_cover`). `cover: false`: no cover |
 | `links` | map | `{bgg: https://…}` | |
@@ -416,6 +416,24 @@ extensions:
 
 Then write each extension's content in the same file, with `{+name}`. Extensions come in two kinds, and both use the same tools.
 
+**Details:** an extension (or a variant) can say more than its description:
+
+```yaml
+extensions:
+  troublemaker: "Nouvelles cartes spéciales et événements"
+  pandora:
+    description: "La boîte de Pandore"
+    players: 2-10            # the player counts the game gets with it (added to the base game's)
+    duration: 10-50
+    needs: [troublemaker]    # turned on with it
+    excludes: [points]       # can't be used together
+```
+
+- `players`: `tabula show frantic -p 10` is refused, but `-p 10 -e pandora` works, and `{9-10p}` conditions don't count as "never applies". `tabula list -p 10` lists the game with "(+pandora)", the site's player filter finds it, and its page shows "2–10 +pandora" and offers 9 and 10 players.
+- `needs`: `-e pandora` also turns on troublemaker (and says so). `excludes`: asking for both is refused.
+- A translation can give just a translated description (`pandora: "Pandora's box"`): the details come from the default-language file.
+- `tabula check` reports unknown details (with a "did you mean"), invalid ranges, and names in `needs`/`excludes` that aren't declared.
+
 **Additions** (more cards, new rules, new events):
 
 ```markdown
@@ -597,7 +615,6 @@ These came up while designing. They'll be added once real games need them.
 
 - **Printable card sheets:** cards from the catalog laid out at real card size, for sleeving or replacing lost cards.
 - **Extension files:** large extensions in their own file next to the game (e.g. `frantic/frantic+pandora.game`) that is merged into the base game when the extension is on.
-- **Extension metadata:** extensions that change the player count or duration (`extensions: {pandora: {players: 2-10}}`), or that require or exclude each other.
 - **Roles and factions:** rules for asymmetric games, e.g. `{@wizard}` and `--role wizard`.
 - **Solo and co-op:** `{1p}` already works. Solo bots or automata may need more structure.
 - **Player-count expressions:** text computed from the player count, like "deal {= 2 * n} cards" (values, 8.6, cover the common case).

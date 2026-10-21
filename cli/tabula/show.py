@@ -10,6 +10,7 @@ from .syntax import Ctx, in_range, parse_range
 from .blocks import components_of
 from .filtering import filter_blocks, section_names, select_key, select_sections, select_turn
 from .vault import open_vault
+from .options import apply_options, names, option_info, players_note, players_range
 from .terminal import Style, block_json, plain, render_blocks
 
 def meta_line(meta: dict) -> str:
@@ -28,6 +29,15 @@ def meta_line(meta: dict) -> str:
     return " · ".join(bits)
 
 
+def option_label(game, name: str) -> str:
+    """'pandora (2-10p, needs troublemaker)' for the terminal."""
+    d = option_info(game, name)
+    bits = ([f"{d['players']}p"] if d.get("players") else []) + \
+           ([f"needs {', '.join(names(d['needs']))}"] if d.get("needs") else []) + \
+           ([f"not with {', '.join(names(d['excludes']))}"] if d.get("excludes") else [])
+    return f"{name} ({', '.join(bits)})" if bits else name
+
+
 def cmd_show(args) -> int:
     vault = open_vault(args.vault, args.game)
     game = vault.load(vault.find(args.game), args.lang)
@@ -38,10 +48,6 @@ def cmd_show(args) -> int:
     if game.fallback:
         print(f"tabula: {game.title} has no '{args.lang}' version (available: {', '.join(game.languages)}); "
               f"showing '{game.default_language}'", file=sys.stderr)
-    rng = parse_range(game.meta.get("players"))
-    if args.players is not None and rng and not in_range(rng, args.players):
-        print(f"tabula: {game.title} is for {game.meta.get('players')} players, not {args.players}", file=sys.stderr)
-        return 2
     declared = game.variants
     for v in ctx.variants:
         if v not in {k.lower() for k in game.options}:
@@ -49,6 +55,8 @@ def cmd_show(args) -> int:
                   f"variants: {', '.join(game.variants) or '(none)'}; extensions: {', '.join(game.extensions) or '(none)'}",
                   file=sys.stderr)
             return 2
+    if (code := apply_options(game, ctx, args.players)) is not None:
+        return code
 
     blocks = filter_blocks(game.blocks, ctx)
     if args.section:
@@ -109,7 +117,7 @@ def cmd_show(args) -> int:
     if len(game.languages) > 1:
         info.append(f"language: {game.language} (available: {', '.join(game.languages)}; -l CODE)")
     if game.extensions:
-        info.append("extensions: " + ", ".join(game.extensions) + " (-e NAME)")
+        info.append("extensions: " + ", ".join(option_label(game, e) for e in game.extensions) + " (-e NAME)")
     if declared:
         info.append("variants: " + ", ".join(declared) + " (-v NAME)")
     if game.options and not ctx.everything:
@@ -130,9 +138,16 @@ def cmd_list(args) -> int:
     for p in vault.discover():
         g = vault.load(p, args.lang)
         rng = parse_range(g.meta.get("players"))
-        if args.players is not None and not (rng and in_range(rng, args.players)):
+        full = players_range(g, everything=True)
+        if args.players is not None and not (full and in_range(full, args.players)):
             continue
-        rows.append([g.slug, g.title, str(g.meta.get("players", "?")), str(g.meta.get("duration", "")),
+        players = str(g.meta.get("players", "?"))
+        if args.players is not None and not (rng and in_range(rng, args.players)):
+            players += " (" + ", ".join(f"+{o}" for o in g.options if in_range(
+                players_range(g, {o.lower()}) or [], args.players)) + ")"     # only with an extension
+        elif note := players_note(g):
+            players += f" ({note})"
+        rows.append([g.slug, g.title, players, str(g.meta.get("duration", "")),
                      ", ".join(g.languages), str(g.meta.get("location", "") or "")])
     if not rows:
         print("no games found" + (f" for {args.players} players" if args.players else "") + f" in {vault.root}")

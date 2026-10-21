@@ -68,8 +68,9 @@ class Game:
 
     def _options(self, key: str) -> dict[str, str]:
         v = self.meta.get(key)
-        if isinstance(v, dict):
-            return {str(k): "" if d is None else str(d) for k, d in v.items()}
+        if isinstance(v, dict):         # name: "description", or name: {description: …, players: …}
+            return {str(k): "" if d is None else str(d.get("description") or "") if isinstance(d, dict) else str(d)
+                    for k, d in v.items()}
         if isinstance(v, list):
             return {str(k): "" for k in v}
         return {}
@@ -166,6 +167,9 @@ class Vault:
                 for key in ("variants", "extensions", "values", "symbols"):
                     if isinstance(meta.get(key), dict) and isinstance(tr_meta.get(key), dict):
                         merged[key] = {**meta[key], **tr_meta[key]}
+                        for k, d in meta[key].items():   # a translated description keeps the details
+                            if isinstance(d, dict) and k in tr_meta[key] and not isinstance(tr_meta[key][k], dict):
+                                merged[key][k] = {**d, "description": tr_meta[key][k]}
                 meta, body_path = merged, tr
             else:
                 fallback = True

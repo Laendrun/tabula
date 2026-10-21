@@ -15,6 +15,7 @@ from .export import HtmlRenderer, html_slug
 from .filtering import filter_blocks, select_key
 from .syntax import Ctx, fold, in_range, parse_range
 from .vault import Game, open_vault
+from .options import players_range
 
 MEDIA_TYPES = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".gif": "image/gif",
                ".webp": "image/webp", ".svg": "image/svg+xml"}
@@ -274,7 +275,7 @@ def cmd_book(args) -> int:
     if args.players is not None:
         keep = []
         for g in games:
-            rng = parse_range(g.meta.get("players"))
+            rng = players_range(g, {c for c in chosen}, everything=not chosen)   # with the extensions in the book
             (keep if not rng or in_range(rng, args.players) else skipped).append(g)
         games = keep
     games.sort(key=lambda g: fold(g.title))
