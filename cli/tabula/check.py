@@ -21,6 +21,7 @@ from .terminal import Style, find_section
 from .cards import card_catalog
 from .spell import SpellError, check_spelling
 from .values import value_problems
+from .options import option_problems, players_range
 from .sheet import check_sheet, load_sheet, sheets_of
 from .symbols import SYMBOL_RE, merged_symbols, symbol_problems
 
@@ -86,7 +87,10 @@ def check_game(game: Game, vault: Vault, require_defs: bool = False,
     for msg in value_problems(own.get("values")) + symbol_problems(own.get("symbols"), game.base_dir):
         iss.error(path, 1, msg)
 
-    game_rng = parse_range(meta.get("players"))
+    for msg in option_problems(game):
+        iss.error(path, 1, msg)
+
+    game_rng = players_range(game, everything=True)          # extensions may add player counts
     declared = {k.lower() for k in game.options}
     ext = meta.get("extensions")
     if ext is not None and not isinstance(ext, (dict, list)):

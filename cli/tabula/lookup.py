@@ -12,6 +12,7 @@ from .syntax import COMPONENT_RE, Cond, Ctx, REF_RE, cond_ok, fold
 from .blocks import Block
 from .filtering import filter_blocks, select_sections
 from .vault import open_vault
+from .options import apply_options
 from .terminal import Style, block_json, render_blocks, wrap
 
 @dataclass
@@ -102,6 +103,8 @@ def cmd_lookup(args) -> int:
         if v not in {k.lower() for k in game.options}:
             print(f"tabula: '{v}' is not a variant or extension of {game.title}", file=sys.stderr)
             return 2
+    if (code := apply_options(game, ctx, args.players)) is not None:
+        return code
     st = Style(sys.stdout.isatty() and not os.environ.get("NO_COLOR") and not args.no_color)
     width = min(shutil.get_terminal_size((88, 20)).columns, 88)
     entries = lookup_entries(game.blocks)

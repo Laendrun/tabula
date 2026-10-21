@@ -14,7 +14,9 @@ variants:
   calme: "Mer calme : sans cartes Marée, pour une première partie"
   equipes: "À 4, en deux équipes de deux"
 extensions:
-  phare: "Le Phare : 4 cartes de plus, à fabriquer"
+  phare:
+    description: "Le Phare : 4 cartes de plus, à fabriquer"
+    excludes: [calme]          # le Phare protège des cartes Marée, absentes en mer calme
 words: [Vellec]
 symbols:
   vague: {image: media/vague.png, text: "≈"}   # sur les cartes Marée

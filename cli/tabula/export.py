@@ -15,6 +15,7 @@ from .blocks import callout_family, callout_title, card_image, shown_fields, Blo
 from .filtering import filter_blocks, section_end, section_names, select_key, select_sections, select_turn
 from .source import UNSAVED
 from .vault import Game, open_vault
+from .options import apply_options, players_note, players_range
 from .terminal import find_section, plain
 from .lookup import Entry, lookup_entries
 from .cards import card_catalog, card_rows
@@ -653,6 +654,8 @@ class HtmlRenderer:
         out = []
         if meta.get("players") is not None:
             out.append(f"{esc(str(meta['players']).replace('-', '–'))} {t['players']}")
+            if note := players_note(self.game):            # "2–10 +pandora"
+                out.append(esc(note.replace("-", "–")))
         if meta.get("best_players") is not None:
             out.append(esc(t["best"].format(meta["best_players"])))
         if meta.get("duration") is not None:
@@ -674,7 +677,7 @@ class HtmlRenderer:
     def filter_bar(self) -> str:
         """The page's controls: player count, and every extension and variant (or everything)."""
         g, t, esc = self.game, self.t, self.esc
-        rng = parse_range(g.meta.get("players"))
+        rng = players_range(g, everything=True)         # extensions may add player counts
         counts: list[int] = []
         if rng:
             lo = min(a for a, _ in rng)
@@ -896,14 +899,13 @@ def cmd_export(args) -> int:
         print("tabula: --all already shows every extension and variant; drop either --all or -e/-v", file=sys.stderr)
         return 2
     ctx = Ctx(args.players, {v.lower() for v in (args.variant or []) + (args.ext or [])}, args.all)
-    rng = parse_range(game.meta.get("players"))
-    if args.players is not None and rng and not in_range(rng, args.players):
-        print(f"tabula: {game.title} is for {game.meta.get('players')} players, not {args.players}", file=sys.stderr)
-        return 2
+    # (player count: checked with the options below)
     for v in ctx.variants:
         if v not in {k.lower() for k in game.options}:
             print(f"tabula: '{v}' is not a variant or extension of {game.title}", file=sys.stderr)
             return 2
+    if (code := apply_options(game, ctx, args.players)) is not None:
+        return code
     blocks = filter_blocks(game.blocks, ctx)
     if args.section:
         picked = select_sections(blocks, args.section)

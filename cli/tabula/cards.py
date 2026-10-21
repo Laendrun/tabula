@@ -11,6 +11,7 @@ from .syntax import Ctx, fold
 from .blocks import Block, components_of
 from .filtering import filter_blocks
 from .vault import open_vault
+from .options import apply_options
 from .terminal import Style, plain, render_inline, vlen, wrap
 
 def card_catalog(blocks: list[Block]) -> list[dict]:
@@ -105,6 +106,8 @@ def cmd_cards(args) -> int:
         if v not in {k.lower() for k in game.options}:
             print(f"tabula: '{v}' is not a variant or extension of {game.title}", file=sys.stderr)
             return 2
+    if (code := apply_options(game, ctx, args.players)) is not None:
+        return code
     blocks = filter_blocks(game.blocks, ctx)
     catalog = card_catalog(blocks)
     if not catalog:

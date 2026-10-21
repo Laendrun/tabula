@@ -13,6 +13,7 @@ from .export import HTML_CSS, HtmlRenderer
 from .filtering import filter_blocks, select_key, select_turn
 from .syntax import Ctx, fold, in_range, parse_range
 from .vault import Game, Vault, open_vault
+from .options import players_range
 from .sheet import load_sheet, render_sheet, sheets_of
 
 MARKER = ".tabula-site"          # marks a folder made by `tabula site`, so it can be safely replaced
@@ -142,8 +143,8 @@ def write_game(vault: Vault, path: Path, out: Path) -> dict:
 def index_page(vault: Vault, entries: list[dict], ui: dict, lang: str) -> str:
     esc = html.escape
     name = str(vault.config.get("name") or vault.root.name)
-    finite = [hi for e in entries for _, hi in (parse_range(e["game"].meta.get("players")) or []) if hi != math.inf]
-    los = [lo for e in entries for lo, _ in (parse_range(e["game"].meta.get("players")) or [])]
+    finite = [hi for e in entries for _, hi in (players_range(e["game"], everything=True) or []) if hi != math.inf]
+    los = [lo for e in entries for lo, _ in (players_range(e["game"], everything=True) or [])]
     cap = max([*finite, *los, 6])
     tags = sorted({t for e in entries for t in as_list(e["game"].meta.get("type")) + as_list(e["game"].meta.get("tags"))},
                   key=fold)
@@ -151,7 +152,7 @@ def index_page(vault: Vault, entries: list[dict], ui: dict, lang: str) -> str:
     for e in sorted(entries, key=lambda e: fold(e["shown"].title)):
         g, shown = e["game"], e["shown"]
         meta = g.meta
-        rng = parse_range(meta.get("players"))
+        rng = players_range(g, everything=True)          # with an extension counts too
         counts = " ".join(str(n) for n in range(1, cap + 1) if in_range(rng, n)) if rng else "*"
         dur = duration_bounds(meta.get("duration"))
         game_tags = as_list(meta.get("type")) + as_list(meta.get("tags"))
