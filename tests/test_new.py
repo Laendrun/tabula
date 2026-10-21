@@ -133,9 +133,10 @@ def test_frontmatter_from_bgg(vault, capsys, bgg):
     assert meta == {
         "title": "CATAN", "players": "3-4", "duration": "60-120", "age": 10, "year": 1995, "type": ["board"],
         "tags": ["economic", "negotiation"], "designer": ["Klaus Teuber"], "artist": ["Michael Menzel"],
-        "publisher": "KOSMOS", "links": {"bgg": "https://boardgamegeek.com/boardgame/13"}, "cover": "media/box.png",
+        "publisher": "KOSMOS", "links": {"bgg": "https://boardgamegeek.com/boardgame/13"},
     }
-    assert (vault / "catan" / "media" / "box.png").read_bytes() == b"PNG"
+    assert (vault / "catan" / "media" / "cover.png").read_bytes() == b"PNG"     # found as the cover by its name
+    assert tabula.Vault(vault).load(path).cover == vault / "catan" / "media" / "cover.png"
     assert "# Matériel {#components}" in text                       # the skeleton, in the vault's language
     assert "other names on BoardGameGeek: Die Siedler von Catan, Les Colons de Catane" in out
     api = [c for c in calls if "xmlapi2" in c[0]]

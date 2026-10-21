@@ -162,8 +162,7 @@ def write_game(vault: Vault, slug: str, meta: dict, lang: str, image: str = "", 
             data = fetch(image)
             ext = (Path(urllib.parse.urlparse(image).path).suffix or ".jpg").lower()
             (folder / "media").mkdir(exist_ok=True)
-            (folder / "media" / f"box{ext}").write_bytes(data)
-            meta = {**meta, "cover": f"media/box{ext}"}
+            (folder / "media" / f"cover{ext}").write_bytes(data)      # found as the cover, no `cover:` needed
         except BggError as e:
             print(f"tabula: no cover image ({e})", file=sys.stderr)
     if lang != vault.language:

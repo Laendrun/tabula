@@ -484,8 +484,9 @@ class HtmlRenderer:
                 names = ", ".join(map(str, v)) if isinstance(v, list) else str(v)
                 credits.append(f"<b>{t[label]}</b> {esc(names)}")
         cover = ""
-        if meta.get("cover") and (g.base_dir / str(meta["cover"])).exists():
-            cover = f'<img class="cover" src="{esc(self.data_uri(str(meta["cover"])))}" alt="">'
+        if g.cover and g.cover.is_file():
+            src = str(g.cover.relative_to(g.base_dir)) if g.cover.is_relative_to(g.base_dir) else str(g.cover)
+            cover = f'<img class="cover" src="{esc(self.data_uri(src))}" alt="">'
 
         sel = [t["key"]] if self.key_only else []
         if ctx.players is not None:
