@@ -573,6 +573,43 @@ const renameProvider = {
   },
 };
 
+// ------------------------------------------------------------------ formatting (tabula fmt)
+
+const formatter = {
+  async provideDocumentFormattingEdits(doc) {
+    const cfg = settings(doc.uri);
+    const { done } = runTabula(core.fmtArgs({ file: doc.uri.fsPath, vault: cfg.vault, extraArgs: cfg.extraArgs }),
+                               cfg, doc.getText(), true);
+    const r = await done;
+    if (!r) return [];
+    if (r.code !== 0) {
+      const why = (r.err || r.out).trim();
+      output.appendLine(`$ tabula fmt ${doc.uri.fsPath} --stdin\n${why}`);
+      vscode.window.setStatusBarMessage(`Tabula: ${why.split("\n").pop() || "not formatted"} (see Output → Tabula)`, 6000);
+      return [];
+    }
+    const text = doc.getText();
+    if (r.out === text || r.out.replace(/\r\n/g, "\n") === text.replace(/\r\n/g, "\n")) return [];
+    const last = doc.lineAt(doc.lineCount - 1);
+    return [vscode.TextEdit.replace(new vscode.Range(0, 0, doc.lineCount - 1, last.text.length), r.out)];
+  },
+};
+
+async function formatVault() {
+  const editor = vscode.window.activeTextEditor;
+  const uri = editor && isGame(editor.document) ? editor.document.uri : (vscode.workspace.workspaceFolders || [])[0]?.uri;
+  const cfg = settings(uri);
+  const r = await vscode.window.withProgress(
+    { location: vscode.ProgressLocation.Window, title: "Tabula: formatting the vault" },
+    () => runTabula(core.fmtArgs({ vault: cfg.vault, extraArgs: cfg.extraArgs }), cfg, undefined, true).done
+  );
+  if (!r) return;
+  output.appendLine(`$ tabula fmt\n${(r.out + r.err).trim()}`);
+  const summary = r.out.trim().split("\n").pop() || r.err.trim();
+  if (r.code === 0) vscode.window.showInformationMessage(`Tabula: ${summary}`);
+  else vscode.window.showWarningMessage(`Tabula: ${summary}`);
+}
+
 // ------------------------------------------------------------------ activation
 
 function activate(context) {
@@ -590,6 +627,9 @@ function activate(context) {
     vscode.languages.registerCodeActionsProvider(sel, codeActionProvider, { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] }),
     vscode.languages.registerRenameProvider(sel, renameProvider),
     vscode.commands.registerCommand("tabula.addWord", addWord),
+    vscode.languages.registerDocumentFormattingEditProvider(sel, formatter),
+    vscode.commands.registerCommand("tabula.formatFile", () => vscode.commands.executeCommand("editor.action.formatDocument")),
+    vscode.commands.registerCommand("tabula.formatVault", formatVault),
     vscode.commands.registerCommand("tabula.checkVault", checkVault),
     vscode.commands.registerCommand("tabula.openPreview", openPreview),
     vscode.window.onDidChangeActiveTextEditor((ed) => { if (ed && preview && isGame(ed.document)) previewDocument(ed.document); }),

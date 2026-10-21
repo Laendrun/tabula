@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 
 from .syntax import (
     BLOCK_COND_RE, COMPONENT_RE, Cond, DEF_LINE_RE, END_RE, FENCE_RE, FIELD_RE, HEADING_COND_RE,
-    HEADING_RE, IMAGE_RE, ITEM_RE, P_TOKEN, REF_RE, parse_attrs, parse_cond, parse_range,
+    HEADING_RE, IMAGE_RE, ITEM_RE, P_TOKEN, REF_RE, parse_attrs, parse_cond, parse_range, split_bars,
 )
 
 QUIET_END = "---\x00quiet"     # see fragments.expand_includes
@@ -45,11 +45,17 @@ def is_block_start(t: str) -> bool:
             or bool(DEF_LINE_RE.match(t)) or bool(BLOCK_COND_RE.match(t)))
 
 
-def split_row(t: str) -> list[str]:
-    s = t.strip()
+def table_cells(row: str) -> list[str]:
+    """The cells of a table row; a | inside [[a|b]] or escaped as \\| doesn't split."""
+    s = row.strip()
     s = s[1:] if s.startswith("|") else s
-    s = s[:-1] if s.endswith("|") else s
-    return [c.strip() for c in s.split("|")]
+    s = s[:-1] if s.endswith("|") and not s.endswith("\\|") else s
+    return [c.strip() for c in split_bars(s)]
+
+
+def split_row(t: str) -> list[str]:
+    """A table row's cells, as text: \\| is a literal |."""
+    return [c.replace("\\|", "|") for c in table_cells(t)]
 
 
 def is_sep_row(cells) -> bool:

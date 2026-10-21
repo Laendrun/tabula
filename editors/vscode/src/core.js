@@ -14,6 +14,15 @@ function checkArgs({ file, vault, extraArgs = [], definitions = false, stdin = f
   return args;
 }
 
+/** Arguments for `tabula fmt`: one file from stdin (to stdout), or the whole vault. */
+function fmtArgs({ file, vault, extraArgs = [] }) {
+  const args = [...extraArgs];
+  if (vault) args.push("--vault", vault);
+  args.push("fmt");
+  if (file) args.push(file, "--stdin");
+  return args;
+}
+
 /** Replace ${workspaceFolder} (and ~ at the start) in a setting. */
 function expand(value, workspaceFolder, home) {
   if (typeof value !== "string") return value;
@@ -617,7 +626,7 @@ function quickFixes(text, line, message, range, names = [], sections = []) {
 }
 
 module.exports = {
-  severity, checkArgs, expand, parseCheckOutput, issueColumns, fold, outline, refAt, findTargets,
+  severity, checkArgs, fmtArgs, expand, parseCheckOutput, issueColumns, fold, outline, refAt, findTargets,
   plainRefs, definitionBody, definitionMarkdown, completionContext, completions, hoverText,
   includeAt, includeContext, includeHover,
   fragmentSection, expandIncludes, previewHtml, previewLink,

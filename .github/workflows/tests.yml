@@ -12,6 +12,7 @@ jobs:
       - run: pip install -e "./cli[test]"     # tabula + pyyaml + pytest, from cli/pyproject.toml
       - run: pytest -q tests
       - run: tabula --vault examples/vault check
+      - run: tabula --vault examples/vault fmt --check   # the examples stay tidy
 
   vscode:
     runs-on: ubuntu-latest

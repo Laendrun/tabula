@@ -37,6 +37,7 @@ tabula book                            # the whole vault as an EPUB book (e-read
 tabula book frantic -p 4 -e pandora    # one game, for one setup
 tabula check                           # find mistakes in every game and translation
 tabula todo                            # the <!-- TODO: … --> reminders left in game files
+tabula fmt                             # tidy every file: blank lines, aligned tables, spaces (never changes the rules)
 tabula check -d                        # ...and require a glossary definition for every component
 tabula check --spell                   # ...and check spelling, in each file's language (see below)
 ```
@@ -90,7 +91,7 @@ Open `site/index.html` in a browser; it works offline. You can also put the fold
 
 ## Editor
 
-`editors/vscode/` is a VS Code extension: highlighting, `tabula check` while you type (squiggles and the Problems panel), a live preview with the filters (Ctrl+K V), quick fixes, rename (F2), an outline, and Ctrl+click on `[[references]]`. Install it from the `.vsix` that CI builds (Actions tab → a green run → Artifacts → *vscode-extension*). See [its README](editors/vscode/README.md) for the settings.
+`editors/vscode/` is a VS Code extension: highlighting, `tabula check` while you type (squiggles and the Problems panel), a live preview with the filters (Ctrl+K V), quick fixes, rename (F2), formatting (Shift+Alt+F), an outline, and Ctrl+click on `[[references]]`. Install it from the `.vsix` that CI builds (Actions tab → a green run → Artifacts → *vscode-extension*). See [its README](editors/vscode/README.md) for the settings.
 
 ## Code layout
 
@@ -105,6 +106,7 @@ Open `site/index.html` in a browser; it works offline. You can also put the fold
 | `vault.py` | finding and loading games and translations |
 | `terminal.py` | terminal and JSON rendering |
 | `show.py`, `lookup.py`, `cards.py`, `check.py`, `export.py`, `site.py` | one command each |
+| `fmt.py` | `tabula fmt`: tidying, and the check that the result reads the same |
 | `spell.py` | spelling for `check --spell`: dictionaries (downloaded once) and the words to skip |
 | `cli.py` | the command line (`tabula …`) |
 

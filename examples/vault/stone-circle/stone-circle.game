@@ -45,8 +45,8 @@ et on lance de petites pierres le plus près possible sans le toucher.
 
 ! Pierre la plus proche du caillou et encore dans le cercle : 3 points. Toute autre pierre dans le cercle : 1 point.
 
-| Points pour gagner | 2p | 3p | 4p |
-|--------------------|----|----|----|
+| Points pour gagner  | 2p | 3p | 4p |
+|---------------------|----|----|----|
 | {-teams} Par joueur | 15 | 12 | 10 |
 | {+teams} Par équipe |    |    | 15 |
 

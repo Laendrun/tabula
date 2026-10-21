@@ -16,10 +16,11 @@ class WorkspaceEdit {
   replace(uri, range, text) { this.ops.push({ uri, range, text }); }
   insert(uri, pos, text) { this.ops.push({ uri, range: { start: pos, end: pos }, text }); }
 }
+class TextEdit { static replace(range, text) { return { range, text }; } }
 class CodeAction { constructor(title, kind) { this.title = title; this.kind = kind; } }
 const disposable = { dispose() {} };
 const vscode = {
-  Range, CompletionItem, MarkdownString, Hover, Location, Position, WorkspaceEdit, CodeAction,
+  Range, CompletionItem, MarkdownString, Hover, Location, Position, WorkspaceEdit, CodeAction, TextEdit,
   CodeActionKind: { QuickFix: "quickfix" },
   Uri: { file: (f) => ({ fsPath: f }), parse: (u) => ({ toString: () => u }) },
   CompletionItemKind: { Reference: 17, Constant: 20, Module: 8, Keyword: 13, File: 16 },
@@ -32,6 +33,7 @@ const vscode = {
     registerHoverProvider: (sel, p) => { registered.hover = p; return disposable; },
     registerCodeActionsProvider: (sel, p) => { registered.actions = p; return disposable; },
     registerRenameProvider: (sel, p) => { registered.rename = p; return disposable; },
+    registerDocumentFormattingEditProvider: (sel, p) => { registered.formatter = p; return disposable; },
   },
   window: {
     createOutputChannel: () => ({ appendLine() {}, dispose() {} }),
@@ -210,4 +212,22 @@ test("quick fixes and rename, through the VS Code API", () => {
   const we = registered.rename.provideRenameEdits(d, { line: 6, character: 1 }, "Pack");
   assert.deepEqual(we.ops.map((o) => o.text), ["Pack"]);             // [[Dek]] isn't a reference to Deck
   assert.throws(() => registered.rename.prepareRename(d, { line: 1, character: 0 }), /Put the cursor/);
+});
+
+test("formatting runs tabula fmt FILE --stdin and replaces the text", async () => {
+  // a fake tabula that answers like `tabula fmt FILE --stdin`: trailing spaces removed, "BAD" refused
+  const fake = path.join(vaultDir, "fake-fmt.js");
+  fs.writeFileSync(fake, `let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{
+    const a=process.argv.slice(2), i=a.indexOf('fmt');
+    if(i<0||a[i+2]!=='--stdin'){process.stderr.write('bad args '+a.join(' '));process.exit(2);}
+    if(s.includes('BAD')){process.stdout.write(s);process.stderr.write('tabula: not formatted: the result would read differently');process.exit(1);}
+    process.stdout.write(s.replace(/ +$/gm,''));});`);
+  registered.config = { path: process.execPath, extraArgs: [fake] };
+  const edits = await registered.formatter.provideDocumentFormattingEdits(doc("# Rules  \n\nText.   \n", GAME_FILE));
+  assert.equal(edits.length, 1);
+  assert.equal(edits[0].text, "# Rules\n\nText.\n");
+  assert.deepEqual([edits[0].range.start.line, edits[0].range.end.line, edits[0].range.end.character], [0, 3, 0]);
+  assert.deepEqual(await registered.formatter.provideDocumentFormattingEdits(doc("# Tidy\n", GAME_FILE)), []);
+  assert.deepEqual(await registered.formatter.provideDocumentFormattingEdits(doc("BAD  \n", GAME_FILE)), []);
+  assert.ok(registered.commands["tabula.formatFile"] && registered.commands["tabula.formatVault"]);
 });

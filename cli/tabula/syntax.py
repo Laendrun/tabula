@@ -196,10 +196,28 @@ def open_label(cond: Cond | None, ctx: Ctx) -> str:
     return " ".join(keep)
 
 
+def split_bars(s: str) -> list[str]:
+    """Split at "|", except inside [[a|b]] and an escaped \\| (kept as written)."""
+    parts, cur, depth, i = [], "", 0, 0
+    while i < len(s):
+        if s.startswith("[[", i):
+            depth, cur, i = depth + 1, cur + "[[", i + 2
+        elif s.startswith("]]", i) and depth:
+            depth, cur, i = depth - 1, cur + "]]", i + 2
+        elif s[i] == "\\" and i + 1 < len(s):
+            cur, i = cur + s[i:i + 2], i + 2
+        elif s[i] == "|" and not depth:
+            parts.append(cur)
+            cur, i = "", i + 1
+        else:
+            cur, i = cur + s[i], i + 1
+    return parts + [cur]
+
+
 def parse_choice(body: str):
     """'3p: 17 | 4p: 13 | *: 10' -> [(Cond, text)] or None if not a valid choice."""
     branches = []
-    for part in body.split("|"):
+    for part in split_bars(body):
         if ":" not in part:
             return None
         c, text = part.split(":", 1)
