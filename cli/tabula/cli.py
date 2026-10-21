@@ -6,6 +6,7 @@
   tabula cards GAME [-p N] [-e EXT] [--all] [--sort COLUMN]
   tabula lookup GAME [TERM] [-p N] [-e EXT] [-v VARIANT] [--all]
   tabula site [-o FOLDER]
+  tabula new  SLUG | bgg ID [SLUG]
   tabula todo [GAME ...]
   tabula check [GAME ...] [--strict] [-d]
 
@@ -24,6 +25,7 @@ from .check import cmd_check
 from .export import cmd_export
 from .site import cmd_site
 from .todo import cmd_todo
+from .new import cmd_new
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="tabula", description="Tabula: board & card game rules in Markdown.")
@@ -100,6 +102,27 @@ def main(argv=None) -> int:
                    help="folder to write (default: ./site); replaced on every run, but only if tabula made it")
     p.add_argument("--vault", default=argparse.SUPPRESS)
     p.set_defaults(func=cmd_site)
+
+    p = sub.add_parser(
+        "new", help="start a game file: blank, or filled from BoardGameGeek",
+        usage="tabula new SLUG [-t TITLE] [-p PLAYERS] [-l LANG]\n"
+              "       tabula new bgg ID [SLUG] [-t TITLE] [--no-cover]\n"
+              "       tabula new bgg NAME          (lists the matching games and their IDs)",
+        description="tabula new SLUG writes a blank game (works offline).\n"
+                    "tabula new bgg ID fills the frontmatter from BoardGameGeek: title, players, duration, age,\n"
+                    "year, designers, artists, publisher and the box image.\n\n"
+                    "BoardGameGeek needs a token: register an application at https://boardgamegeek.com/applications,\n"
+                    "then set the BGG_TOKEN environment variable (or pass --token).",
+        formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument("what", nargs="+", help=argparse.SUPPRESS)
+    p.add_argument("-t", "--title", help="title (default: from the slug, or BoardGameGeek's name)")
+    p.add_argument("-p", "--players", help="player count, e.g. 2-4")
+    p.add_argument("-l", "--lang", help="language of the game (default: the vault's)")
+    p.add_argument("--token", help="BoardGameGeek token (default: $BGG_TOKEN)")
+    p.add_argument("--no-cover", action="store_true", help="don't download the box image from BoardGameGeek")
+    p.add_argument("--force", action="store_true", help="replace an existing game file")
+    p.add_argument("--vault", default=argparse.SUPPRESS)
+    p.set_defaults(func=cmd_new)
 
     p = sub.add_parser("todo", help="list the <!-- TODO: … --> reminders left in game files")
     p.add_argument("games", nargs="*", help="games to look in (default: all)")

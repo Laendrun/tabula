@@ -13,6 +13,9 @@ pipx install --editable ./cli   # gives you the `tabula` command everywhere
 ```sh
 export TABULA_VAULT=~/games            # or pass --vault, or cd into the vault
 
+tabula new skyjo                       # start a game: skyjo/skyjo.game with the usual sections
+tabula new bgg 13                      # ...with the frontmatter filled from BoardGameGeek (needs BGG_TOKEN)
+tabula new bgg "ticket to ride"        # find a game's BoardGameGeek ID
 tabula list                            # all games (with where they're stored)
 tabula list -p 2                       # games playable with 2 players
 tabula show oh-my-socks                # base game; player-count rules shown as [2p] badges
@@ -37,6 +40,15 @@ tabula check -d                        # ...and require a glossary definition fo
 Games can share parts, like a standard deck: put them once in `_shared/deck-52.game` and write `![[deck-52]]` (or `![[deck-52#Glossaire]]` for one section) in each game. See the spec, section 10.
 
 `examples/vault/` has four example games: `oh-my-socks` (fr), `hearts` (en + fr, with a variant), `stone-circle` (homemade, en + fr, team variant, image) and `crazy-eights` (standalone file).
+
+## Starting a game from BoardGameGeek
+
+`tabula new bgg ID` fills the frontmatter (title, players, duration, age, year, designers, artists, publisher, box image) from BoardGameGeek, and `tabula new bgg "name"` lists the matching games with their IDs. BoardGameGeek requires a free token for this:
+
+1. Register an application at https://boardgamegeek.com/applications (non-commercial).
+2. Put its token in the `BGG_TOKEN` environment variable. On Windows: `setx BGG_TOKEN "your-token"`, then open a new terminal. On macOS/Linux: add `export BGG_TOKEN=your-token` to your shell profile.
+
+Keep the token out of your vault, so it never ends up in git. Without internet or a token, `tabula new SLUG` writes the same file with an empty frontmatter to fill in.
 
 ## Website
 
