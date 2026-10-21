@@ -14,7 +14,7 @@ class Position { constructor(line, character) { this.line = line; this.character
 const disposable = { dispose() {} };
 const vscode = {
   Range, CompletionItem, MarkdownString, Hover, Location, Position,
-  Uri: { file: (f) => ({ fsPath: f }) },
+  Uri: { file: (f) => ({ fsPath: f }), parse: (u) => ({ toString: () => u }) },
   CompletionItemKind: { Reference: 17, Constant: 20, Module: 8, Keyword: 13, File: 16 },
   languages: {
     createDiagnosticCollection: () => ({ set() {}, delete() {}, dispose() {} }),
@@ -24,9 +24,30 @@ const vscode = {
     registerCompletionItemProvider: (sel, p, ...triggers) => { registered.completion = { p, triggers }; return disposable; },
     registerHoverProvider: (sel, p) => { registered.hover = p; return disposable; },
   },
-  window: { createOutputChannel: () => ({ appendLine() {}, dispose() {} }) },
-  commands: { registerCommand: () => disposable },
+  window: {
+    createOutputChannel: () => ({ appendLine() {}, dispose() {} }),
+    onDidChangeActiveTextEditor: () => disposable,
+    activeTextEditor: null,
+    setStatusBarMessage() {},
+    showInformationMessage() {},
+    createWebviewPanel: (id, title) => {
+      const panel = {
+        title, html: "", messages: [],
+        webview: { cspSource: "vscode-test:", set html(v) { panel.html = v; panel.onHtml && panel.onHtml(v); },
+                   get html() { return panel.html; }, onDidReceiveMessage: (f) => { panel.receive = f; return disposable; } },
+        reveal() {}, onDidDispose: () => disposable,
+      };
+      registered.panel = panel;
+      return panel;
+    },
+  },
+  ViewColumn: { One: 1, Beside: -2 },
+  env: { openExternal: (u) => { registered.opened = u; } },
+  commands: { registerCommand: (name, f) => { (registered.commands = registered.commands || {})[name] = f; return disposable; } },
   workspace: {
+    getConfiguration: () => ({ get: (k) => registered.config && registered.config[k] }),
+    getWorkspaceFolder: () => null,
+    workspaceFolders: [],
     textDocuments: [],
     onDidOpenTextDocument: () => disposable, onDidSaveTextDocument: () => disposable,
     onDidChangeTextDocument: () => disposable, onDidCloseTextDocument: () => disposable,
@@ -39,7 +60,8 @@ require("../src/extension").activate({ subscriptions: [] });
 
 function doc(text, file = "/vault/g/g.game") {
   const lines = text.split("\n");
-  return { getText: () => text, lineAt: (i) => ({ text: lines[i] }), uri: { fsPath: file } };
+  return { getText: () => text, lineAt: (i) => ({ text: lines[i] }), languageId: "tabula",
+           uri: { fsPath: file, scheme: "file", toString: () => "file://" + file } };
 }
 const TEXT = "# Setup {#setup}\n\n- 1x [[Deck]]\n\nRead [[#\nUse the [[de\nUse the [[de]] now\n\n# Glossary\n\nDeck\n: points:: 2\n  52 cards.\n";
 
@@ -113,4 +135,38 @@ test("hover on an include previews it", () => {
   assert.match(h.contents.value, /\*\*Components\*\*/);
   const missing = registered.hover.provideHover(doc("![[nope]]", GAME_FILE), { line: 0, character: 5 });
   assert.match(missing.contents.value, /No shared fragment `nope`/);
+});
+
+test("terms from included fragments: completion, hover, ctrl+click", () => {
+  const text = "# Kit\n\n![[deck-52#components]]\n\n# Words\n\n![[deck-52#glossary]]\n\nUse a [[ca\nA [[card]] here.\n";
+  const items = registered.completion.p.provideCompletionItems(doc(text, GAME_FILE), { line: 8, character: 10 });
+  assert.deepEqual(items.map((i) => i.label.label), ["Card"]);
+  const h = registered.hover.provideHover(doc(text, GAME_FILE), { line: 9, character: 5 });
+  assert.match(h.contents.value, /^\*\*Card\*\*\n\nOne card\./);
+  const loc = registered.definition.provideDefinition(doc(text, GAME_FILE), { line: 9, character: 5 });
+  assert.equal(loc[0].uri.fsPath, path.join(vaultDir, "_shared", "deck-52.game"));
+  assert.equal(loc[0].range.start.line, 6);
+});
+
+test("preview: renders the open file with tabula and handles links", async () => {
+  // a fake tabula that answers like `tabula export FILE --interactive --stdin -o -`
+  const fake = path.join(vaultDir, "fake-tabula.js");
+  fs.writeFileSync(fake, `let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{
+    const args=process.argv.slice(2);
+    if(!args.includes('--interactive')||!args.includes('--stdin')){process.stderr.write('bad args '+args.join(' '));process.exit(2);}
+    process.stdout.write('<!doctype html><html><head><title>t</title></head><body><p>'+s.length+' chars</p><script>run()</script></body></html>');});`);
+  registered.config = { path: process.execPath, extraArgs: [fake] };
+  const d = doc("# Rules\n\nHello.\n", GAME_FILE);
+  vscode.window.activeTextEditor = { document: d };
+  const shown = new Promise((resolve) => { registered.onPanel = resolve; });
+  registered.commands["tabula.openPreview"]();
+  const panel = registered.panel;
+  const html = await new Promise((resolve) => { panel.onHtml = resolve; });
+  assert.match(html, /<p>16 chars<\/p>/);                                     // the unsaved text went to tabula
+  assert.match(html, /Content-Security-Policy/);
+  assert.match(html, /<script nonce="[a-z0-9]+">run\(\)/);                     // the page's own script may run
+  assert.equal(panel.title, "Preview: g.game");
+  panel.receive({ open: "https://example.com/x" });
+  assert.equal(String(registered.opened), "https://example.com/x");
+  void shown;
 });

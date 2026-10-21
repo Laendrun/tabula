@@ -354,8 +354,78 @@ function hoverText(text, name) {
   return parts.join("\n\n---\n\n");
 }
 
+/** The lines of a fragment's section (title matched like references, or a role), without its heading. */
+function fragmentSection(text, section) {
+  const lines = text.replace(/\r\n?/g, "\n").split("\n");
+  const want = fold(section);
+  const role = "#" + section.trim().toLowerCase();
+  const heads = outline(text).headings;
+  const h = heads.find((x) => fold(x.title) === want) || heads.find((x) => x.attrs.split(/\s+/).includes(role));
+  return h ? lines.slice(h.line + 1, h.end + 1).join("\n") : null;
+}
+
+/**
+ * The text with every `![[fragment#Section]]` line replaced by what it includes (for autocomplete and
+ * hovers, which need the terms a fragment brings). `read(name)` returns a fragment's text, or null.
+ */
+function expandIncludes(text, read, depth = 0) {
+  if (depth > 8) return text;
+  return text.replace(/\r\n?/g, "\n").split("\n").map((line) => {
+    const m = line.match(INCLUDE_LINE);
+    if (!m) return line;
+    const frag = read(m[2].trim());
+    if (frag === null || frag === undefined) return line;
+    const body = m[3] ? fragmentSection(frag, m[3].trim()) : frag.replace(/^---\n[\s\S]*?\n---\n/, "");
+    return body === null ? line : expandIncludes(body, read, depth + 1);
+  }).join("\n");
+}
+
+/**
+ * The exported page, made ready for a VS Code webview: a content security policy that only lets the page's
+ * own scripts run (with a nonce), a bridge to the extension (links, remembered scroll position).
+ */
+function previewHtml(html, nonce, cspSource) {
+  const csp = `default-src 'none'; img-src data: https: ${cspSource}; style-src 'unsafe-inline' https://fonts.googleapis.com; ` +
+    `font-src https://fonts.gstatic.com; script-src 'nonce-${nonce}';`;
+  const bridge = `<script nonce="${nonce}">
+(function () {
+  var api = acquireVsCodeApi();
+  window.tabulaVscode = api;
+  function save(k, v) { var s = api.getState() || {}; s[k] = v; api.setState(s); }
+  window.addEventListener('load', function () {
+    var s = api.getState() || {};
+    if (s.scroll) window.scrollTo(0, s.scroll);
+  });
+  var t = null;
+  window.addEventListener('scroll', function () {
+    clearTimeout(t);
+    t = setTimeout(function () { save('scroll', window.scrollY); }, 100);
+  });
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('a[href]');
+    if (!a) return;
+    var href = a.getAttribute('href');
+    if (href.charAt(0) === '#') return;                 // a term or a section on this page
+    e.preventDefault();
+    api.postMessage({ open: href });
+  });
+})();
+</script>`;
+  return html
+    .replace(/<head>/, `<head>\n<meta http-equiv="Content-Security-Policy" content="${csp}">\n${bridge}`)
+    .replace(/<script>/g, `<script nonce="${nonce}">`);
+}
+
+/** Where a link clicked in the preview goes: {url} for the web, {game: slug} for another game, else null. */
+function previewLink(href) {
+  if (/^https?:\/\//.test(href)) return { url: href };
+  const m = href.match(/^(?:\.\.\/)?([a-z0-9]+(?:-[a-z0-9]+)*)(?:\/index)?\.html(?:#.*)?$/);
+  return m ? { game: m[1] } : null;
+}
+
 module.exports = {
   severity, checkArgs, expand, parseCheckOutput, issueColumns, fold, outline, refAt, findTargets,
   plainRefs, definitionBody, definitionMarkdown, completionContext, completions, hoverText,
   includeAt, includeContext, includeHover,
+  fragmentSection, expandIncludes, previewHtml, previewLink,
 };

@@ -2,7 +2,7 @@
   "name": "tabula-syntax",
   "displayName": "Tabula Game Files",
   "description": "Highlighting and live checks for Tabula .game files (board and card game rules).",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "publisher": "Laendrun",
   "license": "MIT",
   "repository": {
@@ -64,6 +64,12 @@
         "command": "tabula.checkFile",
         "title": "Check this game",
         "category": "Tabula"
+      },
+      {
+        "command": "tabula.openPreview",
+        "title": "Open preview to the side",
+        "category": "Tabula",
+        "icon": "$(open-preview)"
       }
     ],
     "configuration": {
@@ -111,7 +117,24 @@
           "markdownDescription": "Every component must also have a glossary definition (like `tabula check -d`)."
         }
       }
-    }
+    },
+    "menus": {
+      "editor/title": [
+        {
+          "command": "tabula.openPreview",
+          "when": "editorLangId == tabula",
+          "group": "navigation"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "tabula.openPreview",
+        "key": "ctrl+k v",
+        "mac": "cmd+k v",
+        "when": "editorLangId == tabula"
+      }
+    ]
   },
   "scripts": {
     "test": "node --test test/*.test.js",
