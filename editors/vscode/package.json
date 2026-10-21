@@ -2,7 +2,7 @@
   "name": "tabula-syntax",
   "displayName": "Tabula Game Files",
   "description": "Highlighting and live checks for Tabula .game files (board and card game rules).",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "publisher": "Laendrun",
   "license": "MIT",
   "repository": {
@@ -42,6 +42,12 @@
           ".game"
         ],
         "configuration": "./language-configuration.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "tabula",
+        "path": "./snippets/tabula.json"
       }
     ],
     "grammars": [
