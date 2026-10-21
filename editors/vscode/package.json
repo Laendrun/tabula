@@ -2,7 +2,7 @@
   "name": "tabula-syntax",
   "displayName": "Tabula Game Files",
   "description": "Highlighting and live checks for Tabula .game files (board and card game rules).",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "publisher": "Laendrun",
   "license": "MIT",
   "repository": {
@@ -115,6 +115,11 @@
           "type": "boolean",
           "default": false,
           "markdownDescription": "Every component must also have a glossary definition (like `tabula check -d`)."
+        },
+        "tabula.spellCheck": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Underline the words the dictionary doesn't know, in the game's language (like `tabula check --spell`; needs tabula 0.12 with `spylls`). Correct words go in `words.txt` in the vault, or `words:` in the frontmatter. Also turned on by `check: {spelling: true}` in `vault.yaml`."
         }
       }
     },
