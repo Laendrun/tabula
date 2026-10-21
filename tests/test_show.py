@@ -1,4 +1,5 @@
 """`tabula show` on the kitchen-sink test game: filtering, highlighting, sections, languages, JSON."""
+import tabula
 import json
 
 
@@ -175,3 +176,17 @@ def test_json(show):
     assert "MIKE is a key rule." in data["key_rules"]
     assert {"Card", "Rocket", "Comet"} <= {g["term"] for g in data["glossary"]}
     assert data["filters"] == {"players": 2, "options": ["expo"], "all": False}
+
+
+def test_numbered_steps_count_from_the_list_start(tmp_path, capsys):
+    (tmp_path / "g").mkdir()
+    (tmp_path / "g" / "g.game").write_text(
+        "---\ntitle: G\nplayers: 2-4\n---\n# Setup\n\n1. {2p} Two only.\n2. Shuffle.\n3. Deal.\n\n"
+        "Text.\n\n3. Third.\n4. Fourth {2p}\n5. Fifth.\n", encoding="utf-8")
+    tabula.main(["--vault", str(tmp_path), "show", "g", "-p", "3", "--no-color"])
+    out = capsys.readouterr().out
+    assert "1. Shuffle." in out and "2. Deal." in out                # the hidden step 1 isn't a gap
+    assert "3. Third." in out and "4. Fifth." in out                 # a list may start at 3
+    tabula.main(["--vault", str(tmp_path), "export", "g", "-p", "3", "-o", "-"])
+    html = capsys.readouterr().out
+    assert 'value="1">Shuffle.' in html and 'value="4">Fifth.' in html

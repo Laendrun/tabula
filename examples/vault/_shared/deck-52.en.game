@@ -1,0 +1,21 @@
+---
+title: Standard 52-card deck
+---
+
+# Components {#components}
+
+- 1x [[deck]] of 52 playing cards
+
+# Glossary {#glossary}
+
+Deck
+: 52 playing cards: four [[suits]] of 13 cards, from ace to king.
+
+Suit
+: ♥ hearts, ♦ diamonds, ♣ clubs or ♠ spades. Hearts and diamonds are red, clubs and spades are black.
+
+Rank
+: In order: ace, 2, 3… 10, jack, queen, king. Unless a game says otherwise, the ace is the lowest.
+
+Face card
+: A jack, a queen or a king.

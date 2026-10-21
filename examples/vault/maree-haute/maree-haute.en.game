@@ -1,0 +1,172 @@
+---
+title: High Tide
+tags: [family, homemade, standard deck]
+designer: [the Tabula team]
+location: sideboard drawer, blue tin box
+source: original game, written for the Tabula examples (MIT licence)
+variants:
+  calme: "Calm sea: no Tide cards, for a first game"
+  equipes: "4 players in two teams of two"
+extensions:
+  phare: "The Lighthouse: 4 more cards to make"
+---
+
+# Overview {#goal}
+
+In the harbour of Vellec, everyone moors their boats along their quay before the sea rises. Lay your cards out as [[boats]] of one [[suit]], always going up, and keep them safe from the [[Tide cards]].
+
+The player with the most points wins, when the [[draw pile]] is empty or when someone calls [[#Full quay]].
+
+# Components {#components}
+
+![[deck-52#components]]
+- {-calme} 8x [[Tide cards]] — make them from index cards
+  - 3x [[Gust of wind]]
+  - 3x [[Spring tide]]
+  - 2x [[Dead calm]]
+- {+phare} 4x [[Lighthouse cards]]
+  - 2x [[Lighthouse]]
+  - 2x [[Fog]]
+- 1x [[score pad]] and a pencil
+
+![A quay during a game: three boats, the spades one safe](media/quai.png)
+
+# Setup {#setup}
+
+1. {2p} Remove the [[face cards]] from the [[deck]]: with two players, you play without them.
+2. Shuffle the [[deck]] and deal {2p: 7 | 3p: 6 | *: 5} cards to each player.
+3. {-calme} Shuffle the [[Tide cards]] {+phare: and the [[Lighthouse cards]]} into the rest of the deck: this is the [[draw pile]].
+4. {+calme} The rest of the deck is the [[draw pile]].
+5. Turn over the top card of the draw pile to start the [[beach]]. If it is a Tide card, put it back in the middle of the draw pile.
+6. The youngest player goes first.
+
+| Boats per quay, at most | 2p | 3p | 4-5p |
+|-------------------------|----|----|------|
+| Each player             | 5  | 4  | 3    |
+| {+equipes} Each team    | —  | —  | 5    |
+
+# Play {#play}
+
+Players take turns clockwise. On your turn, do these three things in order:
+
+1. **Draw**: take the top card of the [[draw pile]], or the top card of the [[beach]].
+2. **Lay**: lay a card from your hand on your [[quay]] (see [[#Laying a card]]), or skip this step.
+3. **Throw**: put a card from your hand face up on the [[beach]].
+
+! Always end your turn with {2p: 7 | 3p: 6 | *: 5} cards in hand.
+! If you have more, throw cards away until the count is right.
+
+> Tip: everyone can see the top card of the beach. Taking a card from there shows what you are building.
+
+## Laying a card
+
+A [[Boat|boat]] is a row of cards of the same [[suit]], overlapping so that their [[ranks]] stay visible.
+
+- To start a boat, lay any card in front of you, unless you already have as many boats as allowed (see the table in the [[#setup|setup]]).
+- To extend a boat, lay a card of the same suit on top of it.
+
+## ! Always going up
+
+In a boat, each card must have a higher [[rank]] than the card under it. You can never slip in a lower card or take one out, except when a [[Tide card]] says so.
+
+### With two players {2p}
+
+With two players, a card may also have the same rank as the card under it.
+
+---
+
+A boat of five cards or more is **safe**: Tide cards no longer touch it.
+
+## Drawing a Tide card {-calme}
+
+When you draw a [[Tide card]], show it, do what it says right away, then put it out of the game. Then draw another card instead.
+
+## Playing in teams {+equipes}
+
+Partners sit opposite each other and share a single [[quay]] of five boats. Each can lay cards on any of the team's boats, but you don't show your cards to your partner.
+
+# End of the game {#end}
+
+The game ends at the end of the turn in which the [[draw pile]] runs out, or right away when a player calls "Full quay!".
+
+## ! Full quay
+
+If you have laid all the boats allowed and each has at least four cards, call "Full quay!" at the end of your turn. The game ends at once and you score 10 more points.
+
+# Scoring {#scoring}
+
+Each player adds up the cards in their boats:
+
+| Card      | Points     |
+|-----------|------------|
+| Ace       | 1          |
+| 2 to 10   | their rank |
+| Face card | 10         |
+
+- A [[#Always going up|safe]] boat scores 5 more points.
+- Cards still in your hand don't count.
+
+Write the scores on the [[score pad]]. The highest score wins. On a tie, the player with more boats wins.
+
+# Variants {#variants}
+
+## Calm sea {+calme}
+
+For a first game, play without the [[Tide cards]]. Everything else stays the same.
+
+## Teams {+equipes}
+
+With four players, see [[#Playing in teams]].
+
+# Frequently asked questions {#faq}
+
+**Can I take back from the beach the card I just threw?** No: it stays there at least until the next player's turn.
+
+**Can a Spring tide empty a boat?** Yes. A boat with no cards left is gone, and you can start a new one.
+
+# Glossary {#glossary}
+
+![[deck-52#glossary]]
+
+## Tide cards {-calme #cards}
+
+Gust of wind
+: strength:: 1
+  effect:: Each player takes the top card off their smallest boat and puts it on the [[beach]].
+
+Spring tide
+: strength:: 2
+  effect:: Each player takes the bottom card off each of their boats that isn't safe.
+    The cards taken go on the [[beach]], the highest one last.
+
+Dead calm
+: strength:: 0
+  effect:: Nothing happens, and the player who drew it plays another full turn.
+
+## Lighthouse cards {+phare #cards}
+
+Lighthouse
+: strength:: 0
+  effect:: Keep this card in front of you. The next Tide card doesn't touch your quay,
+    then discard the Lighthouse.
+
+Fog
+: strength:: 1
+  effect:: Until your next turn, nobody can take a card from the [[beach]].
+
+---
+
+Boat
+: A row of cards of the same [[suit]] on your [[quay]], always going up.
+
+Quay
+: The space in front of you, where you lay your boats.
+
+Beach
+: The discard pile, face up. Only the top card can be taken.
+
+Draw pile
+: The face-down cards in the middle of the table.
+
+Score pad
+: Any sheet of paper will do.

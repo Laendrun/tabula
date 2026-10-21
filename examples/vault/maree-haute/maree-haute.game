@@ -1,0 +1,186 @@
+---
+title: Marée haute
+players: 2-5
+best_players: 3-4
+duration: 20-30
+age: 8
+year: 2026
+type: [card, homemade]
+tags: [famille, fait maison, paquet classique]
+designer: [l'équipe Tabula]
+location: tiroir du buffet, boîte en fer bleue
+source: jeu original, écrit pour les exemples de Tabula (licence MIT)
+variants:
+  calme: "Mer calme : sans cartes Marée, pour une première partie"
+  equipes: "À 4, en deux équipes de deux"
+extensions:
+  phare: "Le Phare : 4 cartes de plus, à fabriquer"
+words: [Vellec]
+---
+
+<!-- Un jeu original qui montre toutes les possibilités du format : un fragment partagé (_shared/deck-52),
+     des conditions, un tableau par nombre de joueurs, des règles et une section clés, des liens vers des
+     sections, un catalogue de cartes avec des champs, une fin de section (---) et une traduction (.en.game).
+     La couverture (media/cover.png) est trouvée par son nom. -->
+
+# Aperçu {#goal}
+
+Au port de Vellec, chacun range ses bateaux le long de son quai avant que la mer ne monte. Posez vos cartes en [[bateaux]] de la même [[couleur]], toujours en montant, et gardez-les à l'abri des [[cartes Marée]].
+
+Le joueur qui a le plus de points gagne, quand la [[pioche]] est vide ou quand quelqu'un annonce [[#Quai plein]].
+
+# Matériel {#components}
+
+![[deck-52#components]]
+- {-calme} 8x [[cartes Marée]] — à fabriquer avec des fiches cartonnées
+  - 3x [[Coup de vent]]
+  - 3x [[Grande marée]]
+  - 2x [[Mer d'huile]]
+- {+phare} 4x [[cartes Phare]]
+  - 2x [[Phare]]
+  - 2x [[Brume]]
+- 1x [[bloc de score]] et un crayon
+
+![Un quai en cours de partie : trois bateaux, dont un à l'abri](media/quai.png)
+
+# Mise en place {#setup}
+
+1. {2p} Retirez les [[figures]] du [[paquet]] : à deux, on joue sans elles.
+2. Mélangez le [[paquet]] et distribuez {2p: 7 | 3p: 6 | *: 5} cartes à chaque joueur.
+3. {-calme} Mélangez les [[cartes Marée]] {+phare: et les [[cartes Phare]]} avec le reste du paquet : c'est la [[pioche]].
+4. {+calme} Le reste du paquet forme la [[pioche]].
+5. Retournez la première carte de la pioche pour commencer la [[plage]]. Si c'est une carte Marée, remettez-la au milieu de la pioche.
+6. Le plus jeune joueur commence.
+
+| Bateaux par quai, au plus | 2p | 3p | 4-5p |
+|---------------------------|----|----|------|
+| Chaque joueur             | 5  | 4  | 3    |
+| {+equipes} Chaque équipe  | —  | —  | 5    |
+
+# Déroulement {#play}
+
+On joue chacun son tour, dans le sens des aiguilles d'une montre. À votre tour, faites ces trois choses dans l'ordre :
+
+1. **Piocher** : prenez la première carte de la [[pioche]], ou la carte du dessus de la [[plage]].
+2. **Poser** : posez une carte de votre main sur votre [[quai]] (voir [[#Poser une carte]]), ou sautez cette étape.
+3. **Jeter** : posez une carte de votre main sur la [[plage]], face visible.
+
+! Vous devez toujours finir votre tour avec {2p: 7 | 3p: 6 | *: 5} cartes en main.
+! Si vous en avez plus, jetez-en jusqu'à ce que le compte soit bon.
+
+> Astuce : la carte du dessus de la plage est visible de tous. Prendre une carte là, c'est montrer ce que vous construisez.
+
+## Poser une carte
+
+Un [[Bateau|bateau]] est une rangée de cartes de la même [[couleur]], posées en décalé pour que leurs [[valeurs]] restent visibles.
+
+- Pour commencer un bateau, posez n'importe quelle carte devant vous, si vous n'avez pas déjà le nombre de bateaux permis (voir le tableau de la [[#setup|mise en place]]).
+- Pour agrandir un bateau, posez une carte de la même couleur dessus.
+
+## ! Toujours en montant
+
+Dans un bateau, chaque carte doit avoir une [[valeur]] plus haute que celle du dessous. On ne peut jamais glisser une carte plus basse, ni en retirer une, sauf quand une [[carte Marée]] l'exige.
+
+### À deux {2p}
+
+À deux, une carte peut aussi avoir la même valeur que celle du dessous.
+
+---
+
+Un bateau de cinq cartes ou plus est **à l'abri** : les cartes Marée ne le touchent plus.
+
+## Piocher une carte Marée {-calme}
+
+Quand vous piochez une [[carte Marée]], montrez-la, appliquez son effet tout de suite, puis mettez-la hors du jeu. Piochez ensuite une autre carte à la place.
+
+## Jouer en équipes {+equipes}
+
+Les partenaires s'assoient face à face et partagent un seul [[quai]] de cinq bateaux. Chacun peut poser sur tous les bateaux de l'équipe, mais on ne montre pas ses cartes à son partenaire.
+
+# Fin de la partie {#end}
+
+La partie s'arrête à la fin du tour où la [[pioche]] est vide, ou tout de suite quand un joueur annonce « Quai plein ! ».
+
+## ! Quai plein
+
+Si vous avez posé tous les bateaux permis et que chacun a au moins quatre cartes, annoncez « Quai plein ! » à la fin de votre tour. La partie s'arrête immédiatement et vous marquez 10 points de plus.
+
+# Décompte {#scoring}
+
+Chaque joueur additionne les cartes de ses bateaux :
+
+| Carte  | Points      |
+|--------|-------------|
+| As     | 1           |
+| 2 à 10 | leur valeur |
+| Figure | 10          |
+
+- Un bateau [[#Toujours en montant|à l'abri]] rapporte 5 points de plus.
+- Les cartes encore en main ne comptent pas.
+
+Notez les scores sur le [[bloc de score]]. Le plus haut score gagne. En cas d'égalité, le joueur qui a le plus de bateaux l'emporte.
+
+# Variantes {#variants}
+
+## Mer calme {+calme}
+
+Pour une première partie, on joue sans [[cartes Marée]]. Tout le reste ne change pas.
+
+## Équipes {+equipes}
+
+À quatre, voir [[#Jouer en équipes]].
+
+# Questions fréquentes {#faq}
+
+**Puis-je reprendre sur la plage la carte que je viens de jeter ?** Non : elle y reste au moins jusqu'au tour du joueur suivant.
+
+**Une Grande marée peut-elle vider un bateau ?** Oui. Un bateau sans carte disparaît, et vous pourrez en commencer un nouveau.
+
+# Glossaire {#glossary}
+
+![[deck-52#glossary]]
+
+## Cartes Marée {-calme #cards}
+
+Coup de vent
+: force:: 1
+  effet:: Chaque joueur retire la carte du dessus de son plus petit bateau et la pose sur la [[plage]].
+
+Grande marée
+: force:: 2
+  effet:: Chaque joueur retire la carte du dessous de chacun de ses bateaux qui ne sont pas à l'abri.
+    Les cartes retirées vont sur la [[plage]], la plus haute en dernier.
+
+Mer d'huile
+: force:: 0
+  effet:: Rien ne se passe, et le joueur qui l'a piochée rejoue un tour complet.
+
+## Cartes Phare {+phare #cards}
+
+<!-- TODO: essayer la Brume à cinq joueurs -->
+
+Phare
+: force:: 0
+  effet:: Gardez cette carte devant vous. La prochaine carte Marée ne touche pas votre quai,
+    puis défaussez le Phare.
+
+Brume
+: force:: 1
+  effet:: Jusqu'à votre prochain tour, personne ne peut prendre de carte sur la [[plage]].
+
+---
+
+Bateau
+: Une rangée de cartes de la même [[couleur]] sur votre [[quai]], toujours en montant.
+
+Quai
+: L'espace devant vous, où vous posez vos bateaux.
+
+Plage
+: La défausse, face visible. Seule la carte du dessus peut être prise.
+
+Pioche
+: Les cartes face cachée, au milieu de la table.
+
+Bloc de score
+: N'importe quelle feuille de papier fait l'affaire.

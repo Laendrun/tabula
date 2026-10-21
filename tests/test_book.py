@@ -31,7 +31,7 @@ def text_of(xhtml: bytes) -> str:
 def test_whole_vault(tmp_path, capsys):
     code, out, _ = book(capsys, EXAMPLES, "-o", str(tmp_path))
     path = tmp_path / "family-game-vault.epub"
-    assert code == 0 and f"wrote {path} (4 games)" in out
+    assert code == 0 and f"wrote {path} (5 games)" in out
     files, infos = read(path)
     assert infos[0].filename == "mimetype" and infos[0].compress_type == zipfile.ZIP_STORED
     assert files["mimetype"] == b"application/epub+zip"
@@ -40,7 +40,7 @@ def test_whole_vault(tmp_path, capsys):
     assert 'property="dcterms:modified"' in opf
     spine = [i.split('"')[1] for i in opf.split("<spine")[1].split("<itemref ")[1:]]
     chapters = [f for f in files if f.startswith("OEBPS/") and f.endswith(".xhtml") and "nav" not in f and "title" not in f]
-    assert len(spine) == 5 and len(chapters) == 4                       # title page + 4 games
+    assert len(spine) == 6 and len(chapters) == 5                       # title page + 5 games
     for name, data in files.items():                                    # every page is well-formed XHTML
         if name.endswith((".xhtml", ".opf", ".ncx", ".xml")):
             ET.fromstring(data)
