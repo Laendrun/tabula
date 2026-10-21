@@ -136,26 +136,31 @@ With four players, see [[#Playing in teams]].
 
 Gust of wind
 : strength:: 1
+  image:: media/cartes/coup-de-vent.png
   effect:: Each player takes the top card off their smallest boat and puts it on the [[beach]].
 
 Spring tide
 : strength:: 2
+  image:: media/cartes/grande-maree.png
   effect:: Each player takes the bottom card off each of their boats that isn't safe.
     The cards taken go on the [[beach]], the highest one last.
 
 Dead calm
 : strength:: 0
+  image:: media/cartes/mer-d-huile.png
   effect:: Nothing happens, and the player who drew it plays another full turn.
 
 ## Lighthouse cards {+phare #cards}
 
 Lighthouse
 : strength:: 0
+  image:: media/cartes/phare.png
   effect:: Keep this card in front of you. The next Tide card doesn't touch your quay,
     then discard the Lighthouse.
 
 Fog
 : strength:: 1
+  image:: media/cartes/brume.png
   effect:: Until your next turn, nobody can take a card from the [[beach]].
 
 ---

@@ -49,6 +49,10 @@ Symbols too: `symbols: {gold: media/gold.png, star: ⭐}` in `vault.yaml` (share
 
 Numbers that depend on the player count can be written once: `values: {main: {2p: 7, "*": 5}}` in the frontmatter (or in `vault.yaml` for every game), then `{=main}` in the text. See the spec, section 8.6.
 
+## Card pictures
+
+A card in a catalog can have a picture: `image:: media/cartes/phare.png` among its fields. The site, the HTML export and the book draw it on the card and in the catalog table; VS Code shows it when you hover a reference to the card.
+
 ## Score sheets
 
 A score sheet is a `.sheet` file next to the game (`frantic/frantic.sheet`): a frontmatter with the paper size and orientation, then tables to fill in. Players are columns (`{player}`, repeated for each player), rows are categories or rounds (`{r}`, repeated `rounds:` times); `//` shades a cell, `<` and `^` merge cells.

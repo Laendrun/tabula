@@ -261,16 +261,21 @@ function definitionBody(lines, def) {
 }
 
 /** A definition body as Markdown: "key:: value" fields at the top become bold lines, references plain text. */
-function definitionMarkdown(body) {
+function definitionMarkdown(body, imageUrl) {
   const lines = body.split("\n");
   const fields = [];
+  let picture = "";
   while (lines.length && /^[^\W\d][\w -]*?::\s?/u.test(lines[0])) {
     let [, key, value] = lines.shift().match(/^([^\W\d][\w -]*?)::\s?(.*)$/u);
     while (lines.length && /^\s+\S/.test(lines[0])) value += " " + lines.shift().trim();   // indented: continues
+    if (key.trim() === "image") {            // the card's picture
+      picture = imageUrl ? `![](${imageUrl(value.trim())}|height=160)` : `*picture: ${value.trim()}*`;
+      continue;
+    }
     fields.push(`**${key.trim()}:** ${plainRefs(value.trim())}`);
   }
   const rest = plainRefs(lines.join("\n")).trim();
-  return [fields.join("  \n"), rest].filter(Boolean).join("\n\n");
+  return [picture, fields.join("  \n"), rest].filter(Boolean).join("\n\n");
 }
 
 const INCLUDE_LINE = /^(\s*)!\[\[([^\[\]#|\n]+?)(?:#([^\[\]|\n]+))?\]\]\s*$/;
@@ -361,7 +366,7 @@ function completions(text) {
 }
 
 /** Markdown for hovering a [[reference]] (name as written, with or without "#"), or null if it matches nothing. */
-function hoverText(text, name) {
+function hoverText(text, name, imageUrl) {
   const lines = text.replace(/\r\n?/g, "\n").split("\n");
   const o = outline(text);
   if (name.startsWith("#")) {
@@ -376,7 +381,7 @@ function hoverText(text, name) {
   const defs = o.definitions.filter((d) => fold(d.term) === key);
   const comps = o.components.filter((c) => fold(c.name) === key);
   if (!defs.length && !comps.length) return null;
-  const parts = defs.map((d) => `**${d.term}**${d.cond ? ` \`{${d.cond}}\`` : ""}\n\n${definitionMarkdown(definitionBody(lines, d))}`);
+  const parts = defs.map((d) => `**${d.term}**${d.cond ? ` \`{${d.cond}}\`` : ""}\n\n${definitionMarkdown(definitionBody(lines, d), imageUrl)}`);
   if (comps.length) {
     parts.push(comps.map((c) => "- " + plainRefs(lines[c.line].trim().replace(/^[-*+]\s+/, ""))).join("\n"));
   }

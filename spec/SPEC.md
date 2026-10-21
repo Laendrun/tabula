@@ -528,6 +528,7 @@ Many games are mostly cards: special cards, events, power cards, and so on. A **
 - In a game without any `{#cards}` section, every definition that has fields counts as a card.
 - `tabula cards GAME` prints the catalog: one row per card with its count and fields, grouped by sub-section, with an extension column when cards come from extensions. `--sort points` sorts across groups, and `--json` gives the data.
 - `show` and `lookup` print the fields under the term. The HTML export shows them as small chips on each card, and puts a catalog table (linking to the cards) at the top of every `{#cards}` section.
+- **A card's picture** is the field `image::`, a path in the game's folder (`image:: media/cartes/phare.png`) or a web address. It isn't listed with the other fields: the site, the HTML export and the book draw it on the card (and as a thumbnail in the catalog table), the terminal writes `[picture: …]`, and editors show it when hovering a reference to the card. `tabula check` reports pictures that are missing.
 - `tabula check` warns about empty fields, fields written twice, `key::` lines below the text (where they'd be read as text), and a card missing a field that most cards in its group have.
 
 ---

@@ -486,7 +486,8 @@ const hoverProvider = {
     }
     const ref = core.refAt(doc.lineAt(pos.line).text, pos.character);
     if (!ref) return null;
-    let text = core.hoverText(expandedText(doc), ref.name);
+    const pic = (p) => (/^[a-z]+:\/\//.test(p) ? p : vscode.Uri.file(path.resolve(path.dirname(doc.uri.fsPath), p)).toString());
+    let text = core.hoverText(expandedText(doc), ref.name, pic);
     // in a translation, terms may only be defined in the default-language file
     const m = path.basename(doc.uri.fsPath).match(/^(.*)\.([a-z]{2}(?:-[A-Za-z]{2})?)\.game$/);
     if (!text && m) {
