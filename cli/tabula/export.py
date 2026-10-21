@@ -331,6 +331,7 @@ class HtmlRenderer:
         self.game, self.blocks, self.ctx, self.key_only = game, blocks, ctx, key_only
         self.interactive = interactive
         self.game_href = "{}.html"             # where [text](game:slug) links point; `tabula site` changes it
+        self.image_src = None                  # tabula book: Path -> href of the image inside the book
         self.lang = game.language if game.language in UI else game.language.split("-")[0]
         self.t = UI.get(self.lang, UI["en"])
         self.ids: set[str] = set()
@@ -373,6 +374,8 @@ class HtmlRenderer:
         import mimetypes
         if re.match(r"^[a-z]+://", src):
             return src
+        if self.image_src:                    # tabula book: images are files inside the book
+            return self.image_src(self.game.base_dir / src)
         p = self.game.base_dir / src
         if not p.exists():
             return src
@@ -590,6 +593,30 @@ class HtmlRenderer:
             return self.table(b)
         return ""
 
+    def facts(self) -> list[str]:
+        """'2–5 players', 'best with 4', '20–40 min', '8+' (HTML, escaped)."""
+        meta, t, esc = self.game.meta, self.t, self.esc
+        out = []
+        if meta.get("players") is not None:
+            out.append(f"{esc(str(meta['players']).replace('-', '–'))} {t['players']}")
+        if meta.get("best_players") is not None:
+            out.append(esc(t["best"].format(meta["best_players"])))
+        if meta.get("duration") is not None:
+            out.append(f"{esc(str(meta['duration']).replace('-', '–'))} {t['min']}")
+        if meta.get("age") is not None:
+            out.append(esc(t["age"].format(str(meta["age"]).rstrip("+"))))
+        return out
+
+    def credits(self) -> list[str]:
+        """'<b>Design</b> A, B', '<b>Art</b> C', '<b>Publisher</b> D'."""
+        out = []
+        for key, label in (("designer", "by"), ("artist", "art"), ("publisher", "publisher")):
+            v = self.game.meta.get(key)
+            if v:
+                names = ", ".join(map(str, v)) if isinstance(v, list) else str(v)
+                out.append(f"<b>{self.t[label]}</b> {self.esc(names)}")
+        return out
+
     def filter_bar(self) -> str:
         """The page's controls: player count, and every extension and variant (or everything)."""
         g, t, esc = self.game, self.t, self.esc
@@ -694,22 +721,7 @@ class HtmlRenderer:
         """The full HTML document. `nav`: links shown above the title (used by `tabula site`)."""
         g, t, esc, ctx = self.game, self.t, self.esc, self.ctx
         body = self.render(self.blocks)          # fills self.toc
-        meta = g.meta
-        facts = []
-        if meta.get("players") is not None:
-            facts.append(f"{esc(str(meta['players']).replace('-', '–'))} {t['players']}")
-        if meta.get("best_players") is not None:
-            facts.append(esc(t["best"].format(meta["best_players"])))
-        if meta.get("duration") is not None:
-            facts.append(f"{esc(str(meta['duration']).replace('-', '–'))} {t['min']}")
-        if meta.get("age") is not None:
-            facts.append(esc(t["age"].format(str(meta["age"]).rstrip("+"))))
-        credits = []
-        for key, label in (("designer", "by"), ("artist", "art"), ("publisher", "publisher")):
-            v = meta.get(key)
-            if v:
-                names = ", ".join(map(str, v)) if isinstance(v, list) else str(v)
-                credits.append(f"<b>{t[label]}</b> {esc(names)}")
+        facts, credits = self.facts(), self.credits()
         cover = ""
         if g.cover and g.cover.is_file():
             src = str(g.cover.relative_to(g.base_dir)) if g.cover.is_relative_to(g.base_dir) else str(g.cover)

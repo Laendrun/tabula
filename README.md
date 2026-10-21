@@ -33,6 +33,8 @@ tabula export frantic -p 4 -e supercharge   # → frantic-4p-supercharge.html (o
 tabula cards frantic -e supercharge --sort points   # card catalog: counts and fields
 tabula lookup frantic                  # list every term
 tabula site                            # the whole vault as a website in ./site (open site/index.html)
+tabula book                            # the whole vault as an EPUB book (e-readers, phones, tablets)
+tabula book frantic -p 4 -e pandora    # one game, for one setup
 tabula check                           # find mistakes in every game and translation
 tabula todo                            # the <!-- TODO: … --> reminders left in game files
 tabula check -d                        # ...and require a glossary definition for every component
@@ -59,6 +61,14 @@ Keep the token out of your vault, so it never ends up in git. Without internet o
 - Each game gets a page per language, plus a cheat sheet of its key rules. A bar at the top lets you choose the player count and the extensions and variants: the page then shows only what applies, like `tabula show -p 4 -e pandora`, and the address keeps your choice so you can share the link.
 
 Open `site/index.html` in a browser; it works offline. You can also put the folder on any static host. The folder is replaced on every run, but only if `tabula site` made it.
+
+## Book
+
+`tabula book` writes the whole vault as one EPUB, for e-readers and for the reading apps of phones and tablets (Apple Books, Google Play Books, Kindle via "Send to Kindle"…): a title page, then a chapter per game in alphabetical order, with its cover, rules and glossary. The reader's table of contents lists every game and its sections, and `[[references]]` link to the glossary.
+
+- `tabula book hearts frantic` puts only those games in the book.
+- By default everything is in, extensions and variants marked like on the site. `-p 4`, `-e pandora` and `-v x` make a book for one setup; games that aren't for that many players are left out.
+- `--key` makes a cheat-sheet book (only the key rules), `-l en` picks the language, `-t` the title, `-o` the file.
 
 ## Editor
 

@@ -5,6 +5,7 @@
   tabula export GAME [-p N] [-e EXT] [-v VARIANT] [--all] [-s SECTION] [-k] [-o FILE]
   tabula cards GAME [-p N] [-e EXT] [--all] [--sort COLUMN]
   tabula lookup GAME [TERM] [-p N] [-e EXT] [-v VARIANT] [--all]
+  tabula book [GAME ...] [-p N] [-e EXT] [-k] [-l CODE] [-o FILE]
   tabula site [-o FOLDER]
   tabula new  SLUG | bgg ID [SLUG]
   tabula todo [GAME ...]
@@ -26,6 +27,7 @@ from .export import cmd_export
 from .site import cmd_site
 from .todo import cmd_todo
 from .new import cmd_new
+from .book import cmd_book
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="tabula", description="Tabula: board & card game rules in Markdown.")
@@ -96,6 +98,19 @@ def main(argv=None) -> int:
                                           "in the current folder; '-' for standard output)")
     p.add_argument("--vault", default=argparse.SUPPRESS)
     p.set_defaults(func=cmd_export)
+
+    p = sub.add_parser("book", help="games as an EPUB book for e-readers, phones and tablets (default: the whole vault)")
+    p.add_argument("games", nargs="*", help="games to include (default: all)")
+    p.add_argument("-p", "--players", type=int, help="only what applies to N players (games not for N are left out)")
+    p.add_argument("-v", "--variant", action="append", help="only this variant (repeatable)")
+    p.add_argument("-e", "--ext", action="append", metavar="EXTENSION", help="only this extension (repeatable)")
+    p.add_argument("-a", "--all", action="store_true", help="every extension and variant, marked (the default)")
+    p.add_argument("-k", "--key", action="store_true", help="only the key rules: a cheat-sheet book")
+    p.add_argument("-l", "--lang", help="language (default: the vault's; games without it stay in theirs)")
+    p.add_argument("-t", "--title", help="the book's title (default: the vault's name, or the game's title)")
+    p.add_argument("-o", "--output", help="file or folder to write (default: <vault-name>.epub here)")
+    p.add_argument("--vault", default=argparse.SUPPRESS)
+    p.set_defaults(func=cmd_book)
 
     p = sub.add_parser("site", help="the whole vault as a small website: an index page and a page per game")
     p.add_argument("-o", "--output", metavar="FOLDER",
