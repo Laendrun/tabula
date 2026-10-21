@@ -102,3 +102,23 @@ def test_export_key(tmp_path, capsys):
     assert "FALL-STOP" in html and "NORMAL-TEXT" not in html
     assert tabula.main(["--vault", str(vault), "export", "g", "-k", "-p", "3", "-o", str(tmp_path)]) == 0
     assert (tmp_path / "g-3p-key.html").exists()
+
+
+def test_consecutive_key_lines_are_one_rule(tmp_path, capsys):
+    body = ("# Setup\n\n"
+            "! FIRST-LINE of the rule.\n! SECOND-LINE of the same rule, with a [[Queen]].\n\n"
+            "! SEPARATE-RULE after a blank line.\nCONTINUED without an exclamation mark.\n\n"
+            "! BROKEN-REF line.\n! Here [[nowhere]] is.\n\n"
+            "# Glossary\n\nQueen\n: A card.\n")
+    vault = game(tmp_path, body)
+    code, out, _ = run(capsys, vault, "show", "--json")
+    rules = json.loads(out)["key_rules"]
+    assert rules == ["FIRST-LINE of the rule. SECOND-LINE of the same rule, with a Queen.",
+                     "SEPARATE-RULE after a blank line. CONTINUED without an exclamation mark.",
+                     "BROKEN-REF line. Here nowhere is."]
+    _, out, _ = run(capsys, vault, "show")
+    assert out.count("★") == 3
+    tabula.main(["--vault", str(vault), "check", "--no-color"])
+    out = capsys.readouterr().out
+    assert "g.game:14  [[nowhere]] matches no component" in out        # the line it's written on
+    assert "Queen" not in out                                          # [[Queen]] on the 2nd line counts

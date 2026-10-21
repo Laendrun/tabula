@@ -337,6 +337,15 @@ A line, or a list item, that starts with `! ` is a **key rule**. Key rules are h
 - ! Seuls les effets des cartes gardées s'appliquent.
 ```
 
+A key rule can span several lines: the next lines continue it, with or without a `!` of their own (consecutive `!` lines are one rule, like consecutive `>` lines are one note). A blank line ends it, so two rules are separated by a blank line:
+
+```markdown
+! Un joueur ne peut pas commencer la partie avec 2 [[Reines]] ou plus en main.
+! S'il en a 2, il remplace ses cartes ; s'il en a 3, la distribution est annulée.
+
+! Une autre règle clé.
+```
+
 **A key section** is a heading that starts with `!`. Use it when what matters is a whole procedure rather than one rule. Everything under the heading belongs to it, sub-sections included, until the next heading of the same or a higher level (or its `---`):
 
 ```markdown
