@@ -43,6 +43,9 @@ p.key, li.key, .key-section { font-weight: bold; }
 p.key, .key-section { border-left: 0.25em solid #333; padding-left: 0.5em; }
 .key-section { font-weight: normal; }
 aside.note { margin: 0.5em 0 0.5em 1em; font-style: italic; }
+aside.callout { margin: 0.7em 0; padding: 0.3em 0.6em; border: 1px solid #bbb; border-left: 0.3em solid #333; page-break-inside: avoid; }
+aside.callout p { margin: 0.2em 0; }
+p.callout-title { font-family: sans-serif; font-weight: bold; font-size: 0.9em; }
 .cards { margin: 0.5em 0; }
 article.card { border-left: 0.15em solid #999; padding-left: 0.6em; margin: 0.8em 0; page-break-inside: avoid; }
 article.card h3 { margin-top: 0; }

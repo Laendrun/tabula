@@ -56,7 +56,8 @@ Players take turns clockwise. On your turn, do these three things in order:
 ! Always end your turn with {=main} cards in hand.
 ! If you have more, throw cards away until the count is right.
 
-> Tip: everyone can see the top card of the beach. Taking a card from there shows what you are building.
+> [!tip]
+> Everyone can see the top card of the beach. Taking a card from there shows what you are building.
 
 ## Laying a card
 
@@ -68,6 +69,9 @@ A [[Boat|boat]] is a row of cards of the same [[suit]], overlapping so that thei
 ## ! Always going up
 
 In a boat, each card must have a higher [[rank]] than the card under it. You can never slip in a lower card or take one out, except when a [[Tide card]] says so.
+
+> [!example] A boat of hearts
+> On a boat 3:coeur: 5:coeur:, you can lay the 9:coeur:, but not the 4:coeur: or the 6:pique:.
 
 ### With two players {2p}
 

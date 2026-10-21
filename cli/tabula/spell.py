@@ -142,6 +142,7 @@ def prose(line: str) -> str:
     def blank(m):
         return " " * len(m.group(0))
     t = line.replace("’", "'")
+    t = re.sub(r"^(\s*>\s*)\[![^\]\s]*\]", lambda m: " " * len(m.group(0)), t)       # > [!exemple]
     for rx in (CODE_RE, URL_RE, TAG_RE, INCLUDE_RE, LINK_TARGET_RE, SYMBOL_RE):
         t = rx.sub(blank, t)
     t = REF_RE.sub(lambda m: " " * (m.start(2) - m.start()) + m.group(2) + "  " if m.group(2) else blank(m), t)

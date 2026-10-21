@@ -73,7 +73,8 @@ On joue chacun son tour, dans le sens des aiguilles d'une montre. À votre tour,
 ! Vous devez toujours finir votre tour avec {=main} cartes en main.
 ! Si vous en avez plus, jetez-en jusqu'à ce que le compte soit bon.
 
-> Astuce : la carte du dessus de la plage est visible de tous. Prendre une carte là, c'est montrer ce que vous construisez.
+> [!astuce]
+> La carte du dessus de la plage est visible de tous. Prendre une carte là, c'est montrer ce que vous construisez.
 
 ## Poser une carte
 
@@ -85,6 +86,9 @@ Un [[Bateau|bateau]] est une rangée de cartes de la même [[couleur]], posées 
 ## ! Toujours en montant
 
 Dans un bateau, chaque carte doit avoir une [[valeur]] plus haute que celle du dessous. On ne peut jamais glisser une carte plus basse, ni en retirer une, sauf quand une [[carte Marée]] l'exige.
+
+> [!exemple] Un bateau de cœur
+> Sur un bateau 3:coeur: 5:coeur:, vous pouvez poser le 9:coeur:, mais pas le 4:coeur: ni le 6:pique:.
 
 ### À deux {2p}
 

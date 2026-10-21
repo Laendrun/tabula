@@ -37,6 +37,7 @@ class Block:
     tint: bool = False        # filtered view: nested under a block that comes from an extension
     reopens: int = 0          # heading made by "---": back in the section whose heading is on this line
     quiet: bool = False       # an end added after an included fragment: closes its sections, shows nothing
+    callout: str = ""         # note: "> [!exemple] Title": its type as written (the title goes in `term`)
 
 
 def is_block_start(t: str) -> bool:
@@ -44,6 +45,30 @@ def is_block_start(t: str) -> bool:
     return (not s or bool(HEADING_RE.match(t)) or bool(END_RE.match(t)) or s.startswith("|") or bool(ITEM_RE.match(t))
             or s.startswith(">") or (t.startswith("!") and not t.startswith("![")) or bool(FENCE_RE.match(t))
             or bool(DEF_LINE_RE.match(t)) or bool(BLOCK_COND_RE.match(t)))
+
+
+CALLOUT_RE = re.compile(r"^\[!([^\]\s]+)\]\s*(.*)$")
+
+# callout types, by family (accents and case ignored): how tools draw them
+CALLOUT_FAMILIES = {
+    "example": ("example", "examples", "exemple", "exemples", "beispiel", "esempio", "ejemplo"),
+    "warning": ("warning", "attention", "important", "caution", "avertissement", "achtung", "wichtig", "danger"),
+    "tip": ("tip", "tips", "astuce", "conseil", "conseils", "tipp", "hint", "strategie", "strategy", "idee", "idea"),
+    "info": ("info", "note", "remarque", "precision", "clarification", "rappel", "hinweis", "reminder", "nb"),
+    "question": ("question", "faq", "frage", "questions"),
+}
+
+
+def callout_family(kind: str) -> str:
+    """"Précision" -> "info"; an unknown type -> "note"."""
+    import unicodedata
+    k = "".join(c for c in unicodedata.normalize("NFKD", kind.lower()) if not unicodedata.combining(c))
+    return next((fam for fam, names in CALLOUT_FAMILIES.items() if k in names), "note")
+
+
+def callout_title(b: "Block") -> str:
+    """The title shown on a callout: its own, else its type with a capital ("exemple" -> "Exemple")."""
+    return b.term or (b.callout[:1].upper() + b.callout[1:])
 
 
 def table_cells(row: str) -> list[str]:
@@ -147,7 +172,13 @@ def parse_blocks(lines: list[tuple[int, str]]) -> list[Block]:
                 parts.append(lines[i][1].lstrip()[1:].strip())
                 src.append((lines[i][0], parts[-1]))
                 i += 1
-            blocks.append(Block("note", " ".join(parts), ln, src=src, level=level))
+            note = Block("note", "", ln, src=src, level=level)
+            if parts and (cm := CALLOUT_RE.match(parts[0])):         # > [!exemple] Optional title
+                note.callout, note.term = cm.group(1), cm.group(2).strip()
+                parts = parts[1:]
+                src[0] = (src[0][0], cm.group(2).strip())
+            note.text = " ".join(p for p in parts if p) if note.callout else " ".join(parts)
+            blocks.append(note)
             continue
         if (im := IMAGE_RE.fullmatch(t.strip())) and not im.group(1).startswith("sym:"):   # not a symbol
             blocks.append(Block("image", im.group(1), ln, term=im.group(2)))

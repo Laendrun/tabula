@@ -11,7 +11,7 @@ from .syntax import (
     CHOICE_RE, Ctx, ESCAPE_RE, IMAGE_RE, LINK_RE, REF_RE, cond_ok, fold, in_range, open_label,
     Cond, parse_choice, parse_cond, parse_range, split_lang, via_of,
 )
-from .blocks import Block, components_of, is_sep_row, player_columns, player_rows
+from .blocks import callout_family, callout_title, Block, components_of, is_sep_row, player_columns, player_rows
 from .filtering import filter_blocks, section_end, section_names, select_key, select_sections
 from .source import UNSAVED
 from .vault import Game, open_vault
@@ -99,6 +99,14 @@ h2.key::before,h3.key::before,h4.key::before,h5.key::before{content:"★ ";color
 a.ref.section::before{content:"→ ";color:var(--muted)}
 aside.note{margin:.8rem 0 1rem;padding:.5rem .9rem;border-left:2px solid var(--rule);color:var(--muted);font-size:.95rem}
 aside.note p{margin:0}
+aside.callout{margin:1rem 0 1.1rem;padding:.55rem .95rem .65rem;border-left:4px solid var(--c);background:var(--cbg);border-radius:0 6px 6px 0;font-size:.97rem}
+aside.callout p{margin:.15rem 0 0}
+aside.callout p.callout-title{margin:0;font:600 .88rem/1.35 var(--sans);color:var(--c);letter-spacing:.01em}
+aside.callout .icon{font-family:var(--sans)}
+.callout-example{--c:#1f6fb2;--cbg:#eef5fc}.callout-warning{--c:#b42318;--cbg:#fdf0ef}.callout-tip{--c:#2e7d32;--cbg:#eff7ef}
+.callout-info{--c:#3d5a80;--cbg:#f0f3f8}.callout-question{--c:#a0522d;--cbg:#fbf2ec}.callout-note{--c:var(--muted);--cbg:var(--card)}
+@media (prefers-color-scheme:dark){.callout-example{--c:#7cb4f0;--cbg:#16212e}.callout-warning{--c:#f28b82;--cbg:#2e1a19}
+.callout-tip{--c:#81c995;--cbg:#172619}.callout-info{--c:#9fb6d6;--cbg:#1b2230}.callout-question{--c:#e3a27a;--cbg:#2c1f17}}
 a{color:var(--term)}
 a.ref{color:var(--term);text-decoration:underline dotted 1.5px;text-underline-offset:.18em}
 a.ref:hover{text-decoration-style:solid}
@@ -166,6 +174,7 @@ footer{grid-column:1/-1;border-top:1px solid var(--rule);padding-top:1rem;color:
 @media print{
   html,body{background:#fff;color:#000}
   :root{--ink:#000;--muted:#444;--rule:#bbb;--card:#fff;--term:#000;--paper:#fff}
+  aside.callout{--cbg:#fff;break-inside:avoid}
   body{font-size:10.5pt}
   .page{display:block;padding:0;max-width:none}
   nav.toc{display:none}
@@ -330,6 +339,9 @@ def cond_tokens(cond: Cond | None) -> list:
         elif kind == "v":
             out.append(["v", neg, val])
     return out
+
+
+CALLOUT_ICONS = {"example": "◆", "warning": "⚠\ufe0e", "tip": "✦", "info": "ℹ\ufe0e", "question": "?", "note": "▪"}
 
 
 class HtmlRenderer:
@@ -599,6 +611,12 @@ class HtmlRenderer:
                 f"<p{c}>{self.badges(b)}{self.inline(b.text)}</p>"
         if b.kind == "key":
             return f'<p class="key{ext}"{c}>{self.badges(b)}{self.inline(b.text)}</p>'
+        if b.kind == "note" and b.callout:
+            fam = callout_family(b.callout)
+            body = f"<p>{self.inline(b.text)}</p>" if b.text else ""
+            return (f'<aside class="callout callout-{fam}{ext}"{c}><p class="callout-title">{self.badges(b)}'
+                    f'<span class="icon" aria-hidden="true">{CALLOUT_ICONS[fam]}</span> '
+                    f'{self.inline(callout_title(b))}</p>{body}</aside>')
         if b.kind == "note":
             return f'<aside class="note{ext}"{c}><p>{self.badges(b)}{self.inline(b.text)}</p></aside>'
         if b.kind == "image":

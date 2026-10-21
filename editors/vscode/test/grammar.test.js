@@ -169,3 +169,10 @@ test("symbols :name:, not times or fields", () => {
   assert.doesNotMatch(l[2].map((t) => t.scopes.join(" ")).filter((s, i) => l[2][i].text.includes("30")).join(" "), /symbol/);
   assert.match(l[5].find((t) => t.text === "gold").scopes.join(" "), /constant.other.symbol/);
 });
+
+test("callouts > [!type] Title", () => {
+  const l = tokenize("# T\n\n> [!exemple] Un tour\n> Alice joue.\n> [not a callout]\n");
+  assert.match(l[2].find((t) => t.text === "exemple").scopes.join(" "), /entity.name.type.callout/);
+  assert.match(l[2].find((t) => t.text.includes("Un tour")).scopes.join(" "), /markup.heading.callout/);
+  assert.doesNotMatch(l[4].map((t) => t.scopes.join(" ")).join(" "), /callout/);
+});

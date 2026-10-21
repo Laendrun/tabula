@@ -42,6 +42,8 @@ tabula check -d                        # ...and require a glossary definition fo
 tabula check --spell                   # ...and check spelling, in each file's language (see below)
 ```
 
+Boxes for examples, warnings and tips: `> [!exemple] Un tour à trois` (or `[!attention]`, `[!astuce]`, `[!précision]`…), drawn in their own color on the site and in the book.
+
 Symbols too: `symbols: {gold: media/gold.png, star: ⭐}` in `vault.yaml` (shared by every game) or in a game, then `:gold:` in the text, drawn as an icon on the site and in the book.
 
 Numbers that depend on the player count can be written once: `values: {main: {2p: 7, "*": 5}}` in the frontmatter (or in `vault.yaml` for every game), then `{=main}` in the text. See the spec, section 8.6.
