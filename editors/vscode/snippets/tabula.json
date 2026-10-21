@@ -264,5 +264,14 @@
       "  ${1:gold}: ${2|🪙,⭐,media/gold.png|}",
       "$0"
     ]
+  },
+  "Callout": {
+    "prefix": "callout",
+    "description": "A box for an example, a warning, a tip, a clarification or a question: > [!exemple]",
+    "body": [
+      "> [!${1|exemple,attention,astuce,précision,question,example,warning,tip,clarification|}] ${2:Title (optional)}",
+      "> ${3:Text.}",
+      "$0"
+    ]
   }
 }

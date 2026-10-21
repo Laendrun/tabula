@@ -7,7 +7,7 @@ from .syntax import (
     CHOICE_RE, Ctx, ESCAPE_RE, IMAGE_RE, LINK_RE, REF_RE, cond_ok, fold, open_label,
     parse_choice, via_of,
 )
-from .blocks import Block, is_sep_row, player_columns
+from .blocks import Block, callout_family, callout_title, is_sep_row, player_columns
 
 ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 
@@ -161,6 +161,17 @@ def render_blocks(blocks: list[Block], ctx: Ctx, st: Style, width: int) -> list[
         elif b.kind == "key":
             gap()
             out += wrap(badge(b) + st.bold(txt), width, st.green("★ "), "  ")
+        elif b.kind == "note" and b.callout:
+            if b.level == 0 or not counters:
+                gap()
+            pad = " " * (b.level + (2 if b.level else 0))
+            fam = callout_family(b.callout)
+            icon, color = {"example": ("◆", st.magenta), "warning": ("⚠", st.yellow), "tip": ("✦", st.green),
+                           "info": ("ℹ", st.cyan), "question": ("?", st.cyan), "note": ("▪", st.dim)}[fam]
+            bar = color("┃ ")
+            out.append(pad + bar + badge(b) + color(st.bold(f"{icon} {render_inline(callout_title(b), ctx, st)}")))
+            if txt:
+                out += wrap(txt, width, pad + bar)
         elif b.kind == "note":
             if b.level == 0 or not counters:
                 gap()
@@ -258,6 +269,9 @@ def block_json(b: Block, ctx: Ctx) -> dict:
         d["text"] = b.text
     else:
         d["text"] = plain(b.text, ctx)
+        if b.callout:
+            d["callout"] = b.callout
+            d["title"] = plain(callout_title(b), ctx)
         if b.kind == "image":
             d["src"] = b.term
         if b.kind == "item":

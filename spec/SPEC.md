@@ -129,7 +129,7 @@ Count ranges: `4`, `2-5`, `3+`, `2,4`. Unknown keys are allowed and kept, so add
 
 ## 4. Markdown you can use
 
-All the usual Markdown: headings `#` to `######`, paragraphs, `*italic*` and `**bold**`, lists (`-`, `*`, `1.`), `> quotes` (shown as notes or tips), tables, images `![caption](media/photo.jpg)`, links, and fenced code blocks.
+All the usual Markdown: headings `#` to `######`, paragraphs, `*italic*` and `**bold**`, lists (`-`, `*`, `1.`), `> quotes` (shown as notes, or as callouts, see below), tables, images `![caption](media/photo.jpg)`, links, and fenced code blocks.
 
 **Comments** use standard HTML comments, which are never shown:
 
@@ -138,6 +138,20 @@ All the usual Markdown: headings `#` to `######`, paragraphs, `*italic*` and `**
 ```
 
 A comment that starts with `TODO` or `FIXME` (any case, with or without `:`) is a **reminder**. `tabula todo` lists them for the whole vault, or for some games, with file and line. `tabula check` counts them without treating them as warnings, and editors show them as information.
+
+**Callouts** are the boxes of a rulebook: examples, warnings, tips, clarifications. Start a `>` quote with `[!type]`, and an optional title:
+
+```markdown
+> [!exemple] Un tour à trois joueurs
+> Alice joue un 7, Bob un 8…
+
+> [!attention]
+> Ne mélangez jamais la défausse.
+```
+
+- The type is written in the game's language. Tools know these families and draw each one its own way (color, icon): **example** (`exemple`, `example`, `beispiel`…), **warning** (`attention`, `important`, `warning`, `achtung`…), **tip** (`astuce`, `conseil`, `tip`, `tipp`, `stratégie`…), **info** (`précision`, `remarque`, `note`, `rappel`, `clarification`, `hinweis`…), **question** (`question`, `faq`, `frage`). Any other type works too and gets a neutral box.
+- Without a title, the type is the title, with a capital: `[!astuce]` shows "Astuce".
+- Conditions work as on any paragraph (`> {2p} …`), and a callout can be nested in a list item. A plain `>` quote stays a simple note.
 
 **Symbols** are the icons of a game: gold, keys, stars, card suits. Define them once, in `vault.yaml` for the ones many games share, or in a game's frontmatter, and write `:name:` in the text, in tables and in card fields:
 
@@ -619,6 +633,7 @@ extensions: [supercharge]              in frontmatter; then {+supercharge}
 ## ! Si la tour tombe                  key section (the whole section)
 [[#Si la tour tombe]]                  link to a section (by title, or a role: [[#setup]])
 ![[deck-52#Glossaire]]                 include a shared fragment (_shared/deck-52.game), or one section of it
+> [!exemple] Titre                     callout: example, warning (attention), tip (astuce), info (précision)…
 <!-- comment -->                       hidden
 oh-my-socks.de.game                    translation
 ```

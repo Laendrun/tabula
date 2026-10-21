@@ -31,6 +31,7 @@ Highlighting, live checks and a live preview for Tabula `.game` files.
   | `ptable` | a table with a column per player count |
   | `key`, `cond`, `choice` | a key rule `!`, a condition `{2p}`, an inline choice `{2p: … \| *: …}` |
   | `ref`, `alias`, `link`, `inc` | `[[term]]`, `[[term\|text]]`, `[[#section]]`, `![[fragment#section]]` |
+  | `callout` | a box: `> [!exemple]`, `[!attention]`, `[!astuce]`… (pick the type from a list) |
   | `note`, `img`, `todo` | a `>` note, an image from `media/`, a `<!-- TODO: -->` |
 - **Folding** of sections and definitions.
 - **Commands** (Ctrl+Shift+P): *Tabula: Check the whole vault* fills the Problems panel for every game. *Tabula: Check this game* checks the current file right away. *Tabula: Format this file* and *Tabula: Format every file in the vault* run `tabula fmt`.

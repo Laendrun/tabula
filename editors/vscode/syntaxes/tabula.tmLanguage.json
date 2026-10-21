@@ -183,6 +183,23 @@
       "name": "markup.quote.tabula",
       "patterns": [
         {
+          "match": "\\G\\s*(\\[!)([^\\]\\s]+)(\\])(.*)$",
+          "captures": {
+            "1": {
+              "name": "punctuation.definition.callout.begin.tabula"
+            },
+            "2": {
+              "name": "entity.name.type.callout.tabula"
+            },
+            "3": {
+              "name": "punctuation.definition.callout.end.tabula"
+            },
+            "4": {
+              "name": "markup.heading.callout.tabula"
+            }
+          }
+        },
+        {
           "include": "#inline"
         }
       ]

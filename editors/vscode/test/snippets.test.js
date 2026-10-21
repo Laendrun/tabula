@@ -54,4 +54,5 @@ test("what they insert is valid tabula", () => {
   assert.equal(by.cond, "{2p} ");
   assert.equal(by.inc.trim(), "![[deck-52#glossary]]");
   assert.match(by.sec, /^# Title \{#components\}/);
+  assert.equal(by.callout, "> [!exemple] Title (optional)\n> Text.\n");
 });
