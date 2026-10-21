@@ -1,0 +1,243 @@
+{
+  "Game file (English headings)": {
+    "prefix": "game",
+    "description": "A new game: frontmatter and the usual sections with their roles",
+    "body": [
+      "---",
+      "title: ${1:Title}",
+      "players: ${2:2-4}",
+      "duration: ${3:30}",
+      "age: ${4:8}",
+      "type: [${5|card,board,dice,dexterity,party,word,outdoor,homemade|}]",
+      "---",
+      "",
+      "# Overview {#goal}",
+      "",
+      "${6:What the game is about, and how to win.}",
+      "",
+      "# Components {#components}",
+      "",
+      "- ${7:1}x [[${8:deck}]]",
+      "",
+      "# Setup {#setup}",
+      "",
+      "1. ${9:First step.}",
+      "",
+      "# Play {#play}",
+      "",
+      "${10:On your turn…}",
+      "",
+      "# End of the game {#end}",
+      "",
+      "${11:The game ends when…}",
+      "",
+      "# Glossary {#glossary}",
+      "",
+      "${8/(.*)/${1:/capitalize}/}",
+      ": ${12:What it is.}",
+      "$0"
+    ]
+  },
+  "Game file (titres en français)": {
+    "prefix": "jeu",
+    "description": "Un nouveau jeu : frontmatter et les sections habituelles avec leurs rôles",
+    "body": [
+      "---",
+      "title: ${1:Titre}",
+      "players: ${2:2-4}",
+      "duration: ${3:30}",
+      "age: ${4:8}",
+      "type: [${5|card,board,dice,dexterity,party,word,outdoor,homemade|}]",
+      "---",
+      "",
+      "# Aperçu {#goal}",
+      "",
+      "${6:Le principe du jeu, et comment gagner.}",
+      "",
+      "# Matériel {#components}",
+      "",
+      "- ${7:1}x [[${8:paquet}]]",
+      "",
+      "# Mise en place {#setup}",
+      "",
+      "1. ${9:Première étape.}",
+      "",
+      "# Déroulement {#play}",
+      "",
+      "${10:À votre tour…}",
+      "",
+      "# Fin de la partie {#end}",
+      "",
+      "${11:La partie s'arrête quand…}",
+      "",
+      "# Glossaire {#glossary}",
+      "",
+      "${8/(.*)/${1:/capitalize}/}",
+      ": ${12:Ce que c'est.}",
+      "$0"
+    ]
+  },
+  "Frontmatter field": {
+    "prefix": "fm",
+    "description": "An optional frontmatter line",
+    "body": [
+      "${1|best_players: 4,year: 2026,designer: [],artist: [],publisher: ,tags: [],location: ,source: ,language: fr,cover: media/cover.jpg,words: []|}$0"
+    ]
+  },
+  "Section with a role": {
+    "prefix": "sec",
+    "description": "A heading with a role, e.g. # Glossaire {#glossary}",
+    "body": [
+      "# ${1:Title} {#${2|components,goal,setup,play,scoring,end,glossary,cards,events,variants,notes,faq|}}",
+      "",
+      "$0"
+    ]
+  },
+  "Key section": {
+    "prefix": "keysec",
+    "description": "A section that is a key rule as a whole (## ! Title)",
+    "body": [
+      "## ! ${1:Title}",
+      "",
+      "$0"
+    ]
+  },
+  "Key rule": {
+    "prefix": "key",
+    "description": "A key rule (! …), shown on the cheat sheet",
+    "body": [
+      "! ${1:The rule.}$0"
+    ]
+  },
+  "End of section": {
+    "prefix": "endsec",
+    "description": "--- ends the current section: what follows belongs to the section around it",
+    "body": [
+      "",
+      "---",
+      "",
+      "$0"
+    ]
+  },
+  "Component": {
+    "prefix": "comp",
+    "description": "A component line: - 4x [[name]]",
+    "body": [
+      "- ${1:1}x [[${2:name}]]${3: — ${4:details}}$0"
+    ]
+  },
+  "Glossary term": {
+    "prefix": "term",
+    "description": "A glossary definition",
+    "body": [
+      "${1:Term}",
+      ": ${2:What it is.}",
+      "$0"
+    ]
+  },
+  "Card": {
+    "prefix": "card",
+    "description": "A card in a {#cards} catalog, with fields",
+    "body": [
+      "${1:Name}",
+      ": ${2:points}:: ${3:1}",
+      "  ${4:effect}:: ${5:What it does.}",
+      "$0"
+    ]
+  },
+  "Card catalog": {
+    "prefix": "cards",
+    "description": "A card catalog section ({#cards}) with a first card",
+    "body": [
+      "## ${1:Cards} {#cards}",
+      "",
+      "${2:Name}",
+      ": ${3:points}:: ${4:1}",
+      "  ${5:effect}:: ${6:What it does.}",
+      "$0"
+    ]
+  },
+  "Player table": {
+    "prefix": "ptable",
+    "description": "A table with a column per player count",
+    "body": [
+      "| ${1:Setup} | 2p | 3p | 4p |",
+      "|---|---|---|---|",
+      "| ${2:Cards each} | ${3:7} | ${4:6} | ${5:5} |",
+      "$0"
+    ]
+  },
+  "Condition": {
+    "prefix": "cond",
+    "description": "A condition at the start of a line: {2p}, {3+p}, {+variant}, {-variant}",
+    "body": [
+      "{${1|2p,3p,4p,3+p,2-3p,+variant,-variant|}} $0"
+    ]
+  },
+  "Inline choice": {
+    "prefix": "choice",
+    "description": "Text that depends on the player count or an option: {2p: … | *: …}",
+    "body": [
+      "{${1:2p}: ${2:this} | *: ${3:otherwise}}$0"
+    ]
+  },
+  "Reference": {
+    "prefix": "ref",
+    "description": "A [[reference]] to a term or component",
+    "body": [
+      "[[${1:term}]]$0"
+    ]
+  },
+  "Reference with other text": {
+    "prefix": "alias",
+    "description": "[[term|text shown]]",
+    "body": [
+      "[[${1:term}|${2:text shown}]]$0"
+    ]
+  },
+  "Link to a section": {
+    "prefix": "link",
+    "description": "[[#Section title]] or a role like [[#setup]]",
+    "body": [
+      "[[#${1:Section}]]$0"
+    ]
+  },
+  "Include a shared fragment": {
+    "prefix": "inc",
+    "description": "![[fragment#section]] from the vault's _shared/ folder, alone on its line",
+    "body": [
+      "![[${1:deck-52}${2:#${3:glossary}}]]",
+      "$0"
+    ]
+  },
+  "Note or tip": {
+    "prefix": "note",
+    "description": "> A note, shown as a tip",
+    "body": [
+      "> ${1:Tip:} ${2:…}$0"
+    ]
+  },
+  "Image": {
+    "prefix": "img",
+    "description": "An image from the game's media/ folder",
+    "body": [
+      "![${1:Caption}](media/${2:image.jpg})$0"
+    ]
+  },
+  "TODO reminder": {
+    "prefix": "todo",
+    "description": "A reminder for later (tabula todo lists them)",
+    "body": [
+      "<!-- TODO: ${1:…} -->$0"
+    ]
+  },
+  "Variants and extensions": {
+    "prefix": "options",
+    "description": "Declare variants and extensions in the frontmatter, for {+name} conditions",
+    "body": [
+      "${1|variants,extensions|}:",
+      "  ${2:name}: \"${3:What it changes}\"",
+      "$0"
+    ]
+  }
+}
