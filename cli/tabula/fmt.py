@@ -16,6 +16,7 @@ from .blocks import parse_blocks, table_cells
 from .source import Issues, UNSAVED, read_source
 from .syntax import END_RE, FENCE_RE, HEADING_RE
 from .vault import open_vault
+from .sheet import sheets_of
 
 
 def width(s: str) -> int:
@@ -181,9 +182,10 @@ def cmd_fmt(args) -> int:
         for g in args.games:
             p = vault.find(g)
             paths += [p] + sorted(f for f in p.parent.glob(f"{p.stem}.*.game"))   # its translations too
+            paths += sheets_of(p, vault.root)                                     # and its score sheets
     else:
         from .fragments import fragment_files
-        paths = [p for p in vault.root.rglob("*.game")] + fragment_files(vault.root)
+        paths = [p for p in vault.root.rglob("*.game")] + fragment_files(vault.root) + list(vault.root.rglob("*.sheet"))
     changed = unsafe = 0
     for p in sorted(set(paths)):
         text = p.read_bytes().decode("utf-8", errors="replace")        # as written: keeps \r\n

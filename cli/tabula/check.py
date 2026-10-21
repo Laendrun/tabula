@@ -21,6 +21,7 @@ from .terminal import Style, find_section
 from .cards import card_catalog
 from .spell import SpellError, check_spelling
 from .values import value_problems
+from .sheet import check_sheet, load_sheet, sheets_of
 from .symbols import SYMBOL_RE, merged_symbols, symbol_problems
 
 STRUCTURAL_KEYS = ("players", "best_players", "duration", "age", "year", "cover")
@@ -370,9 +371,11 @@ def rel(p: Path, vault: Vault) -> str:
 def cmd_check(args) -> int:
     if args.stdin:
         if len(args.games) != 1 or not Path(args.games[0]).is_file():
-            raise SystemExit("tabula: --stdin needs exactly one .game file (the file being edited)")
+            raise SystemExit("tabula: --stdin needs exactly one .game or .sheet file (the file being edited)")
         UNSAVED[Path(args.games[0]).resolve()] = sys.stdin.buffer.read().decode("utf-8", errors="replace")
     vault = open_vault(args.vault, args.games[0] if args.games else None)
+    if args.games and all(g.endswith(".sheet") for g in args.games):        # score sheets on their own
+        return check_sheets(vault, [Path(g) for g in args.games], args)
     paths = [vault.find(g) for g in args.games] if args.games else vault.discover() + shared_fragments(vault)
     if args.json:
         return check_json(vault, paths, args)
@@ -483,8 +486,28 @@ def check_all_languages(vault: Vault, p: Path, definitions: bool, spell: bool = 
             iss += check_translation(game, tr, vault, require_defs=req, unused=unused)
             if spell:
                 iss += spelling(tr, vault)
+    for s in sheets_of(p, vault.root):                 # its score sheets
+        iss += check_sheet(load_sheet(s, vault), vault)
     iss.sort(key=lambda i: (str(i.path), i.line))
     return game, iss
+
+
+def check_sheets(vault: Vault, paths: list[Path], args) -> int:
+    """tabula check x.sheet: only those sheets (text, or --json for editors)."""
+    found = []
+    for p in paths:
+        found += check_sheet(load_sheet(p, vault), vault)
+    errors = sum(i.level == "error" for i in found)
+    warnings = sum(i.level == "warning" for i in found)
+    if args.json:
+        print(json.dumps({"vault": str(vault.root), "files": [str(p.resolve()) for p in paths],
+                          "issues": [{"path": str(Path(i.path).resolve()), "line": i.line, "level": i.level,
+                                      "message": i.msg} for i in found]}, indent=2))
+    else:
+        for i in found:
+            print(f"  {i.level:<8} {rel(i.path, vault)}:{i.line}  {i.msg}")
+        print(f"\n{len(paths)} sheet(s), {errors} error(s), {warnings} warning(s)")
+    return 1 if errors or (args.strict and warnings) else 0
 
 
 def check_json(vault: Vault, paths: list[Path], args) -> int:
@@ -496,6 +519,7 @@ def check_json(vault: Vault, paths: list[Path], args) -> int:
         found += iss
         files += [str(p.parent / (f"{game.slug}.game" if lang == game.default_language else f"{game.slug}.{lang}.game"))
                   for lang in game.languages]
+        files += [str(s) for s in sheets_of(p, vault.root)]
     out = {"vault": str(vault.root), "files": files,
            "issues": [{"path": str(Path(i.path).resolve()), "line": i.line, "level": i.level, "message": i.msg}
                       for i in found]}

@@ -2,6 +2,7 @@
 
 Highlighting, live checks and a live preview for Tabula `.game` files.
 
+- **Score sheets** (`.sheet` files) get the same highlighting, checks while you type, formatting and preview: the preview shows the printed page, with one column per player for the game's largest player count.
 - **Live preview.** Click the preview button in the editor's title bar, or press Ctrl+K V (Cmd+K V on a Mac). The game opens beside the editor as `tabula site` renders it, with the player and option filters. It updates as you type (before you save), follows the `.game` file you switch to, and keeps your filter choice and scroll position. Links to other games open their file, web links open in your browser.
 - **Checks while you type.** `tabula check` runs on the file you're editing, even before you save. Problems show up as squiggles and in the Problems panel (Ctrl+Shift+M). The squiggle goes on what the message is about, for example the `[[ref]]` that matches nothing. Translations of the same game (`slug.fr.game`) are checked at the same time. `<!-- TODO: … -->` reminders show up as information (blue), not as warnings.
 - **Spelling** (optional): words the dictionary doesn't know are underlined as information, in the game's language. Turn it on with the `tabula.spellCheck` setting, or `check: {spelling: true}` in `vault.yaml`. It needs tabula 0.12 with `spylls` (`pipx inject tabula spylls`). Correct words go in `words.txt` at the root of the vault.
@@ -31,6 +32,7 @@ Highlighting, live checks and a live preview for Tabula `.game` files.
   | `ptable` | a table with a column per player count |
   | `key`, `cond`, `choice` | a key rule `!`, a condition `{2p}`, an inline choice `{2p: … \| *: …}` |
   | `ref`, `alias`, `link`, `inc` | `[[term]]`, `[[term\|text]]`, `[[#section]]`, `![[fragment#section]]` |
+  | `sheet`, `players` | a new score sheet file; `{player}` / `{n}` player columns |
   | `callout` | a box: `> [!exemple]`, `[!attention]`, `[!astuce]`… (pick the type from a list) |
   | `note`, `img`, `todo` | a `>` note, an image from `media/`, a `<!-- TODO: -->` |
 - **Folding** of sections and definitions.

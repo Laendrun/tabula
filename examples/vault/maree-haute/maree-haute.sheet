@@ -1,0 +1,14 @@
+---
+title: Marée haute — feuille de score
+size: a5
+orientation: landscape
+---
+
+# Marée haute :vague:
+
+| Joueur           | {player} |
+|------------------|----------|
+| Bateaux posés    |          |
+| Bateaux à l'abri |          |
+| Quai plein (+10) |          |
+| **Total**        |          |

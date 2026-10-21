@@ -273,5 +273,31 @@
       "> ${3:Text.}",
       "$0"
     ]
+  },
+  "Score sheet file": {
+    "prefix": "sheet",
+    "description": "A new score sheet (.sheet): players in columns, rows to fill in",
+    "body": [
+      "---",
+      "title: ${1:Feuille de score}",
+      "size: ${2|a4,a5,a3,a6,letter|}",
+      "orientation: ${3|portrait,landscape|}",
+      "---",
+      "",
+      "# ${4:Titre}",
+      "",
+      "| ${5:Joueur} | {player} |",
+      "|---|---|",
+      "| ${6:Catégorie} | |",
+      "| **Total** | |",
+      "$0"
+    ]
+  },
+  "Player columns": {
+    "prefix": "players",
+    "description": "In a sheet's heading row: one column per player ({player}: blank to write a name, {n}: the number)",
+    "body": [
+      "{${1|player,n|}}$0"
+    ]
   }
 }

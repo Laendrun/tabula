@@ -13,6 +13,7 @@ from .export import HTML_CSS, HtmlRenderer
 from .filtering import filter_blocks, select_key
 from .syntax import Ctx, fold, in_range, parse_range
 from .vault import Game, Vault, open_vault
+from .sheet import load_sheet, render_sheet, sheets_of
 
 MARKER = ".tabula-site"          # marks a folder made by `tabula site`, so it can be safely replaced
 
@@ -20,15 +21,15 @@ SITE_UI = {
     "en": {"games": "games", "players": "Players", "any": "any", "duration": "Duration", "up_to": "up to {} min",
            "search": "Search a game, a designer…", "count": "{} of {} games", "none": "No game matches.",
            "rules": "Rules", "key": "Key rules", "all_games": "All games", "min": "min", "players_n": "{} players",
-           "age": "{}+", "reset": "Reset", "tags": "Tags"},
+           "age": "{}+", "reset": "Reset", "tags": "Tags", "sheet": "Score sheet"},
     "fr": {"games": "jeux", "players": "Joueurs", "any": "tous", "duration": "Durée", "up_to": "jusqu'à {} min",
            "search": "Chercher un jeu, un auteur…", "count": "{} jeux sur {}", "none": "Aucun jeu ne correspond.",
            "rules": "Règles", "key": "Règles clés", "all_games": "Tous les jeux", "min": "min",
-           "players_n": "{} joueurs", "age": "{} ans et +", "reset": "Réinitialiser", "tags": "Étiquettes"},
+           "players_n": "{} joueurs", "age": "{} ans et +", "reset": "Réinitialiser", "tags": "Étiquettes", "sheet": "Feuille de score"},
     "de": {"games": "Spiele", "players": "Spieler", "any": "alle", "duration": "Dauer", "up_to": "bis {} Min.",
            "search": "Spiel oder Autor suchen…", "count": "{} von {} Spielen", "none": "Kein Spiel passt.",
            "rules": "Regeln", "key": "Kernregeln", "all_games": "Alle Spiele", "min": "Min.",
-           "players_n": "{} Spieler", "age": "ab {}", "reset": "Zurücksetzen", "tags": "Schlagwörter"},
+           "players_n": "{} Spieler", "age": "ab {}", "reset": "Zurücksetzen", "tags": "Schlagwörter", "sheet": "Wertungsblatt"},
 }
 DURATIONS = [15, 30, 45, 60, 90, 120, 180]
 
@@ -67,7 +68,7 @@ def ui_for(lang: str) -> dict:
     return SITE_UI.get(lang, SITE_UI.get(lang.split("-")[0], SITE_UI["en"]))
 
 
-def game_nav(base: Game, lang: str, kind: str, has_key: dict[str, bool]) -> str:
+def game_nav(base: Game, lang: str, kind: str, has_key: dict[str, bool], sheets=()) -> str:
     """Links above a game page, in the page's language: all games · rules / key rules · languages."""
     esc = html.escape
     ui = ui_for(lang)
@@ -78,6 +79,9 @@ def game_nav(base: Game, lang: str, kind: str, has_key: dict[str, bool]) -> str:
             continue
         parts.append(f'<span class="here">{esc(label)}</span>' if k == kind
                      else f'<a href="{page_name(k, lang, d)}">{esc(label)}</a>')
+    for href, title in sheets:                   # score sheets: pages to print
+        label = ui["sheet"] if len(sheets) == 1 else title
+        parts.append(f'<a href="{href}" title="{esc(title)}">{esc(label)} ⎙</a>')
     if len(base.languages) > 1:
         langs = []
         for l in base.languages:
@@ -98,15 +102,21 @@ def write_game(vault: Vault, path: Path, out: Path) -> dict:
     filtered = {lang: filter_blocks(g.blocks, ctx) for lang, g in versions.items()}
     keys = {lang: select_key(blocks) for lang, blocks in filtered.items()}
     has_key = {lang: bool(k) for lang, k in keys.items()}
+    sheets = []
+    for s in sheets_of(path, vault.root):
+        sh = load_sheet(s, vault)
+        name = f"sheet-{s.stem}.html"
+        (folder / name).write_text(render_sheet(sh), encoding="utf-8")
+        sheets.append((name, sh.title))
     for lang, g in versions.items():
         r = HtmlRenderer(g, filtered[lang], ctx, interactive=True)
         r.game_href = "../{}/index.html"
-        nav = game_nav(base, lang, "index", has_key)
+        nav = game_nav(base, lang, "index", has_key, sheets)
         (folder / page_name("index", lang, base.default_language)).write_text(r.page(nav=nav), encoding="utf-8")
         if keys[lang]:
             r = HtmlRenderer(g, keys[lang], ctx, key_only=True, interactive=True)
             r.game_href = "../{}/index.html"
-            nav = game_nav(base, lang, "key", has_key)
+            nav = game_nav(base, lang, "key", has_key, sheets)
             (folder / page_name("key", lang, base.default_language)).write_text(
                 r.page(f" — {r.t['key']}", nav=nav), encoding="utf-8")
     cover = ""

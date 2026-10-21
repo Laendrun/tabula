@@ -27,6 +27,7 @@ from .export import cmd_export
 from .site import cmd_site
 from .todo import cmd_todo
 from .fmt import cmd_fmt
+from .sheet import cmd_sheet
 from .new import cmd_new
 from .book import cmd_book
 
@@ -150,6 +151,16 @@ def main(argv=None) -> int:
     p.add_argument("--no-color", action="store_true")
     p.add_argument("--vault", default=argparse.SUPPRESS)
     p.set_defaults(func=cmd_todo)
+
+    p = sub.add_parser("sheet", help="print a game's score sheets (.sheet files) as pages the size of the paper")
+    p.add_argument("target", help="a game, or the path of a .sheet file")
+    p.add_argument("name", nargs="*", help="which of the game's sheets (default: all), and/or a player count")
+    p.add_argument("-o", "--output", help="file or folder to write to, or - for standard output")
+    p.add_argument("-p", "--players", type=int, help="one column per player for N players (default: the game's most)")
+    p.add_argument("--list", action="store_true", help="list the game's sheets")
+    p.add_argument("--stdin", action="store_true", help="read the .sheet given from standard input (for editors)")
+    p.add_argument("--vault", default=argparse.SUPPRESS)
+    p.set_defaults(func=cmd_sheet)
 
     p = sub.add_parser("fmt", help="tidy game files (blank lines, tables, spaces) without changing what they say")
     p.add_argument("games", nargs="*", help="games to format, with their translations (default: every file in the vault)")

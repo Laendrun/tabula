@@ -14,6 +14,15 @@ function checkArgs({ file, vault, extraArgs = [], definitions = false, stdin = f
   return args;
 }
 
+/** Arguments for the preview: `tabula sheet` for a score sheet, else `tabula export --interactive`. */
+function previewArgs({ file, vault, extraArgs = [] }) {
+  const args = [...extraArgs];
+  if (vault) args.push("--vault", vault);
+  if (/\.sheet$/i.test(file)) args.push("sheet", file, "--stdin", "-o", "-");
+  else args.push("export", file, "--interactive", "--stdin", "-o", "-");
+  return args;
+}
+
 /** Arguments for `tabula fmt`: one file from stdin (to stdout), or the whole vault. */
 function fmtArgs({ file, vault, extraArgs = [] }) {
   const args = [...extraArgs];
@@ -732,7 +741,7 @@ function symbolAt(lineText, column) {
 }
 
 module.exports = {
-  severity, checkArgs, fmtArgs, expand, parseCheckOutput, issueColumns, fold, outline, refAt, findTargets,
+  severity, checkArgs, fmtArgs, previewArgs, expand, parseCheckOutput, issueColumns, fold, outline, refAt, findTargets,
   plainRefs, definitionBody, definitionMarkdown, completionContext, completions, hoverText,
   includeAt, includeContext, includeHover,
   fragmentSection, expandIncludes, previewHtml, previewLink,
