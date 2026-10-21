@@ -895,7 +895,13 @@ def cmd_export(args) -> int:
     renderer = HtmlRenderer(game, blocks, ctx, key_only=args.key, interactive=args.interactive)
     html_text = renderer.page(f" — {renderer.t['key']}" if args.key else "")
     if args.output == "-":
-        sys.stdout.write(html_text)
+        out = getattr(sys.stdout, "buffer", None)       # bytes: no \r\r\n on Windows
+        if out is not None:
+            sys.stdout.flush()
+            out.write(html_text.encode("utf-8"))
+            out.flush()
+        else:
+            sys.stdout.write(html_text)
         return 0
     name = export_name(game, ctx, args.section, key=args.key)
     out = Path(args.output) if args.output else Path.cwd() / name
