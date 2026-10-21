@@ -64,6 +64,8 @@ Le joueur qui a le plus de points gagne, quand la [[pioche]] est vide ou quand q
 
 # Déroulement {#play}
 
+## À votre tour {#turn}
+
 On joue chacun son tour, dans le sens des aiguilles d'une montre. À votre tour, faites ces trois choses dans l'ordre :
 
 1. **Piocher** : prenez la première carte de la [[pioche]], ou la carte du dessus de la [[plage]].

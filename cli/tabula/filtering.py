@@ -127,6 +127,24 @@ def section_end(blocks: list[Block], i: int) -> int:
                 len(blocks))
 
 
+def select_turn(blocks: list[Block]) -> list[Block]:
+    """The turn summary: the sections with the #turn role (whole), then the key rules found elsewhere.
+    Empty when no section has the role."""
+    turn, rest, i = [], [], 0
+    while i < len(blocks):
+        b = blocks[i]
+        if b.kind == "heading" and not b.reopens and "turn" in b.roles:
+            end = section_end(blocks, i)
+            shift = b.level - 1                    # the summary starts with it: a top-level heading
+            turn += [dataclasses.replace(x, level=x.level - shift) if x.kind == "heading" and shift else x
+                     for x in blocks[i:end]]
+            i = end
+            continue
+        rest.append(b)
+        i += 1
+    return turn + select_key(rest) if turn else []
+
+
 def is_key(b: Block) -> bool:
     """A key rule: `! …` paragraph, `- ! …` item, or a definition containing one."""
     return (b.kind == "key" or (b.kind == "item" and b.key)

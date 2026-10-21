@@ -88,7 +88,7 @@
     "prefix": "sec",
     "description": "A heading with a role, e.g. # Glossaire {#glossary}",
     "body": [
-      "# ${1:Title} {#${2|components,goal,setup,play,scoring,end,glossary,cards,events,variants,notes,faq|}}",
+      "# ${1:Title} {#${2|components,goal,setup,play,turn,scoring,end,glossary,cards,events,variants,notes,faq|}}",
       "",
       "$0"
     ]

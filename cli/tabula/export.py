@@ -12,7 +12,7 @@ from .syntax import (
     Cond, parse_choice, parse_cond, parse_range, split_lang, via_of,
 )
 from .blocks import callout_family, callout_title, card_image, shown_fields, Block, components_of, is_sep_row, player_columns, player_rows
-from .filtering import filter_blocks, section_end, section_names, select_key, select_sections
+from .filtering import filter_blocks, section_end, section_names, select_key, select_sections, select_turn
 from .source import UNSAVED
 from .vault import Game, open_vault
 from .terminal import find_section, plain
@@ -25,7 +25,7 @@ UI = {
            "legend": "marks what the enabled extensions and variants add or change",
            "only_with": "only with {}", "by": "Design", "art": "Art", "publisher": "Publisher",
            "exported": "Exported with tabula {} on {}.", "players_n": "{} players",
-           "card": "card", "count": "count", "ext": "extension", "key": "key rules",
+           "card": "card", "count": "count", "ext": "extension", "key": "key rules", "turn": "turn summary",
            "for": "Players", "any": "any", "everything": "Everything", "options": "Extensions and variants"},
     "fr": {"players": "joueurs", "best": "idéal à {}", "min": "min", "age": "{} ans et +", "toc": "Sommaire",
            "showing": "Affichage", "base": "jeu de base", "no_variants": "sans variante",
@@ -33,7 +33,7 @@ UI = {
            "legend": "signale ce que les extensions et variantes activées ajoutent ou modifient",
            "only_with": "seulement avec {}", "by": "Auteurs", "art": "Illustrations", "publisher": "Éditeur",
            "exported": "Exporté avec tabula {} le {}.", "players_n": "{} joueurs",
-           "card": "carte", "count": "nombre", "ext": "extension", "key": "règles clés",
+           "card": "carte", "count": "nombre", "ext": "extension", "key": "règles clés", "turn": "résumé du tour",
            "for": "Joueurs", "any": "tous", "everything": "Tout", "options": "Extensions et variantes"},
     "de": {"players": "Spieler", "best": "am besten zu {}", "min": "Min.", "age": "ab {}", "toc": "Inhalt",
            "showing": "Ansicht", "base": "Grundspiel", "no_variants": "ohne Varianten",
@@ -41,7 +41,7 @@ UI = {
            "legend": "markiert, was die aktiven Erweiterungen und Varianten hinzufügen oder ändern",
            "only_with": "nur mit {}", "by": "Autoren", "art": "Illustration", "publisher": "Verlag",
            "exported": "Exportiert mit tabula {} am {}.", "players_n": "{} Spieler",
-           "card": "Karte", "count": "Anzahl", "ext": "Erweiterung", "key": "Kernregeln",
+           "card": "Karte", "count": "Anzahl", "ext": "Erweiterung", "key": "Kernregeln", "turn": "Spielzug",
            "for": "Spieler", "any": "alle", "everything": "Alles", "options": "Erweiterungen und Varianten"},
 }
 
@@ -355,6 +355,8 @@ class HtmlRenderer:
         import html as _html
         self.esc = _html.escape
         self.game, self.blocks, self.ctx, self.key_only = game, blocks, ctx, key_only
+        self.sel_label = ""                  # what the page shows, when it's a selection (turn summary)
+        self.paper = ""                      # --paper a5: the printed page size
         self.interactive = interactive
         self.game_href = "{}.html"             # where [text](game:slug) links point; `tabula site` changes it
         self.image_src = None                  # tabula book: Path -> href of the image inside the book
@@ -400,6 +402,15 @@ class HtmlRenderer:
             return (f'<img class="sym" src="{self.esc(self.data_uri(src))}" alt="{self.esc(alt[4:])}" '
                     f'title="{self.esc(alt[4:])}">')
         return f'<img src="{self.esc(self.data_uri(src))}" alt="{self.esc(alt)}">'
+
+    def paper_css(self) -> str:
+        """--paper a5: the printed page's size, with a smaller text so a summary fits."""
+        if not self.paper:
+            return ""
+        from .sheet import PAPER
+        w, h = PAPER.get(self.paper.lower(), PAPER["a4"])
+        small = "body{font-size:9.5pt}" if w * h <= PAPER["a5"][0] * PAPER["a5"][1] else ""
+        return f"\n@media print{{@page{{size:{w}mm {h}mm;margin:9mm}}{small}}}"
 
     def data_uri(self, src: str) -> str:
         import base64
@@ -774,7 +785,7 @@ class HtmlRenderer:
             src = str(g.cover.relative_to(g.base_dir)) if g.cover.is_relative_to(g.base_dir) else str(g.cover)
             cover = f'<img class="cover" src="{esc(self.data_uri(src))}" alt="">'
 
-        sel = [t["key"]] if self.key_only else []
+        sel = [self.sel_label] if self.sel_label else [t["key"]] if self.key_only else []
         if ctx.players is not None:
             sel.append(t["players_n"].format(ctx.players))
         if ctx.everything:
@@ -829,7 +840,7 @@ class HtmlRenderer:
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{esc(g.title)}{esc(title_suffix)}</title>
 {fonts}
-<style>{HTML_CSS}{FILTER_CSS if self.interactive else ""}</style>
+<style>{HTML_CSS}{FILTER_CSS if self.interactive else ""}{self.paper_css()}</style>
 </head>
 <body>
 <div class="page">
@@ -850,7 +861,7 @@ class HtmlRenderer:
 """
 
 
-def export_name(game: Game, ctx: Ctx, sections, key: bool = False) -> str:
+def export_name(game: Game, ctx: Ctx, sections, key: bool = False, turn: bool = False) -> str:
     parts = [game.slug]
     if ctx.players is not None:
         parts.append(f"{ctx.players}p")
@@ -859,7 +870,9 @@ def export_name(game: Game, ctx: Ctx, sections, key: bool = False) -> str:
     parts += sorted(ctx.variants)
     if sections:
         parts += [html_slug(s) for s in sections]
-    if key:
+    if turn:
+        parts.append("turn")
+    elif key:
         parts.append("key")
     name = "-".join(parts)
     if game.language != game.default_language:
@@ -899,13 +912,23 @@ def cmd_export(args) -> int:
                   f"available: {', '.join(section_names(blocks)) or '(none)'}", file=sys.stderr)
             return 2
         blocks = picked
-    if args.key:
+    if args.turn:
+        blocks = select_turn(blocks)
+        if not blocks:
+            print(f"tabula: no turn summary in {game.title} (give the section that describes a turn the role "
+                  f"#turn)", file=sys.stderr)
+            return 1
+    elif args.key:
         blocks = select_key(blocks)
         if not blocks:
             print(f"tabula: no key rules in {game.title} (mark them with '! ' or '## ! Title')", file=sys.stderr)
             return 1
-    renderer = HtmlRenderer(game, blocks, ctx, key_only=args.key, interactive=args.interactive)
-    html_text = renderer.page(f" — {renderer.t['key']}" if args.key else "")
+    renderer = HtmlRenderer(game, blocks, ctx, key_only=args.key and not args.turn, interactive=args.interactive)
+    if args.turn:
+        renderer.sel_label = renderer.t["turn"]
+    if args.paper:
+        renderer.paper = args.paper
+    html_text = renderer.page(f" — {renderer.t['turn']}" if args.turn else f" — {renderer.t['key']}" if args.key else "")
     if args.output == "-":
         out = getattr(sys.stdout, "buffer", None)       # bytes: no \r\r\n on Windows
         if out is not None:
@@ -915,7 +938,7 @@ def cmd_export(args) -> int:
         else:
             sys.stdout.write(html_text)
         return 0
-    name = export_name(game, ctx, args.section, key=args.key)
+    name = export_name(game, ctx, args.section, key=args.key, turn=args.turn)
     out = Path(args.output) if args.output else Path.cwd() / name
     if out.is_dir():
         out = out / name

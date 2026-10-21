@@ -27,6 +27,8 @@ tabula show frantic --all              # every extension and variant, with badge
 tabula show hearts -l fr               # French version
 tabula show frantic -s glossary        # only one section (role or title)
 tabula show hearts --key -p 4          # cheat sheet: only the key rules and key sections
+tabula show hearts --turn               # turn summary: the {#turn} section, then the key rules
+tabula export hearts --turn --paper a5  # ...as a page to print on A5
 tabula show hearts --json              # parsed structure
 tabula lookup frantic black hole       # one card/term, for use at the table (typos and accents ok)
 tabula export frantic -p 4 -e supercharge   # → frantic-4p-supercharge.html (open in a browser, print)
