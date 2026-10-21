@@ -19,7 +19,7 @@ def dicts(tmp_path, monkeypatch):
     cache = tmp_path / "cache"
     folder = cache / "dictionaries"
     folder.mkdir(parents=True)
-    for lang, words in (("en", EN), ("fr", FR)):
+    for lang, words in (("en", EN), ("fr", FR), ("en-gb", ["colour", "centre"])):
         (folder / f"{lang}.aff").write_text("SET UTF-8\nWORDCHARS '\n", encoding="utf-8")
         (folder / f"{lang}.dic").write_text(f"{len(words)}\n" + "\n".join(words) + "\n", encoding="utf-8")
     monkeypatch.setenv("TABULA_CACHE", str(cache))
@@ -132,3 +132,8 @@ def test_role_typos(tmp_path, capsys):
     _, out = check(capsys, vault(tmp_path, body, "unused_definitions: false\n"))
     assert "g/g.game:8  role '#cartes': did you mean '#cards'?" in out
     assert "strategy" not in out
+
+
+def test_english_accepts_british_spellings(tmp_path, dicts, capsys):
+    _, out = check(capsys, vault(tmp_path, "# Rules\n\nThe colour of the centre card, the colr.\n"), "--spell")
+    assert words(out) == ["colr"]

@@ -28,6 +28,7 @@ URL_RE = re.compile(r"\b(?:https?://|www\.)\S+")
 TAG_RE = re.compile(r"</?[A-Za-z][^<>\n]*>")
 LINK_TARGET_RE = re.compile(r"\]\([^)\s]*\)")
 FIELD_ANYWHERE_RE = re.compile(r"[^\W\d][\w -]*?::")
+ALSO = {"en": "en-gb"}          # plain "en": British spellings are right too (the "en" dictionary is US)
 FRONTMATTER_WORDS = ("title", "designer", "artist", "publisher", "series", "source", "location")
 
 
@@ -172,6 +173,19 @@ def check_spelling(game, vault, lang: str | None = None) -> list[tuple[int, str]
                 start = i + 1
                 break
     cache: dict[str, bool] = {}
+    other = []                     # the second dictionary (en-gb for en), loaded on the first miss
+
+    def lookup(word: str) -> bool:
+        if d.lookup(word):
+            return True
+        if lang.lower() not in ALSO:
+            return False
+        if not other:
+            try:
+                other.append(dictionary(ALSO[lang.lower()]))
+            except SpellError:
+                other.append(None)
+        return bool(other[0] and other[0].lookup(word))
 
     def ok(w: str) -> bool:
         if w not in cache:
@@ -179,7 +193,7 @@ def check_spelling(game, vault, lang: str | None = None) -> list[tuple[int, str]
             parts = [w] + ([w.split("'")[-1]] if "'" in w else [])
             parts += [p.replace("oe", "œ").replace("Oe", "Œ") for p in parts if "oe" in p.lower()]   # oeil
             cache[w] = (low in known or w.isupper() or len(w) < 2
-                        or any(p.lower() in known or d.lookup(p) for p in parts))
+                        or any(p.lower() in known or lookup(p) for p in parts))
         return cache[w]
 
     out, in_code = [], False
