@@ -253,5 +253,7 @@ test("symbols: definitions, typing and hovering", () => {
   assert.equal(core.symbolContext(": ", 1), null);                // a definition line
   assert.equal(core.symbolContext("at 10:3", 7), null);
   assert.deepEqual(core.symbolAt("Pay :gold: now", 6), { name: "gold", start: 4, end: 10 });
+  assert.deepEqual(core.symbolAt("Pay 3:gold:", 7), { name: "gold", start: 5, end: 11 });
+  assert.deepEqual(core.symbolContext("Pay 3:go", 8), { typed: "go", start: 5, closed: false });
   assert.equal(core.symbolAt("at 10:30: now", 5), null);
 });

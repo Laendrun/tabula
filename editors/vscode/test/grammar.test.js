@@ -164,7 +164,7 @@ test("values {=name}, in text and in table cells", () => {
 });
 
 test("symbols :name:, not times or fields", () => {
-  const l = tokenize("# T\n\nPay 3 :gold: at 10:30: now.\n\nCard\n: cost:: 2 :gold:\n");
+  const l = tokenize("# T\n\nPay 3:gold: at 10:30: now.\n\nCard\n: cost:: 2 :gold:\n");
   assert.match(l[2].find((t) => t.text === "gold").scopes.join(" "), /constant.other.symbol/);
   assert.doesNotMatch(l[2].map((t) => t.scopes.join(" ")).filter((s, i) => l[2][i].text.includes("30")).join(" "), /symbol/);
   assert.match(l[5].find((t) => t.text === "gold").scopes.join(" "), /constant.other.symbol/);

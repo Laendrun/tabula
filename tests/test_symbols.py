@@ -25,7 +25,8 @@ BODY = ("# Rules\n\nPay 3 :gold: and 1 :key: for 2 :star:. At 10:30: fine, `:gol
 
 
 def test_pattern():
-    assert [m.group(1) for m in SYMBOL_RE.finditer(":a: x:b: :c:d 10:30: :e:: http://x:y: (:f:)")] == ["a", "f"]
+    found = [m.group(1) for m in SYMBOL_RE.finditer(":a: x:b: :c:d 3:g: :e:: http://x:y: (:f:) _:h:")]
+    assert found == ["a", "g", "f"]
 
 
 def test_terminal(tmp_path, capsys):

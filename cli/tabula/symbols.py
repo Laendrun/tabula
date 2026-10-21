@@ -17,7 +17,7 @@ from pathlib import Path
 
 from .syntax import FENCE_RE
 
-SYMBOL_RE = re.compile(r"(?<![\w:\\/]):([A-Za-z0-9][\w+-]*):(?![\w:/])")
+SYMBOL_RE = re.compile(r"(?<![^\W\d])(?<![_:\\/]):([A-Za-z0-9][\w+-]*):(?![\w:/])")   # "3:gold:" too
 CODE_RE = re.compile(r"`[^`\n]*`")
 IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp")
 SYM_ALT = "sym:"

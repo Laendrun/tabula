@@ -719,13 +719,13 @@ function symbolsOf(gameText, vaultYaml) {
 
 /** Typing a symbol name after ":" (at least one letter): { typed, start } (start: the ":"), or null. */
 function symbolContext(lineText, column) {
-  const m = lineText.slice(0, column).match(/(?<![\w:\\/]):([A-Za-z0-9][\w+-]*)$/);
+  const m = lineText.slice(0, column).match(/(?<![\p{L}_:\\/]):([A-Za-z][\w+-]*)$/u);   // not "10:3"
   return m ? { typed: m[1], start: column - m[1].length - 1, closed: lineText[column] === ":" } : null;
 }
 
 /** The :name: under the cursor: { name, start, end }, or null. */
 function symbolAt(lineText, column) {
-  for (const m of lineText.matchAll(/(?<![\w:\\/]):([A-Za-z0-9][\w+-]*):(?![\w:/])/g)) {
+  for (const m of lineText.matchAll(/(?<![\p{L}_:\\/]):([A-Za-z0-9][\w+-]*):(?![\w:/])/gu)) {
     if (column >= m.index && column <= m.index + m[0].length) return { name: m[1], start: m.index, end: m.index + m[0].length };
   }
   return null;
