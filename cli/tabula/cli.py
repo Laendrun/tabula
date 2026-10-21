@@ -26,6 +26,7 @@ from .check import cmd_check
 from .export import cmd_export
 from .site import cmd_site
 from .todo import cmd_todo
+from .fmt import cmd_fmt
 from .new import cmd_new
 from .book import cmd_book
 
@@ -149,6 +150,14 @@ def main(argv=None) -> int:
     p.add_argument("--no-color", action="store_true")
     p.add_argument("--vault", default=argparse.SUPPRESS)
     p.set_defaults(func=cmd_todo)
+
+    p = sub.add_parser("fmt", help="tidy game files (blank lines, tables, spaces) without changing what they say")
+    p.add_argument("games", nargs="*", help="games to format, with their translations (default: every file in the vault)")
+    p.add_argument("--check", action="store_true", help="only list the files that would change (exit 1 if any)")
+    p.add_argument("--stdin", action="store_true",
+                   help="format the text of the one GAME file given from standard input, to standard output (for editors)")
+    p.add_argument("--vault", default=argparse.SUPPRESS)
+    p.set_defaults(func=cmd_fmt)
 
     p = sub.add_parser("check", help="find mistakes in game files")
     p.add_argument("games", nargs="*", help="games to check (default: all)")

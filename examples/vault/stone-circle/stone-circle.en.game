@@ -42,8 +42,8 @@ and toss small stones as close to it as you can, without touching it.
 
 ! Closest stone to the rock that is still inside the circle: 3 points. Every other stone inside the circle: 1 point.
 
-| Points to win | 2p | 3p | 4p |
-|---------------|----|----|----|
+| Points to win        | 2p | 3p | 4p |
+|----------------------|----|----|----|
 | {-teams} Each player | 15 | 12 | 10 |
 | {+teams} Each team   |    |    | 15 |
 

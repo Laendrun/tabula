@@ -16,8 +16,9 @@ Highlighting, live checks and a live preview for Tabula `.game` files.
   - an unknown word: change it to the suggested game word, or add it to the vault's `words.txt`;
   - a misspelt frontmatter key or role (`durantion:`, `#cartes`), and `[name]` written with single brackets.
 - **Rename (F2)** on a `[[reference]]`, a glossary term, a component or a heading: its definition (or heading) and every reference to it in the file are renamed. References written differently keep their text: `[[bateaux]]` becomes `[[Navire|bateaux]]` when *Bateau* is renamed *Navire*. A term that comes from a shared fragment is renamed in the fragment file itself.
+- **Formatting** with `tabula fmt` (needs tabula 0.13): *Format Document* (Shift+Alt+F) or *Tabula: Format this file* tidies blank lines, aligns tables and removes trailing spaces, without ever changing what the file says. To format when saving, add `"[tabula]": { "editor.formatOnSave": true }` to your settings. *Tabula: Format every file in the vault* does the whole vault.
 - **Folding** of sections and definitions.
-- **Commands** (Ctrl+Shift+P): *Tabula: Check the whole vault* fills the Problems panel for every game. *Tabula: Check this game* checks the current file right away.
+- **Commands** (Ctrl+Shift+P): *Tabula: Check the whole vault* fills the Problems panel for every game. *Tabula: Check this game* checks the current file right away. *Tabula: Format this file* and *Tabula: Format every file in the vault* run `tabula fmt`.
 
 ## Install
 
