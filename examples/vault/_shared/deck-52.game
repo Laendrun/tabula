@@ -15,7 +15,7 @@ Paquet
 : 52 cartes à jouer : quatre [[couleurs]] de 13 cartes, de l'as au roi.
 
 Couleur
-: ♥ cœur, ♦ carreau, ♣ trèfle ou ♠ pique. Le cœur et le carreau sont rouges, le trèfle et le pique sont noirs.
+: :coeur: cœur, :carreau: carreau, :trefle: trèfle ou :pique: pique. Le cœur et le carreau sont rouges, le trèfle et le pique sont noirs.
 
 Valeur
 : Dans l'ordre : as, 2, 3… 10, valet, dame, roi. Sauf mention contraire, l'as est la plus faible.

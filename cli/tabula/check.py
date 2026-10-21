@@ -21,6 +21,7 @@ from .terminal import Style, find_section
 from .cards import card_catalog
 from .spell import SpellError, check_spelling
 from .values import value_problems
+from .symbols import SYMBOL_RE, merged_symbols, symbol_problems
 
 STRUCTURAL_KEYS = ("players", "best_players", "duration", "age", "year", "cover")
 FRONTMATTER_KEYS = ("title", "players", "best_players", "duration", "age", "type", "tags", "designer", "artist",
@@ -80,7 +81,8 @@ def check_game(game: Game, vault: Vault, require_defs: bool = False,
         if str(key) not in FRONTMATTER_KEYS and close:
             iss.warn(path, 1, f"'{key}:' in frontmatter: did you mean '{close[0]}'? (other keys are kept as they are)")
 
-    for msg in value_problems((game.tr_meta if game.body_path != game.path else meta).get("values")):
+    own = game.tr_meta if game.body_path != game.path else meta
+    for msg in value_problems(own.get("values")) + symbol_problems(own.get("symbols"), game.base_dir):
         iss.error(path, 1, msg)
 
     game_rng = parse_range(meta.get("players"))
@@ -90,6 +92,19 @@ def check_game(game: Game, vault: Vault, require_defs: bool = False,
         iss.error(path, 1, "'extensions' must be a mapping (name: description) or a list of names")
     for both in set(game.variants) & set(game.extensions):
         iss.warn(path, 1, f"'{both}' is declared both as a variant and as an extension")
+
+    # ---- :symbols: that are probably misspelt (other :words: are left alone)
+    names = list(merged_symbols(vault.root, game.base_dir, vault.config, meta))
+    in_code = False
+    for ln, t in game.lines:
+        if FENCE_RE.match(t):
+            in_code = not in_code
+        if in_code or ":" not in t:
+            continue
+        for m in SYMBOL_RE.finditer(re.sub(r"`[^`]*`", "", t)):
+            close = difflib.get_close_matches(m.group(1), names, n=1, cutoff=0.75)
+            if close:
+                iss.warn(path, ln, f"':{m.group(1)}:' is not a symbol: did you mean ':{close[0]}:'?")
 
     # ---- leftover v0.3 syntax (raw lines)
     in_code = False

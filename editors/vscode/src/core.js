@@ -691,11 +691,51 @@ function valueAt(lineText, column) {
   return null;
 }
 
+// ------------------------------------------------------------------ symbols :name:
+
+const IMAGE_EXT = /\.(png|jpe?g|gif|svg|webp)$/i;
+
+/** A symbol's definition as written in YAML: "⭐", "media/gold.png" or "{image: media/key.png, text: 🔑}". */
+function symbolParts(raw) {
+  const unq = (s) => (s || "").trim().replace(/^(["'])(.*)\1$/, "$2");
+  const m = raw.match(/^\{(.*)\}$/);
+  if (m) {
+    const image = (m[1].match(/image\s*:\s*("[^"]*"|'[^']*'|[^,}]+)/) || [])[1];
+    const text = (m[1].match(/text\s*:\s*("[^"]*"|'[^']*'|[^,}]+)/) || [])[1];
+    return { image: image ? unq(image) : null, text: text ? unq(text) : null };
+  }
+  const v = unq(raw);
+  if (IMAGE_EXT.test(v) && !/^https?:/.test(v)) return { image: v, text: null };
+  return { image: null, text: v };
+}
+
+/** The symbols a game can use: the vault's, then its own. [{ name, image, text, from }] */
+function symbolsOf(gameText, vaultYaml) {
+  const byName = new Map();
+  for (const e of yamlEntries(vaultYaml || "", "symbols")) byName.set(e.name, { name: e.name, ...symbolParts(e.value), from: "vault.yaml" });
+  for (const e of yamlEntries(gameText, "symbols")) byName.set(e.name, { name: e.name, ...symbolParts(e.value), from: "this game" });
+  return [...byName.values()];
+}
+
+/** Typing a symbol name after ":" (at least one letter): { typed, start } (start: the ":"), or null. */
+function symbolContext(lineText, column) {
+  const m = lineText.slice(0, column).match(/(?<![\p{L}_:\\/]):([A-Za-z][\w+-]*)$/u);   // not "10:3"
+  return m ? { typed: m[1], start: column - m[1].length - 1, closed: lineText[column] === ":" } : null;
+}
+
+/** The :name: under the cursor: { name, start, end }, or null. */
+function symbolAt(lineText, column) {
+  for (const m of lineText.matchAll(/(?<![\p{L}_:\\/]):([A-Za-z][\w+-]*):(?![\w:/])/gu)) {
+    if (column >= m.index && column <= m.index + m[0].length) return { name: m[1], start: m.index, end: m.index + m[0].length };
+  }
+  return null;
+}
+
 module.exports = {
   severity, checkArgs, fmtArgs, expand, parseCheckOutput, issueColumns, fold, outline, refAt, findTargets,
   plainRefs, definitionBody, definitionMarkdown, completionContext, completions, hoverText,
   includeAt, includeContext, includeHover,
   fragmentSection, expandIncludes, previewHtml, previewLink,
-  yamlEntries, valuesOf, valueContext, valueAt,
+  yamlEntries, valuesOf, valueContext, valueAt, symbolParts, symbolsOf, symbolContext, symbolAt,
   skippedLines, renameTarget, renameEdits, quickFixes, closest, glossaryInsertLine,
 };

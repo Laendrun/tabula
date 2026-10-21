@@ -50,6 +50,9 @@ name: Family games
 language: fr        # default language of the .game files (default: en)
 values:             # values every game can use ({=target}, see 8.6); a game's own values win
   target: 100
+symbols:            # symbols every game can use (:gold:, see 4)
+  gold: media/gold.png
+  star: ⭐
 ```
 
 ### 2.3 Languages
@@ -117,6 +120,7 @@ Série
 | `unused_definitions` | true/false | `false` | `tabula check`: warn about definitions nothing refers to (default `true`, see 5) |
 | `spelling` | true/false | `false` | `tabula check`: check spelling in this game (`false` turns it off even with `--spell`, see 12) |
 | `words` | list | `[Whitby, Lüthi]` | words the spell check should accept in this game (see 12) |
+| `symbols` | map name → text or image | `{key: media/key.png}` | symbols written `:key:` in the text (see 4) |
 | `values` | map name → value | `{main: {2p: 7, "*": 5}}` | values written `{=main}` in the text (see 8.6) |
 
 Count ranges: `4`, `2-5`, `3+`, `2,4`. Unknown keys are allowed and kept, so add your own. `tabula check` only warns about a key that is one or two letters away from a known one (`durantion:`).
@@ -134,6 +138,23 @@ All the usual Markdown: headings `#` to `######`, paragraphs, `*italic*` and `**
 ```
 
 A comment that starts with `TODO` or `FIXME` (any case, with or without `:`) is a **reminder**. `tabula todo` lists them for the whole vault, or for some games, with file and line. `tabula check` counts them without treating them as warnings, and editors show them as information.
+
+**Symbols** are the icons of a game: gold, keys, stars, card suits. Define them once, in `vault.yaml` for the ones many games share, or in a game's frontmatter, and write `:name:` in the text, in tables and in card fields:
+
+```yaml
+symbols:
+  star: ⭐                                    # text: an emoji or a word
+  gold: media/gold.png                       # an image: next to vault.yaml, or in the game's folder
+  key: {image: media/key.png, text: "🔑"}     # an image, and the text the terminal shows instead
+```
+
+```markdown
+Payez 3 :gold: et 1 :key: pour marquer 2 :star:.
+```
+
+- The site, the book and the HTML export draw an image symbol at the size of the text. The terminal writes its `text` (or its name). A text symbol is written as it is everywhere.
+- A game's symbols win over `vault.yaml`'s, so a game can draw its own `:gold:`. Translations use the same symbols.
+- Only defined names are replaced: `10:30:` or a `:word:` that is not a symbol stays as written, and so does `:gold:` in a code span. `tabula check` warns about a `:word:` that is close to a symbol's name (a typo), and about missing images.
 
 **Continuing a list item:** indent the extra lines under the item, with no blank line in between:
 
@@ -537,7 +558,6 @@ These came up while designing. They'll be added once real games need them.
 - **Player-count expressions:** text computed from the player count, like "deal {= 2 * n} cards" (values, 8.6, cover the common case).
 - **Teaching:** marking sections as `{teach}` to produce a 2-minute teaching version.
 - **FAQ, errata and house rules:** sections that are always shown but marked as such, perhaps `{house}`.
-- **Icons:** short codes like `:star:` or `:coin:` rendered as game symbols.
 - **Collection data:** wishlist or owned, lent to, missing pieces (a checklist built from the component list).
 - **Play log:** date, players, scores, winner, used for statistics and "what haven't we played lately?".
 - **Links between games:** `[[game:catan]]`, linking an expansion to its base game.
@@ -591,6 +611,7 @@ Curse                                  card with fields
 : points:: 13
 {3p: 17 | 4p: 13 | *: 10}              inline choice
 values: {main: {2p: 7, "*": 5}}        in frontmatter or vault.yaml; then {=main} in the text
+symbols: {gold: media/gold.png}        in frontmatter or vault.yaml; then :gold: in the text
 {-pandora} … / {+pandora} …            base rule / extension's replacement
 | Joueurs | 3p | 4p |                  player table (or codes in the first column)
 extensions: [supercharge]              in frontmatter; then {+supercharge}

@@ -58,6 +58,7 @@ hr.end { border: 0; border-top: 1px solid #999; width: 3em; margin: 1em auto; }
 ol.games { padding-left: 1.2em; }
 figure { margin: 0.8em 0; text-align: center; }
 figure img { max-width: 100%; }
+img.sym { height: 1.15em; width: auto; vertical-align: -0.22em; display: inline; }
 figcaption { font-size: 0.85em; color: #444; }
 pre { white-space: pre-wrap; font-size: 0.85em; }
 .image-missing { font-style: italic; color: #555; }

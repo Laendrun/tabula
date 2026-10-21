@@ -149,7 +149,7 @@ def parse_blocks(lines: list[tuple[int, str]]) -> list[Block]:
                 i += 1
             blocks.append(Block("note", " ".join(parts), ln, src=src, level=level))
             continue
-        if im := IMAGE_RE.fullmatch(t.strip()):
+        if (im := IMAGE_RE.fullmatch(t.strip())) and not im.group(1).startswith("sym:"):   # not a symbol
             blocks.append(Block("image", im.group(1), ln, term=im.group(2)))
             i += 1
             continue
