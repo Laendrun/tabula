@@ -164,7 +164,14 @@ def cmd_fmt(args) -> int:
         path = Path(args.games[0])
         text = sys.stdin.buffer.read().decode("utf-8", errors="replace")
         new, safe = format_game(path, text)
-        sys.stdout.write(new if safe else text)
+        # as bytes: on Windows, text mode would turn each \r\n into \r\r\n (a blank line after every line)
+        sys.stdout.flush()
+        out = getattr(sys.stdout, "buffer", None)
+        if out is not None:
+            out.write((new if safe else text).encode("utf-8"))
+            out.flush()
+        else:                                      # tests capture stdout as text
+            sys.stdout.write(new if safe else text)
         if not safe:
             print(f"tabula: not formatted: the result would read differently ({path.name})", file=sys.stderr)
         return 0 if safe else 1

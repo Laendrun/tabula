@@ -141,3 +141,17 @@ def test_pipes_in_references_inside_tables_and_choices(tmp_path, capsys):
     assert "the deck  a | b" in out and "Deal the deck." in out
     assert tabula.main(["--vault", str(tmp_path), "check", "--no-color"]) == 0
     assert "0 error(s), 0 warning(s)" in capsys.readouterr().out
+
+
+def test_stdin_keeps_windows_line_endings_byte_for_byte(tmp_path):
+    """On Windows, stdout in text mode turns \\n into \\r\\n: fmt --stdin must write bytes, not \\r\\r\\n."""
+    import subprocess
+    from pathlib import Path
+    f = tmp_path / "g.game"
+    crlf = TIDY.replace("\n", "\r\n")
+    f.write_bytes(crlf.encode())
+    cli = Path(__file__).resolve().parent.parent / "cli"
+    code = ("import io, sys, runpy; sys.stdout = io.TextIOWrapper(sys.stdout.buffer, newline='\\r\\n'); "
+            "sys.argv = ['tabula', 'fmt', sys.argv[1], '--stdin']; runpy.run_module('tabula', run_name='__main__')")
+    r = subprocess.run([sys.executable, "-c", code, str(f)], input=crlf.encode(), capture_output=True, cwd=cli)
+    assert b"\r\r\n" not in r.stdout and r.stdout == crlf.encode()

@@ -661,6 +661,7 @@ const formatter = {
       vscode.window.setStatusBarMessage(`Tabula: ${why.split("\n").pop() || "not formatted"} (see Output → Tabula)`, 6000);
       return [];
     }
+    r.out = r.out.replace(/\r+\n/g, "\n");         // VS Code writes the document's own line endings
     const text = doc.getText();
     if (r.out === text || r.out.replace(/\r\n/g, "\n") === text.replace(/\r\n/g, "\n")) return [];
     const last = doc.lineAt(doc.lineCount - 1);
