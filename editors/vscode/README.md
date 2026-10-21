@@ -11,6 +11,11 @@ Highlighting, live checks and a live preview for Tabula `.game` files.
 - **Outline** (Explorer → Outline, or Ctrl+Shift+O): headings, glossary terms and components.
 - **Ctrl+click / F12 on a `[[reference]]`** jumps to its definition, or to its component line, in the fragment file if that's where it comes from. On a `[[#section link]]`, it jumps to the heading. In a translation, it also looks in the default-language file.
 - **Shared fragments:** `![[` offers the fragments in the vault's `_shared/` folder, and `![[deck-52#` their sections. Ctrl+click opens the fragment at that section (the translated one in a translation), and hovering previews what is included.
+- **Quick fixes** (the light bulb, or Ctrl+.) on tabula's problems:
+  - a `[[reference]]` that matches nothing: change it to the closest terms (or `[[#section]]` to the closest headings), or add the term to the glossary;
+  - an unknown word: change it to the suggested game word, or add it to the vault's `words.txt`;
+  - a misspelt frontmatter key or role (`durantion:`, `#cartes`), and `[name]` written with single brackets.
+- **Rename (F2)** on a `[[reference]]`, a glossary term, a component or a heading: its definition (or heading) and every reference to it in the file are renamed. References written differently keep their text: `[[bateaux]]` becomes `[[Navire|bateaux]]` when *Bateau* is renamed *Navire*. A term that comes from a shared fragment is renamed in the fragment file itself.
 - **Folding** of sections and definitions.
 - **Commands** (Ctrl+Shift+P): *Tabula: Check the whole vault* fills the Problems panel for every game. *Tabula: Check this game* checks the current file right away.
 
