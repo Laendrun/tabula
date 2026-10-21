@@ -55,6 +55,8 @@ def main(argv=None) -> int:
                    help="only this section: a role like 'glossary' or 'components', or a heading title (repeatable)")
     p.add_argument("-k", "--key", action="store_true",
                    help="only the key rules ('! …') and key sections ('## ! Title'): a cheat sheet")
+    p.add_argument("-t", "--turn", action="store_true",
+                   help="the turn summary: the sections with the #turn role, then the key rules")
     p.add_argument("--json", action="store_true", help="print the parsed structure as JSON")
     p.add_argument("--no-color", action="store_true")
     p.add_argument("--vault", default=argparse.SUPPRESS)
@@ -95,6 +97,8 @@ def main(argv=None) -> int:
     p.add_argument("-a", "--all", action="store_true", help="every extension and variant, with badges")
     p.add_argument("-s", "--section", action="append", metavar="NAME", help="only some sections (repeatable)")
     p.add_argument("-k", "--key", action="store_true", help="only the key rules and key sections: a cheat sheet")
+    p.add_argument("-t", "--turn", action="store_true", help="the turn summary: #turn sections, then the key rules")
+    p.add_argument("--paper", choices=["a4", "a5", "a6", "letter"], help="print on this paper size (e.g. a5 for a player aid)")
     p.add_argument("-i", "--interactive", action="store_true",
                    help="everything, with a bar to choose players and extensions in the page (like tabula site)")
     p.add_argument("--stdin", action="store_true",

@@ -62,7 +62,7 @@ V_TOKEN = re.compile(r"^([+-])([A-Za-z0-9][A-Za-z0-9_-]*)$")
 ROLE_TOKEN = re.compile(r"^#([A-Za-z][A-Za-z0-9_-]*)$")
 
 
-KNOWN_ROLES = ("components", "goal", "setup", "play", "scoring", "end", "glossary", "cards", "events",
+KNOWN_ROLES = ("components", "goal", "setup", "play", "turn", "scoring", "end", "glossary", "cards", "events",
                "variants", "notes", "faq")
 
 

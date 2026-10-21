@@ -47,6 +47,8 @@ The player with the most points wins, when the [[draw pile]] is empty or when so
 
 # Play {#play}
 
+## Your turn {#turn}
+
 Players take turns clockwise. On your turn, do these three things in order:
 
 1. **Draw**: take the top card of the [[draw pile]], or the top card of the [[beach]].

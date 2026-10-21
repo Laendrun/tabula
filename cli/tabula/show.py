@@ -8,7 +8,7 @@ import sys
 
 from .syntax import Ctx, in_range, parse_range
 from .blocks import components_of
-from .filtering import filter_blocks, section_names, select_key, select_sections
+from .filtering import filter_blocks, section_names, select_key, select_sections, select_turn
 from .vault import open_vault
 from .terminal import Style, block_json, plain, render_blocks
 
@@ -59,7 +59,13 @@ def cmd_show(args) -> int:
                   f"available: {', '.join(avail) or '(none)'}", file=sys.stderr)
             return 2
         blocks = picked
-    if args.key:
+    if args.turn:
+        blocks = select_turn(blocks)
+        if not blocks:
+            print(f"tabula: no turn summary in {game.title} (give the section that describes a turn the role "
+                  f"#turn: '## À votre tour {{#turn}}')", file=sys.stderr)
+            return 1
+    elif args.key:
         blocks = select_key(blocks)
         if not blocks:
             print(f"tabula: no key rules in {game.title} (mark them with '! ' or '## ! Title')", file=sys.stderr)
@@ -84,7 +90,7 @@ def cmd_show(args) -> int:
     out = [st.bold(game.title)]
     if ml := meta_line(game.meta):
         out.append(st.dim(ml))
-    f = ["key rules"] if args.key else []
+    f = ["turn summary"] if args.turn else ["key rules"] if args.key else []
     f += [f"{ctx.players} players"] if ctx.players is not None else []
     if ctx.everything:
         if game.options:
