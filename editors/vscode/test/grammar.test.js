@@ -154,3 +154,11 @@ test("shared fragment includes", () => {
   assert.match(scopesOf(l, "deck-52"), /entity.name.namespace.fragment/);
   assert.match(scopesOf(l, "Glossaire"), /entity.name.section.link/);
 });
+
+test("values {=name}, in text and in table cells", () => {
+  const l = tokenize("# T\n\nDeal {=hand} cards, {2p: 7 | *: 5}.\n\n| Cards | {=hand} |\n");
+  const name = (line) => l[line].find((t) => t.text === "hand").scopes.join(" ");
+  assert.match(name(2), /variable.other.value/);
+  assert.match(name(4), /variable.other.value/);
+  assert.doesNotMatch(name(2), /meta.condition/);
+});

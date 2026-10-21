@@ -34,16 +34,16 @@ The player with the most points wins, when the [[draw pile]] is empty or when so
 # Setup {#setup}
 
 1. {2p} Remove the [[face cards]] from the [[deck]]: with two players, you play without them.
-2. Shuffle the [[deck]] and deal {2p: 7 | 3p: 6 | *: 5} cards to each player.
+2. Shuffle the [[deck]] and deal {=main} cards to each player.
 3. {-calme} Shuffle the [[Tide cards]] {+phare: and the [[Lighthouse cards]]} into the rest of the deck: this is the [[draw pile]].
 4. {+calme} The rest of the deck is the [[draw pile]].
 5. Turn over the top card of the draw pile to start the [[beach]]. If it is a Tide card, put it back in the middle of the draw pile.
 6. The youngest player goes first.
 
-| Boats per quay, at most | 2p | 3p | 4-5p |
-|-------------------------|----|----|------|
-| Each player             | 5  | 4  | 3    |
-| {+equipes} Each team    | —  | —  | 5    |
+| Boats per quay, at most | 2p         | 3p         | 4-5p       |
+|-------------------------|------------|------------|------------|
+| Each player             | {=bateaux} | {=bateaux} | {=bateaux} |
+| {+equipes} Each team    | —          | —          | 5          |
 
 # Play {#play}
 
@@ -53,7 +53,7 @@ Players take turns clockwise. On your turn, do these three things in order:
 2. **Lay**: lay a card from your hand on your [[quay]] (see [[#Laying a card]]), or skip this step.
 3. **Throw**: put a card from your hand face up on the [[beach]].
 
-! Always end your turn with {2p: 7 | 3p: 6 | *: 5} cards in hand.
+! Always end your turn with {=main} cards in hand.
 ! If you have more, throw cards away until the count is right.
 
 > Tip: everyone can see the top card of the beach. Taking a card from there shows what you are building.

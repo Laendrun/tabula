@@ -225,3 +225,17 @@ test("a field can continue on indented lines", () => {
   assert.equal(core.hoverText(text, "8"),
     "**8**\n\n**effet:** Vous ne pouvez pas vous défausser d'un 8. Terminez la manche.  \n**valeur:** 8\n\nTexte.");
 });
+
+test("values: YAML entries, the vault's and the game's, typing and hovering", () => {
+  const vault = 'language: fr\nvalues:\n  target: 100\n  hand: {2p: 9, "*": 5}\nsymbols:\n  or: 🪙\n';
+  const game = '---\ntitle: G\nvalues:\n  hand:\n    2p: 7\n    "*": 5\n  "max": 3   # comment\nplayers: 2-4\n---\n# Rules\nvalues:\n  not: frontmatter\n';
+  assert.deepEqual(core.yamlEntries(game, "values").map((e) => [e.name, e.value]), [["hand", "2p: 7, *: 5"], ["max", "3"]]);
+  const v = core.valuesOf(game, vault);
+  assert.deepEqual(v.map((x) => [x.name, x.from]), [["target", "vault.yaml"], ["hand", "this game"], ["max", "this game"]]);
+  assert.deepEqual(core.yamlEntries(vault, "symbols"), [{ name: "or", value: "🪙", line: 5 }]);
+  assert.deepEqual(core.valueContext("Deal {=ha", 9), { typed: "ha", start: 7, closed: false });
+  assert.equal(core.valueContext("Deal {=ha}", 9).closed, true);
+  assert.equal(core.valueContext("Deal {2p: x", 11), null);
+  assert.deepEqual(core.valueAt("Deal {=hand} cards", 8), { name: "hand", start: 5, end: 12 });
+  assert.equal(core.valueAt("Deal {=hand} cards", 15), null);
+});

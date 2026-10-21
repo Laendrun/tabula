@@ -1,6 +1,6 @@
 # Tabula
 
-Board, card and homemade games as plain Markdown files (`.game`). The rules can be filtered by player count, variant and language. See `spec/SPEC.md` for the format (v0.8).
+Board, card and homemade games as plain Markdown files (`.game`). The rules can be filtered by player count, variant and language. See `spec/SPEC.md` for the format (v0.9).
 
 ## Install
 
@@ -41,6 +41,8 @@ tabula fmt                             # tidy every file: blank lines, aligned t
 tabula check -d                        # ...and require a glossary definition for every component
 tabula check --spell                   # ...and check spelling, in each file's language (see below)
 ```
+
+Numbers that depend on the player count can be written once: `values: {main: {2p: 7, "*": 5}}` in the frontmatter (or in `vault.yaml` for every game), then `{=main}` in the text. See the spec, section 8.6.
 
 Games can share parts, like a standard deck: put them once in `_shared/deck-52.game` and write `![[deck-52]]` (or `![[deck-52#Glossaire]]` for one section) in each game. See the spec, section 10.
 

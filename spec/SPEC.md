@@ -1,4 +1,4 @@
-# Tabula — specification v0.8 (draft)
+# Tabula — specification v0.9 (draft)
 
 A plain-text format for board, card, dice, dexterity, outdoor and homemade games. Each game is a single `.game` file: a game description and its rules, written in Markdown with three small additions.
 
@@ -48,6 +48,8 @@ my-games/                       ← the vault
 ```yaml
 name: Family games
 language: fr        # default language of the .game files (default: en)
+values:             # values every game can use ({=target}, see 8.6); a game's own values win
+  target: 100
 ```
 
 ### 2.3 Languages
@@ -115,6 +117,7 @@ Série
 | `unused_definitions` | true/false | `false` | `tabula check`: warn about definitions nothing refers to (default `true`, see 5) |
 | `spelling` | true/false | `false` | `tabula check`: check spelling in this game (`false` turns it off even with `--spell`, see 12) |
 | `words` | list | `[Whitby, Lüthi]` | words the spell check should accept in this game (see 12) |
+| `values` | map name → value | `{main: {2p: 7, "*": 5}}` | values written `{=main}` in the text (see 8.6) |
 
 Count ranges: `4`, `2-5`, `3+`, `2,4`. Unknown keys are allowed and kept, so add your own. `tabula check` only warns about a key that is one or two letters away from a known one (`durantion:`).
 
@@ -416,6 +419,30 @@ Convention: keep the base rules first and readable, put each extension's new rul
 
 ---
 
+### 8.6 Values `{=name}`
+
+A number or a word that depends on the player count often shows up several times: in the setup, in a key rule, in a table. Define it once, in the game's frontmatter or in `vault.yaml` (for values many games share), and write `{=name}` where it goes:
+
+```yaml
+values:
+  main: {2p: 7, 3p: 6, "*": 5}     # by player count: the keys are conditions, "*" for every other case
+  vitesse: {+quick: rapide, "*": normale}
+  cible: 100                       # a plain value
+```
+
+```markdown
+Distribuez {=main} cartes à chaque joueur.
+! Finissez toujours votre tour avec {=main} cartes en main.
+```
+
+- `{=main}` is read as the inline choice it stands for (`{2p: 7 | 3p: 6 | *: 5}`), so everything that works for choices works for values: `tabula show -p 3` writes "6", without a player count every case is shown, and the site's player picker updates it.
+- A plain value is written as it is. Value names use letters, digits, `-` and `_`. Quote `"*"` in YAML.
+- A game's values win over `vault.yaml`'s, and a translation's over the default-language file's, so a translation only needs to redefine values that contain words.
+- Values work in included fragments, with the values of the game that includes them, and in table cells.
+- **In a player table**, a choice in a cell (a value or a hand-written one) is shown for its column's player count, so a row can be `| Cartes | {=main} | {=main} | {=main} |`.
+- `{=name}` inside a code span is left as it is. A value can't be used inside a choice, and a value's text can't contain `{`, `}` or `|`.
+- `tabula check` reports an unknown name (with a "did you mean"), and keys that aren't conditions.
+
 ## 9. Section roles
 
 Headings are written in the game's language, so tools can't rely on their text. A **role** tells tools what a section contains. Write it as `#name` in the heading's braces:
@@ -496,7 +523,7 @@ Bloc de score
 - Fragments can include other fragments. A fragment that ends up including itself is an error.
 - `tabula check` reports problems in included lines at the `![[…]]` line of the game, and checks each fragment on its own: syntax and TODOs only, since references and conditions depend on the game that includes it. `![[…]]` inside a sentence is an error: an include must be alone on its line.
 
-## 11. Ideas for later (not part of v0.8)
+## 11. Ideas for later (not part of v0.9)
 
 These came up while designing. They'll be added once real games need them.
 
@@ -507,7 +534,7 @@ These came up while designing. They'll be added once real games need them.
 - **Solo and co-op:** `{1p}` already works. Solo bots or automata may need more structure.
 - **Turn structure:** marking phases (`## Tour {phase}`) to generate a turn-summary card.
 - **Scoring:** a declared score sheet (categories, per-player columns) for a printable score pad.
-- **Player-count expressions:** text computed from the player count, like "deal {= 2 * n} cards".
+- **Player-count expressions:** text computed from the player count, like "deal {= 2 * n} cards" (values, 8.6, cover the common case).
 - **Teaching:** marking sections as `{teach}` to produce a 2-minute teaching version.
 - **FAQ, errata and house rules:** sections that are always shown but marked as such, perhaps `{house}`.
 - **Icons:** short codes like `:star:` or `:coin:` rendered as game symbols.
@@ -563,6 +590,7 @@ Term                                   definition
 Curse                                  card with fields
 : points:: 13
 {3p: 17 | 4p: 13 | *: 10}              inline choice
+values: {main: {2p: 7, "*": 5}}        in frontmatter or vault.yaml; then {=main} in the text
 {-pandora} … / {+pandora} …            base rule / extension's replacement
 | Joueurs | 3p | 4p |                  player table (or codes in the first column)
 extensions: [supercharge]              in frontmatter; then {+supercharge}

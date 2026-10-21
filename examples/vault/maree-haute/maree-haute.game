@@ -16,6 +16,9 @@ variants:
 extensions:
   phare: "Le Phare : 4 cartes de plus, à fabriquer"
 words: [Vellec]
+values:
+  main: {2p: 7, 3p: 6, "*": 5}         # cartes en main
+  bateaux: {2p: 5, 3p: 4, "*": 3}      # bateaux par quai, au plus
 ---
 
 <!-- Un jeu original qui montre toutes les possibilités du format : un fragment partagé (_shared/deck-52),
@@ -46,16 +49,16 @@ Le joueur qui a le plus de points gagne, quand la [[pioche]] est vide ou quand q
 # Mise en place {#setup}
 
 1. {2p} Retirez les [[figures]] du [[paquet]] : à deux, on joue sans elles.
-2. Mélangez le [[paquet]] et distribuez {2p: 7 | 3p: 6 | *: 5} cartes à chaque joueur.
+2. Mélangez le [[paquet]] et distribuez {=main} cartes à chaque joueur.
 3. {-calme} Mélangez les [[cartes Marée]] {+phare: et les [[cartes Phare]]} avec le reste du paquet : c'est la [[pioche]].
 4. {+calme} Le reste du paquet forme la [[pioche]].
 5. Retournez la première carte de la pioche pour commencer la [[plage]]. Si c'est une carte Marée, remettez-la au milieu de la pioche.
 6. Le plus jeune joueur commence.
 
-| Bateaux par quai, au plus | 2p | 3p | 4-5p |
-|---------------------------|----|----|------|
-| Chaque joueur             | 5  | 4  | 3    |
-| {+equipes} Chaque équipe  | —  | —  | 5    |
+| Bateaux par quai, au plus | 2p         | 3p         | 4-5p       |
+|---------------------------|------------|------------|------------|
+| Chaque joueur             | {=bateaux} | {=bateaux} | {=bateaux} |
+| {+equipes} Chaque équipe  | —          | —          | 5          |
 
 # Déroulement {#play}
 
@@ -65,7 +68,7 @@ On joue chacun son tour, dans le sens des aiguilles d'une montre. À votre tour,
 2. **Poser** : posez une carte de votre main sur votre [[quai]] (voir [[#Poser une carte]]), ou sautez cette étape.
 3. **Jeter** : posez une carte de votre main sur la [[plage]], face visible.
 
-! Vous devez toujours finir votre tour avec {2p: 7 | 3p: 6 | *: 5} cartes en main.
+! Vous devez toujours finir votre tour avec {=main} cartes en main.
 ! Si vous en avez plus, jetez-en jusqu'à ce que le compte soit bon.
 
 > Astuce : la carte du dessus de la plage est visible de tous. Prendre une carte là, c'est montrer ce que vous construisez.

@@ -625,10 +625,77 @@ function quickFixes(text, line, message, range, names = [], sections = []) {
   return out;
 }
 
+// ------------------------------------------------------------------ values {=name} (and other named lists in YAML)
+
+/** The frontmatter of a .game text, or the whole text for a .yaml file. */
+function yamlPart(text) {
+  const lines = text.replace(/\r\n?/g, "\n").split("\n");
+  if (lines[0] !== undefined && lines[0].trim() === "---") {
+    const end = lines.findIndex((l, k) => k > 0 && (l.trim() === "---" || l.trim() === "..."));
+    return { lines: end > 0 ? lines.slice(0, end) : [], offset: 0 };
+  }
+  return { lines, offset: 0 };
+}
+
+/**
+ * The entries under a top-level YAML key (values:, symbols:), written one per line:
+ *   values:
+ *     main: {2p: 7, "*": 5}
+ *     hand:
+ *       2p: 7
+ * Returns [{ name, value, line }] (value: the text after "name:", or its indented lines joined with ", ").
+ */
+function yamlEntries(text, key) {
+  const { lines } = yamlPart(text);
+  const start = lines.findIndex((l) => new RegExp(`^${key}:\\s*(#.*)?$`).test(l));
+  if (start < 0) return [];
+  const out = [];
+  let indent = null;
+  for (let k = start + 1; k < lines.length; k++) {
+    const l = lines[k];
+    if (!l.trim() || l.trim().startsWith("#")) continue;
+    const ind = l.length - l.trimStart().length;
+    if (ind === 0) break;
+    if (indent === null) indent = ind;
+    const m = l.match(/^\s*("?)([^":#]+?)\1\s*:\s*(.*?)\s*$/);
+    if (m) m[3] = m[3].replace(/\s+#.*$/, "");                // a comment after the value
+    if (ind === indent && m) out.push({ name: m[2].trim(), value: m[3], line: k });
+    else if (ind > indent && out.length && m) {
+      const last = out[out.length - 1];
+      last.value = (last.value ? last.value + ", " : "") + `${m[2].trim()}: ${m[3]}`;
+    }
+  }
+  return out;
+}
+
+/** The values a game can use: the vault's, then its own (which win). [{ name, value, from }] */
+function valuesOf(gameText, vaultYaml) {
+  const byName = new Map();
+  for (const e of yamlEntries(vaultYaml || "", "values")) byName.set(e.name, { ...e, from: "vault.yaml" });
+  for (const e of yamlEntries(gameText, "values")) byName.set(e.name, { ...e, from: "this game" });
+  return [...byName.values()];
+}
+
+/** Typing a value name after "{=": { typed, start, closed }, or null. */
+function valueContext(lineText, column) {
+  const m = lineText.slice(0, column).match(/(?<!\\)\{=\s*([\w-]*)$/);
+  if (!m) return null;
+  return { typed: m[1], start: column - m[1].length, closed: /^[\w-]*\s*\}/.test(lineText.slice(column)) };
+}
+
+/** The {=name} under the cursor: { name, start, end }, or null. */
+function valueAt(lineText, column) {
+  for (const m of lineText.matchAll(/(?<!\\)\{=\s*([\w-]+)\s*\}/g)) {
+    if (column >= m.index && column <= m.index + m[0].length) return { name: m[1], start: m.index, end: m.index + m[0].length };
+  }
+  return null;
+}
+
 module.exports = {
   severity, checkArgs, fmtArgs, expand, parseCheckOutput, issueColumns, fold, outline, refAt, findTargets,
   plainRefs, definitionBody, definitionMarkdown, completionContext, completions, hoverText,
   includeAt, includeContext, includeHover,
   fragmentSection, expandIncludes, previewHtml, previewLink,
+  yamlEntries, valuesOf, valueContext, valueAt,
   skippedLines, renameTarget, renameEdits, quickFixes, closest, glossaryInsertLine,
 };

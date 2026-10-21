@@ -378,8 +378,38 @@ function includeCompletions(doc, pos, ctx) {
   });
 }
 
+/** The vault's vault.yaml, as text ("" when there is none). */
+function vaultYaml(doc) {
+  return readText(path.join(vaultRoot(doc.uri.fsPath), "vault.yaml")) || "";
+}
+
+/** In a translation, the default-language file's text (its frontmatter has the values), else "". */
+function defaultFileText(doc) {
+  const m = path.basename(doc.uri.fsPath).match(/^(.*)\.([a-z]{2}(?:-[A-Za-z]{2})?)\.game$/);
+  return m ? readText(path.join(path.dirname(doc.uri.fsPath), `${m[1]}.game`)) || "" : "";
+}
+
+function valuesFor(doc) {
+  const inherited = core.valuesOf(defaultFileText(doc), vaultYaml(doc));
+  const own = core.valuesOf(doc.getText(), "");
+  const byName = new Map(inherited.map((v) => [v.name, v]));
+  for (const v of own) byName.set(v.name, v);
+  return [...byName.values()];
+}
+
 const completionProvider = {
   provideCompletionItems(doc, pos) {
+    const vctx = core.valueContext(doc.lineAt(pos.line).text, pos.character);
+    if (vctx) {
+      const range = new vscode.Range(pos.line, vctx.start, pos.line, pos.character);
+      return valuesFor(doc).map((v) => {
+        const item = new vscode.CompletionItem({ label: v.name, description: v.value }, vscode.CompletionItemKind.Constant);
+        item.range = range;
+        item.insertText = v.name + (vctx.closed ? "" : "}");
+        item.detail = `value from ${v.from}`;
+        return item;
+      });
+    }
     const inc = core.includeContext(doc.lineAt(pos.line).text, pos.character);
     if (inc) return includeCompletions(doc, pos, inc);
     const ctx = core.completionContext(doc.lineAt(pos.line).text, pos.character);
@@ -410,6 +440,13 @@ const hoverProvider = {
         : `No shared fragment \`${inc.name}\` (looked for _shared/${inc.name}.game)`;
       if (!md) return null;
       return new vscode.Hover(new vscode.MarkdownString(md), new vscode.Range(pos.line, inc.start, pos.line, inc.end));
+    }
+    const val = core.valueAt(doc.lineAt(pos.line).text, pos.character);
+    if (val) {
+      const v = valuesFor(doc).find((x) => x.name === val.name);
+      const md = v ? `**${v.name}** = \`${v.value}\`\n\nfrom ${v.from}`
+        : `No value \`${val.name}\`: define it under \`values:\` in the frontmatter or in vault.yaml`;
+      return new vscode.Hover(new vscode.MarkdownString(md), new vscode.Range(pos.line, val.start, pos.line, val.end));
     }
     const ref = core.refAt(doc.lineAt(pos.line).text, pos.character);
     if (!ref) return null;
@@ -622,7 +659,7 @@ function activate(context) {
     vscode.languages.registerDocumentSymbolProvider(sel, symbols),
     vscode.languages.registerFoldingRangeProvider(sel, folding),
     vscode.languages.registerDefinitionProvider(sel, definitionProvider),
-    vscode.languages.registerCompletionItemProvider(sel, completionProvider, "[", "#"),
+    vscode.languages.registerCompletionItemProvider(sel, completionProvider, "[", "#", "="),
     vscode.languages.registerHoverProvider(sel, hoverProvider),
     vscode.languages.registerCodeActionsProvider(sel, codeActionProvider, { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] }),
     vscode.languages.registerRenameProvider(sel, renameProvider),

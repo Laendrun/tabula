@@ -197,13 +197,18 @@ def open_label(cond: Cond | None, ctx: Ctx) -> str:
 
 
 def split_bars(s: str) -> list[str]:
-    """Split at "|", except inside [[a|b]] and an escaped \\| (kept as written)."""
+    """Split at "|", except inside [[a|b]], an inline choice {2p: a | *: b} (in a table cell) and an escaped
+    \\| (kept as written)."""
     parts, cur, depth, i = [], "", 0, 0
     while i < len(s):
         if s.startswith("[[", i):
             depth, cur, i = depth + 1, cur + "[[", i + 2
         elif s.startswith("]]", i) and depth:
             depth, cur, i = depth - 1, cur + "]]", i + 2
+        elif s[i] == "{" and "}" in s[i:]:
+            depth, cur, i = depth + 1, cur + "{", i + 1
+        elif s[i] == "}" and depth:
+            depth, cur, i = depth - 1, cur + "}", i + 1
         elif s[i] == "\\" and i + 1 < len(s):
             cur, i = cur + s[i:i + 2], i + 2
         elif s[i] == "|" and not depth:
