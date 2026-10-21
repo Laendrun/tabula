@@ -55,4 +55,6 @@ test("what they insert is valid tabula", () => {
   assert.equal(by.inc.trim(), "![[deck-52#glossary]]");
   assert.match(by.sec, /^# Title \{#components\}/);
   assert.equal(by.callout, "> [!exemple] Title (optional)\n> Text.\n");
+  assert.equal(by.players, "{player}");
+  assert.match(by.sheet, /^---\ntitle: Feuille de score\nsize: a4\norientation: portrait\n---\n\n# Titre\n\n\| Joueur \| \{player\} \|/);
 });

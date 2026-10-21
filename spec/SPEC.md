@@ -32,7 +32,8 @@ my-games/                       ← the vault
 ├── oh-my-socks/
 │   ├── oh-my-socks.game        ← the game (description + rules)
 │   ├── oh-my-socks.de.game     ← German translation (optional)
-│   └── media/                  ← images, scans, score sheets…
+│   ├── oh-my-socks.sheet       ← a score sheet to print (optional, see 11)
+│   └── media/                  ← images, scans…
 │       └── box.jpg
 └── crazy-eights.game           ← a "standalone" game: no folder needed
 ```
@@ -118,8 +119,8 @@ Série
 | `source` | text | `Rulebook 2nd ed.` | where the rules come from |
 | `require_definitions` | true/false | `true` | `tabula check`: every component needs a glossary definition (see 5) |
 | `unused_definitions` | true/false | `false` | `tabula check`: warn about definitions nothing refers to (default `true`, see 5) |
-| `spelling` | true/false | `false` | `tabula check`: check spelling in this game (`false` turns it off even with `--spell`, see 12) |
-| `words` | list | `[Whitby, Lüthi]` | words the spell check should accept in this game (see 12) |
+| `spelling` | true/false | `false` | `tabula check`: check spelling in this game (`false` turns it off even with `--spell`, see 13) |
+| `words` | list | `[Whitby, Lüthi]` | words the spell check should accept in this game (see 13) |
 | `symbols` | map name → text or image | `{key: media/key.png}` | symbols written `:key:` in the text (see 4) |
 | `values` | map name → value | `{main: {2p: 7, "*": 5}}` | values written `{=main}` in the text (see 8.6) |
 
@@ -558,7 +559,36 @@ Bloc de score
 - Fragments can include other fragments. A fragment that ends up including itself is an error.
 - `tabula check` reports problems in included lines at the `![[…]]` line of the game, and checks each fragment on its own: syntax and TODOs only, since references and conditions depend on the game that includes it. `![[…]]` inside a sentence is an error: an include must be alone on its line.
 
-## 11. Ideas for later (not part of v0.9)
+## 11. Score sheets `.sheet`
+
+A **score sheet** is a page to print and fill in during a game. It is its own file next to the game: `oh-my-socks/oh-my-socks.sheet`, or several (`frantic/manches.sheet`, `frantic/points.sheet`); for a standalone game, `crazy-eights.sheet` next to `crazy-eights.game`. It is written like a game file: a frontmatter, then Markdown, mostly tables.
+
+```markdown
+---
+title: Feuille de score
+size: a4              # a0 to a6, b4, b5, letter, legal, tabloid, or 210x297 (mm)
+orientation: portrait # or landscape
+rounds: 10            # how many times a {r} row is repeated (default 10)
+---
+
+# Frantic :star:
+
+| Manche | {player} | <  |
+|--------|----------|----|
+|        | points   | Σ  |
+| {r}    |          |    |
+| Bonus  | //       |    |
+```
+
+- **Players are columns.** A heading cell with `{player}` is repeated once per player, with the `<` columns joined to it (here a "points" and a "Σ" column under each player), and so is every cell below it. `{player}` leaves the heading blank, to write a name in; `Joueur {n}` writes "Joueur 1", "Joueur 2"… There is one column per player for the game's largest player count (from its `players:`), or for `tabula sheet GAME -p 3`.
+- **Rows are categories or rounds.** Write one row per category. A row whose first cell contains `{r}` is repeated `rounds` times, with `{r}` replaced by 1, 2, 3…
+- **An empty cell** is a box to fill in. **`//`** shades a cell that isn't filled in. **`<`** merges a cell with the one on its left, **`^`** with the one above.
+- Tables fill the width and height of the page (`fit: false` keeps rows at their natural height). A first column with row headings is as wide as its text; the other columns share the rest equally. An empty heading row is left out.
+- Headings, paragraphs, images, symbols (`:star:`, from the game or `vault.yaml`) and values (`{=main}`) work as in games. `---` starts a new page.
+- Other frontmatter keys: `margin` (mm, default 10), `font_size` (points, default 11), `language`.
+- `tabula sheet GAME` writes the game's sheets as HTML pages the size of the paper, to print or save as PDF; `tabula site` links them from the game's page. `tabula check` checks them (size, orientation, merges, rows of different lengths, misspelt symbols), and `tabula fmt` aligns their tables.
+
+## 12. Ideas for later (not part of v0.9)
 
 These came up while designing. They'll be added once real games need them.
 
@@ -568,7 +598,6 @@ These came up while designing. They'll be added once real games need them.
 - **Roles and factions:** rules for asymmetric games, e.g. `{@wizard}` and `--role wizard`.
 - **Solo and co-op:** `{1p}` already works. Solo bots or automata may need more structure.
 - **Turn structure:** marking phases (`## Tour {phase}`) to generate a turn-summary card.
-- **Scoring:** a declared score sheet (categories, per-player columns) for a printable score pad.
 - **Player-count expressions:** text computed from the player count, like "deal {= 2 * n} cards" (values, 8.6, cover the common case).
 - **Teaching:** marking sections as `{teach}` to produce a 2-minute teaching version.
 - **FAQ, errata and house rules:** sections that are always shown but marked as such, perhaps `{house}`.
@@ -578,7 +607,7 @@ These came up while designing. They'll be added once real games need them.
 
 ---
 
-## 12. CLI (informative)
+## 13. CLI (informative)
 
 The reference CLI is `tabula`. Point it at a vault with `--vault PATH`, or set `$TABULA_VAULT`, or run it from inside the vault.
 
@@ -592,6 +621,7 @@ The reference CLI is `tabula`. Point it at a vault with `--vault PATH`, or set `
 | `tabula site [-o FOLDER]` | write the whole vault as a small website (default folder: `site/`): an `index.html` listing every game, with filters for player count, duration and tags and a search, and for each game a page per language (`index.html`, `index.fr.html`) with every extension and variant marked, plus a cheat sheet (`key.html`) when it has key rules. On a game page, a bar lets the reader choose the player count and the extensions and variants (or everything): the page shows only what applies, like `tabula show`, picks the right text in inline choices, renumbers steps and updates card counts. The choice is kept in the address (`#p=4&o=pandora`), so a link opens the same view. Works offline from the folder, or on any static host. The folder is replaced on every run, but only if `tabula site` made it. |
 | `tabula book [GAME…] [-p N] [-e …] [-v …] [-k] [-l CODE] [-t TITLE] [-o FILE]` | write games as an EPUB 3 book (default: the whole vault, in `<vault-name>.epub`): a title page and a chapter per game (cover, facts, rules, glossary, card catalogs), with a table of contents of the games and their sections. Without `-e`/`-v` everything is included and marked; with them, only those extensions and variants. `-p` leaves out the games that aren't for that many players. `-k`: only the key rules. Images from the web can't be shown in a book, so their caption stays; links to games that aren't in the book become plain text. |
 | `tabula new SLUG [-t TITLE] [-p N] [-l CODE]` / `tabula new bgg ID [SLUG]` | start a game file: `<slug>/<slug>.game` with the frontmatter and the usual sections (with roles, headings in the game's language, a TODO in each). `new bgg ID` fills the frontmatter from BoardGameGeek (title, players, duration, age, year, designers, artists, publisher, box image saved as `media/cover.*`, found without a `cover:` line); `new bgg NAME` lists matching games and their IDs. Needs a BoardGameGeek token in `BGG_TOKEN`. Never replaces an existing game without `--force`. |
+| `tabula sheet GAME [NAME] [N] [-p N] [--list] [-o FILE]` | write the game's score sheets (`.sheet`, see 11) as HTML pages the size of the paper, to print or save as PDF: one player column per player (`-p N` or a number, within the game's player count; by default its largest). `NAME` picks one sheet; `--list` lists them; the target can also be a `.sheet` file (`--stdin` for editors) |
 | `tabula fmt [GAME…] [--check] [--stdin]` | tidy files without changing what they say: one blank line around headings and `---`, no runs of blank lines, aligned table columns (in the table's own `|---|` or `| --- |` style), no trailing spaces, one newline at the end. The frontmatter, code blocks and comments are left as they are, and so are Windows line endings. Every result is parsed again and compared with the original; a file that would read differently is left as it is and reported. Without GAME, every file in the vault (fragments too); with GAME, that game and its translations. `--check`: only list the files that would change (exit 1 if any). `--stdin`: format the one file given from standard input, to standard output (used by editors) |
 | `tabula todo [GAME…] [--json]` | list the `<!-- TODO: … -->` and `FIXME` reminders, with file and line, translations included. |
 | `tabula check [GAME…] [--strict] [-d] [-s]` | find mistakes: frontmatter, references that match nothing, invalid or never-applying conditions, undeclared variants, missing images, duplicate terms, leftover v0.3 syntax, translation problems. Also checks the shared fragments in `_shared/`, warns about definitions nothing refers to, and counts TODO reminders (they never fail `--strict`). `-d`/`--definitions`: every component must also have a glossary definition. `-s`/`--spell`: also check spelling (see below). `--json`: the issues as JSON, with absolute paths. `--stdin`: check unsaved text for the one file given (used by editors) |
@@ -606,7 +636,7 @@ Planned: PDF export, `cheatsheet`, `server`.
 
 ---
 
-## 13. Cheat sheet
+## 14. Cheat sheet
 
 ```
 ---  frontmatter (YAML)  ---          title, players, variants, language…
@@ -636,4 +666,5 @@ extensions: [supercharge]              in frontmatter; then {+supercharge}
 > [!exemple] Titre                     callout: example, warning (attention), tip (astuce), info (précision)…
 <!-- comment -->                       hidden
 oh-my-socks.de.game                    translation
+oh-my-socks.sheet                      score sheet: | Manche | {player} |, {r} rows, // shaded, < ^ merged
 ```

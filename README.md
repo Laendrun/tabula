@@ -37,6 +37,7 @@ tabula book                            # the whole vault as an EPUB book (e-read
 tabula book frantic -p 4 -e pandora    # one game, for one setup
 tabula check                           # find mistakes in every game and translation
 tabula todo                            # the <!-- TODO: … --> reminders left in game files
+tabula sheet frantic -p 4              # the score sheet (frantic/frantic.sheet) for 4 players, to print
 tabula fmt                             # tidy every file: blank lines, aligned tables, spaces (never changes the rules)
 tabula check -d                        # ...and require a glossary definition for every component
 tabula check --spell                   # ...and check spelling, in each file's language (see below)
@@ -47,6 +48,24 @@ Boxes for examples, warnings and tips: `> [!exemple] Un tour à trois` (or `[!at
 Symbols too: `symbols: {gold: media/gold.png, star: ⭐}` in `vault.yaml` (shared by every game) or in a game, then `:gold:` in the text, drawn as an icon on the site and in the book.
 
 Numbers that depend on the player count can be written once: `values: {main: {2p: 7, "*": 5}}` in the frontmatter (or in `vault.yaml` for every game), then `{=main}` in the text. See the spec, section 8.6.
+
+## Score sheets
+
+A score sheet is a `.sheet` file next to the game (`frantic/frantic.sheet`): a frontmatter with the paper size and orientation, then tables to fill in. Players are columns (`{player}`, repeated for each player), rows are categories or rounds (`{r}`, repeated `rounds:` times); `//` shades a cell, `<` and `^` merge cells.
+
+```markdown
+---
+size: a5
+orientation: landscape
+---
+
+| Manche | {player} |
+|--------|----------|
+| {r}    |          |
+| Total  |          |
+```
+
+`tabula sheet frantic` writes it as a page the size of the paper (one column per player for the game's largest player count, or `-p 3`), to print or save as PDF. `tabula site` links it from the game's page. See the spec, section 11.
 
 Games can share parts, like a standard deck: put them once in `_shared/deck-52.game` and write `![[deck-52]]` (or `![[deck-52#Glossaire]]` for one section) in each game. See the spec, section 10.
 
@@ -67,7 +86,7 @@ check:
 
 Unknown words never count as warnings, so `--strict` still passes.
 
-`examples/vault/` has five example games: `maree-haute` (an original game written to show every feature of the format: fr + en, a shared fragment, conditions, player tables, key rules and sections, section links, a card catalog with fields, variants and an extension, a cover found by its name), `oh-my-socks` (fr), `hearts` (en + fr, with a variant), `stone-circle` (homemade, en + fr, team variant, image) and `crazy-eights` (standalone file). `maree-haute` and `crazy-eights` share the standard deck from `_shared/deck-52.game` (and its English version `deck-52.en.game`).
+`examples/vault/` has five example games: `maree-haute` (an original game written to show every feature of the format, with a score sheet: fr + en, a shared fragment, conditions, player tables, key rules and sections, section links, a card catalog with fields, variants and an extension, a cover found by its name), `oh-my-socks` (fr), `hearts` (en + fr, with a variant), `stone-circle` (homemade, en + fr, team variant, image) and `crazy-eights` (standalone file). `maree-haute` and `crazy-eights` share the standard deck from `_shared/deck-52.game` (and its English version `deck-52.en.game`).
 
 ## Starting a game from BoardGameGeek
 
@@ -113,6 +132,7 @@ Open `site/index.html` in a browser; it works offline. You can also put the fold
 | `terminal.py` | terminal and JSON rendering |
 | `show.py`, `lookup.py`, `cards.py`, `check.py`, `export.py`, `site.py` | one command each |
 | `fmt.py` | `tabula fmt`: tidying, and the check that the result reads the same |
+| `sheet.py` | score sheets: `.sheet` files, their check and `tabula sheet` |
 | `spell.py` | spelling for `check --spell`: dictionaries (downloaded once) and the words to skip |
 | `cli.py` | the command line (`tabula …`) |
 

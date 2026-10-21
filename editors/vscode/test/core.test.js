@@ -8,6 +8,8 @@ test("check arguments", () => {
   assert.deepEqual(core.checkArgs({ file: "a.game", spell: true }), ["check", "a.game", "--json", "--spell"]);
   assert.deepEqual(core.fmtArgs({ file: "a.game", vault: "V" }), ["--vault", "V", "fmt", "a.game", "--stdin"]);
   assert.deepEqual(core.fmtArgs({ extraArgs: ["t.py"] }), ["t.py", "fmt"]);
+  assert.deepEqual(core.previewArgs({ file: "a.sheet" }), ["sheet", "a.sheet", "--stdin", "-o", "-"]);
+  assert.deepEqual(core.previewArgs({ file: "a.game", vault: "V" }), ["--vault", "V", "export", "a.game", "--interactive", "--stdin", "-o", "-"]);
   assert.deepEqual(
     core.checkArgs({ vault: "V", extraArgs: ["cli/tabula.py"], definitions: true }),
     ["cli/tabula.py", "--vault", "V", "check", "--json", "--definitions"]

@@ -516,8 +516,7 @@ function previewDocument(doc) {
   }
   const cfg = settings(doc.uri);
   if (preview.child && preview.child.exitCode === null) preview.child.kill();
-  const args = [...cfg.extraArgs, ...(cfg.vault ? ["--vault", cfg.vault] : []),
-                "export", doc.uri.fsPath, "--interactive", "--stdin", "-o", "-"];
+  const args = core.previewArgs({ file: doc.uri.fsPath, vault: cfg.vault, extraArgs: cfg.extraArgs });
   const { child, done } = runTabula(args, cfg, doc.getText(), true);
   preview.child = child;
   done.then((r) => {
