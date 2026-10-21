@@ -15,6 +15,7 @@ export TABULA_VAULT=~/games            # or pass --vault, or cd into the vault
 
 tabula new skyjo                       # start a game: skyjo/skyjo.game with the usual sections
 tabula new bgg 13                      # ...with the frontmatter filled from BoardGameGeek (needs BGG_TOKEN)
+                                       #    covers: media/cover.jpg (or <slug>_cover.jpg) is found by its name
 tabula new bgg "ticket to ride"        # find a game's BoardGameGeek ID
 tabula list                            # all games (with where they're stored)
 tabula list -p 2                       # games playable with 2 players

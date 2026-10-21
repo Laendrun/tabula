@@ -110,8 +110,8 @@ def write_game(vault: Vault, path: Path, out: Path) -> dict:
             (folder / page_name("key", lang, base.default_language)).write_text(
                 r.page(f" — {r.t['key']}", nav=nav), encoding="utf-8")
     cover = ""
-    if base.meta.get("cover") and (base.base_dir / str(base.meta["cover"])).is_file():
-        src = base.base_dir / str(base.meta["cover"])
+    if base.cover and base.cover.is_file():
+        src = base.cover
         shutil.copyfile(src, folder / f"cover{src.suffix.lower()}")
         cover = f"{base.slug}/cover{src.suffix.lower()}"
     shown = versions.get(vault.language, base)       # the title in the vault's language, when there is one

@@ -16,6 +16,9 @@ from .fragments import SHARED_DIR, expand_includes
 from .source import Issues, read_source
 from .blocks import Block, parse_blocks
 
+IMAGE_EXTS = (".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif", ".svg")
+
+
 @dataclass
 class Game:
     slug: str
@@ -39,6 +42,27 @@ class Game:
     @property
     def base_dir(self) -> Path:
         return self.folder or self.path.parent
+
+    @property
+    def cover(self) -> Path | None:
+        """The box image: `cover:` in the frontmatter when it's set, else media/cover.* or media/<slug>_cover.*
+        found next to the game (for a standalone game, only <slug>_cover.*, since media/ is shared).
+        `cover: false` means no cover. The path may not exist when `cover:` names a missing file."""
+        v = self.meta.get("cover")
+        if v is False:
+            return None
+        if v not in (None, ""):
+            return self.base_dir / str(v)
+        media = self.base_dir / "media"
+        if not media.is_dir():
+            return None
+        names = [f"{self.slug}_cover", f"{self.slug}-cover"] + (["cover"] if self.folder else [])
+        images = sorted(f for f in media.iterdir() if f.is_file() and f.suffix.lower() in IMAGE_EXTS)
+        for name in names:
+            for f in images:
+                if f.stem.lower() == name.lower():
+                    return f
+        return None
 
     def _options(self, key: str) -> dict[str, str]:
         v = self.meta.get(key)

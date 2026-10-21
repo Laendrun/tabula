@@ -68,6 +68,7 @@ def cmd_show(args) -> int:
         print(json.dumps({
             "slug": game.slug, "title": game.title, "path": str(game.body_path or game.path),
             "language": game.language, "languages": game.languages, "meta": game.meta,
+            "cover": str(game.cover) if game.cover and game.cover.is_file() else None,
             "filters": {"players": ctx.players, "options": sorted(ctx.variants), "all": ctx.everything},
             "components": [{k: v for k, v in c.items() if k != "line"} for c in components_of(blocks)],
             "glossary": [{"term": b.term, "definition": [plain(k.text, ctx) for k in b.children if k.text]}
