@@ -181,11 +181,15 @@ def parse_blocks(lines: list[tuple[int, str]]) -> list[Block]:
         parts = [t[1:].strip() if kind == "key" else t.strip()]
         src = [(ln, parts[0])]
         i += 1
-        while i < n and not is_block_start(lines[i][1]):
+        while i < n:
+            nt = lines[i][1]
+            more_key = kind == "key" and nt.startswith("!") and not nt.startswith("![")
+            if is_block_start(nt) and not more_key:
+                break       # consecutive "! " lines are one key rule, like consecutive "> " lines are one note
             if i + 1 < n and DEF_LINE_RE.match(lines[i + 1][1]):
                 break   # next line is a definition term
-            parts.append(lines[i][1].strip())
-            src.append((lines[i][0], parts[-1]))
+            parts.append(nt[1:].strip() if more_key else nt.strip())
+            src.append((lines[i][0], nt.strip()))
             i += 1
         blocks.append(Block(kind, " ".join(parts), ln, src=src, level=len(t) - len(t.lstrip())))
 
