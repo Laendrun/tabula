@@ -236,8 +236,9 @@ function definitionMarkdown(body) {
   const lines = body.split("\n");
   const fields = [];
   while (lines.length && /^[^\W\d][\w -]*?::\s?/u.test(lines[0])) {
-    const [, key, value] = lines.shift().match(/^([^\W\d][\w -]*?)::\s?(.*)$/u);
-    fields.push(`**${key.trim()}:** ${plainRefs(value)}`);
+    let [, key, value] = lines.shift().match(/^([^\W\d][\w -]*?)::\s?(.*)$/u);
+    while (lines.length && /^\s+\S/.test(lines[0])) value += " " + lines.shift().trim();   // indented: continues
+    fields.push(`**${key.trim()}:** ${plainRefs(value.trim())}`);
   }
   const rest = plainRefs(lines.join("\n")).trim();
   return [fields.join("  \n"), rest].filter(Boolean).join("\n\n");

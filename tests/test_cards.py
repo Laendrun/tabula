@@ -109,3 +109,51 @@ def test_field_that_depends_on_a_variant(tmp_path, capsys):
     assert "points:" not in out and "type: particulière" in out
     tabula.main(["--vault", str(v), "show", "g", "-v", "points", "--no-color"])
     assert "points: 13" in capsys.readouterr().out
+
+
+MULTILINE = """# Cartes {#cards}
+
+7
+: effet:: Remplacez le jeton.
+  valeur:: 7
+
+8
+: effet:: Vous ne pouvez pas vous défausser d'un 8 s'il
+    n'y a pas au moins 6 cartes dans la pile de défausse.
+    Terminez immédiatement la manche.
+  valeur:: 8
+  CARD-TEXT under the fields.
+
+9
+: effet:: Une ligne.
+
+    Pas la suite : une ligne vide termine le champ.
+"""
+
+
+def test_field_continues_on_indented_lines(tmp_path, capsys):
+    v = game(tmp_path, MULTILINE)
+    g = tabula.Vault(v).load(v / "g" / "g.game")
+    cards = {e.name: e.blocks[0] for e in tabula.lookup_entries(g.blocks)}
+    assert cards["8"].fields == {
+        "effet": "Vous ne pouvez pas vous défausser d'un 8 s'il n'y a pas au moins 6 cartes dans la pile de "
+                 "défausse. Terminez immédiatement la manche.",
+        "valeur": "8"}
+    assert [k.text for k in cards["8"].children] == ["CARD-TEXT under the fields."]
+    assert cards["9"].fields == {"effet": "Une ligne."}                  # a blank line ends the field
+    assert "Pas la suite" in cards["9"].children[0].text
+    assert tabula.main(["--vault", str(v), "check", "--no-color"]) == 0
+
+
+def test_long_fields_are_wrapped_for_reading(tmp_path, capsys, monkeypatch):
+    v = game(tmp_path, MULTILINE)
+    monkeypatch.setenv("COLUMNS", "70")
+    tabula.main(["--vault", str(v), "cards", "g", "--no-color"])
+    table = capsys.readouterr().out
+    assert all(len(line) <= 70 for line in table.splitlines())          # the table fits the terminal
+    assert "Terminez" in table and "8" in table
+    tabula.main(["--vault", str(v), "lookup", "g", "8", "--no-color"])
+    out = capsys.readouterr().out
+    assert "\n    valeur: 8\n" in out                                    # one field per line when they're long
+    tabula.main(["--vault", str(v), "lookup", "g", "7", "--no-color"])
+    assert "effet: Remplacez le jeton.   valeur: 7" in capsys.readouterr().out   # short ones stay together

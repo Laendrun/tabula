@@ -441,6 +441,15 @@ Many games are mostly cards: special cards, events, power cards, and so on. A **
 ```
 
 - **Fields** are `key:: value` lines at the very top of the definition, before its text, in the same style as Obsidian Dataview. The keys are yours: `points`, `timing`, `type`, `colour`, `author`… Values can contain references and inline choices: `points:: {+points: 42}` shows the points only with the `points` variant, and a field whose value ends up empty is not shown.
+- **A long value** continues on the next lines when they are indented deeper than the field. A line at the field's own indentation (the next field, or the text) or a blank line ends it:
+
+  ```markdown
+  8
+  : effet:: Vous ne pouvez pas vous défausser d'un 8 s'il n'y a pas
+      au moins 6 cartes dans la pile de défausse.
+      Terminez immédiatement la manche.
+    valeur:: 8
+  ```
 - **Counts come from the component list,** never from the card. Every line of the components section that names the card (`4x cartes [[Thief]]`, `{+pandora} 1x carte [[Thief]]`) is added up for the current selection, so the numbers stay right whatever extensions are on. A game without a component list can use a `count::` field instead.
 - In a game without any `{#cards}` section, every definition that has fields counts as a card.
 - `tabula cards GAME` prints the catalog: one row per card with its count and fields, grouped by sub-section, with an extension column when cards come from extensions. `--sort points` sorts across groups, and `--json` gives the data.

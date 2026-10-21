@@ -177,7 +177,12 @@ def render_blocks(blocks: list[Block], ctx: Ctx, st: Style, width: int) -> list[
             shown = {k: render_inline(v, ctx, st) for k, v in b.fields.items()}
             shown = {k: v for k, v in shown.items() if vlen(v)}      # e.g. points:: {+points: 42} without +points
             if shown:
-                out += wrap("   ".join(f"{st.dim(k + ':')} {v}" for k, v in shown.items()), width, "    ", "    ")
+                one_line = "   ".join(f"{st.dim(k + ':')} {v}" for k, v in shown.items())
+                if vlen(one_line) + 4 <= width:
+                    out.append("    " + one_line)
+                else:                    # long values: one field per line, continued under its value
+                    for k, v in shown.items():
+                        out += wrap(f"{st.dim(k + ':')} {v}", width, "    ", " " * (6 + len(k)))
             out += ["    " + l if l else "" for l in render_blocks(b.children, ctx, st, width - 4)]
         elif b.kind == "item":
             if not counters:
