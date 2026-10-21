@@ -16,6 +16,8 @@ variants:
 extensions:
   phare: "Le Phare : 4 cartes de plus, à fabriquer"
 words: [Vellec]
+symbols:
+  vague: {image: media/vague.png, text: "≈"}   # sur les cartes Marée
 values:
   main: {2p: 7, 3p: 6, "*": 5}         # cartes en main
   bateaux: {2p: 5, 3p: 4, "*": 3}      # bateaux par quai, au plus
@@ -35,7 +37,7 @@ Le joueur qui a le plus de points gagne, quand la [[pioche]] est vide ou quand q
 # Matériel {#components}
 
 ![[deck-52#components]]
-- {-calme} 8x [[cartes Marée]] — à fabriquer avec des fiches cartonnées
+- {-calme} 8x [[cartes Marée]] :vague: — à fabriquer avec des fiches cartonnées
   - 3x [[Coup de vent]]
   - 3x [[Grande marée]]
   - 2x [[Mer d'huile]]

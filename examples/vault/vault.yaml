@@ -1,2 +1,7 @@
 name: Family game vault
 language: fr        # default language of .game files without a language code
+symbols:           # shared by every game: write :coeur: in a rule
+  coeur: ♥
+  carreau: ♦
+  trefle: ♣
+  pique: ♠

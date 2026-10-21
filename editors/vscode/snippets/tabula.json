@@ -255,5 +255,14 @@
       "  ${1:main}: {2p: ${2:7}, 3p: ${3:6}, \"*\": ${4:5}}",
       "$0"
     ]
+  },
+  "Symbols (frontmatter)": {
+    "prefix": "symbols",
+    "description": "Symbols for :name: in the text: an emoji, or an image from media/",
+    "body": [
+      "symbols:",
+      "  ${1:gold}: ${2|🪙,⭐,media/gold.png|}",
+      "$0"
+    ]
   }
 }

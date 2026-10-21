@@ -397,8 +397,39 @@ function valuesFor(doc) {
   return [...byName.values()];
 }
 
+/** Symbols for a document, with their image as an absolute path. */
+function symbolsFor(doc) {
+  const root = vaultRoot(doc.uri.fsPath);
+  const dir = path.dirname(doc.uri.fsPath);
+  const base = (from) => (from === "vault.yaml" ? root : dir);
+  const all = [...core.symbolsOf(defaultFileText(doc), vaultYaml(doc)), ...core.symbolsOf(doc.getText(), "")];
+  const byName = new Map();
+  for (const s of all) byName.set(s.name, { ...s, file: s.image ? path.resolve(base(s.from), s.image) : null });
+  return [...byName.values()];
+}
+
+function symbolMarkdown(s) {
+  const pic = s.file ? `![${s.name}](${vscode.Uri.file(s.file).toString()}|height=32)` : s.text;
+  return `${pic}  \`:${s.name}:\`${s.file && s.text ? ` — ${s.text} in the terminal` : ""}\n\nfrom ${s.from}`;
+}
+
 const completionProvider = {
   provideCompletionItems(doc, pos) {
+    const sctx = core.symbolContext(doc.lineAt(pos.line).text, pos.character);
+    if (sctx) {
+      const list = symbolsFor(doc);
+      if (!list.length) return undefined;
+      const range = new vscode.Range(pos.line, sctx.start, pos.line, pos.character + (sctx.closed ? 1 : 0));
+      return list.map((s) => {
+        const item = new vscode.CompletionItem({ label: `:${s.name}:`, description: s.text || s.image }, vscode.CompletionItemKind.EnumMember);
+        item.range = range;
+        item.insertText = `:${s.name}:`;
+        item.filterText = `:${s.name}`;
+        item.detail = `symbol from ${s.from}`;
+        item.documentation = new vscode.MarkdownString(symbolMarkdown(s));
+        return item;
+      });
+    }
     const vctx = core.valueContext(doc.lineAt(pos.line).text, pos.character);
     if (vctx) {
       const range = new vscode.Range(pos.line, vctx.start, pos.line, pos.character);
@@ -440,6 +471,11 @@ const hoverProvider = {
         : `No shared fragment \`${inc.name}\` (looked for _shared/${inc.name}.game)`;
       if (!md) return null;
       return new vscode.Hover(new vscode.MarkdownString(md), new vscode.Range(pos.line, inc.start, pos.line, inc.end));
+    }
+    const sym = core.symbolAt(doc.lineAt(pos.line).text, pos.character);
+    const known = sym && symbolsFor(doc).find((s) => s.name === sym.name);
+    if (known) {
+      return new vscode.Hover(new vscode.MarkdownString(symbolMarkdown(known)), new vscode.Range(pos.line, sym.start, pos.line, sym.end));
     }
     const val = core.valueAt(doc.lineAt(pos.line).text, pos.character);
     if (val) {

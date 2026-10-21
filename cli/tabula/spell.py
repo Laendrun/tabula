@@ -18,6 +18,7 @@ from pathlib import Path
 
 from .syntax import BRACES_RE, FENCE_RE, parse_choice
 from .source import raw_text
+from .symbols import SYMBOL_RE
 
 REGISTRY = "https://registry.npmjs.org/dictionary-{name}/latest"
 WORD_RE = re.compile(r"(?<!\w)[^\W\d_]+(?:'[^\W\d_]+)*(?!\w)")    # whole words: not "er" of "1er"
@@ -141,7 +142,7 @@ def prose(line: str) -> str:
     def blank(m):
         return " " * len(m.group(0))
     t = line.replace("’", "'")
-    for rx in (CODE_RE, URL_RE, TAG_RE, INCLUDE_RE, LINK_TARGET_RE):
+    for rx in (CODE_RE, URL_RE, TAG_RE, INCLUDE_RE, LINK_TARGET_RE, SYMBOL_RE):
         t = rx.sub(blank, t)
     t = REF_RE.sub(lambda m: " " * (m.start(2) - m.start()) + m.group(2) + "  " if m.group(2) else blank(m), t)
 

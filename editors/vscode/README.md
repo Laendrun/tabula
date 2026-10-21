@@ -17,13 +17,14 @@ Highlighting, live checks and a live preview for Tabula `.game` files.
   - a misspelt frontmatter key or role (`durantion:`, `#cartes`), and `[name]` written with single brackets.
 - **Rename (F2)** on a `[[reference]]`, a glossary term, a component or a heading: its definition (or heading) and every reference to it in the file are renamed. References written differently keep their text: `[[bateaux]]` becomes `[[Navire|bateaux]]` when *Bateau* is renamed *Navire*. A term that comes from a shared fragment is renamed in the fragment file itself.
 - **Formatting** with `tabula fmt` (needs tabula 0.13): *Format Document* (Shift+Alt+F) or *Tabula: Format this file* tidies blank lines, aligns tables and removes trailing spaces, without ever changing what the file says. To format when saving, add `"[tabula]": { "editor.formatOnSave": true }` to your settings. *Tabula: Format every file in the vault* does the whole vault.
+- **Symbols** (`:gold:`): type `:` and a letter to pick one of the symbols from the frontmatter or `vault.yaml`; hover one to see its picture.
 - **Values** (`{=main}`): type `{=` to pick one of the values defined in the frontmatter or in `vault.yaml`; hover one to see what it stands for.
 - **Snippets:** type a prefix and press Tab, then Tab again from one field to the next.
 
   | Prefix | Inserts |
   |---|---|
   | `game` / `jeu` | a new game: frontmatter and the usual sections with their roles (English / French headings) |
-  | `fm`, `options`, `values` | a frontmatter line; `variants:` or `extensions:` with a first name; `values:` by player count |
+  | `fm`, `options`, `values`, `symbols` | a frontmatter line; `variants:` or `extensions:` with a first name; `values:` by player count; `symbols:` |
   | `val` | a value `{=name}` |
   | `sec`, `keysec`, `endsec` | a heading with a role (pick it from a list), a key section `## !`, a `---` section end |
   | `comp`, `term`, `card`, `cards` | a component line, a glossary term, a card with fields, a card catalog `{#cards}` |

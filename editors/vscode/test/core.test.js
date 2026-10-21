@@ -239,3 +239,19 @@ test("values: YAML entries, the vault's and the game's, typing and hovering", ()
   assert.deepEqual(core.valueAt("Deal {=hand} cards", 8), { name: "hand", start: 5, end: 12 });
   assert.equal(core.valueAt("Deal {=hand} cards", 15), null);
 });
+
+test("symbols: definitions, typing and hovering", () => {
+  const vault = 'symbols:\n  gold: media/gold.png\n  star: "⭐"\n';
+  const game = '---\nsymbols:\n  key: {image: media/key.png, text: "🔑"}\n  star: ★\n---\n';
+  assert.deepEqual(core.symbolsOf(game, vault), [
+    { name: "gold", image: "media/gold.png", text: null, from: "vault.yaml" },
+    { name: "star", image: null, text: "★", from: "this game" },
+    { name: "key", image: "media/key.png", text: "🔑", from: "this game" },
+  ]);
+  assert.deepEqual(core.symbolContext("Pay 3 :go", 9), { typed: "go", start: 6, closed: false });
+  assert.equal(core.symbolContext("effet:", 6), null);           // a field, not a symbol
+  assert.equal(core.symbolContext(": ", 1), null);                // a definition line
+  assert.equal(core.symbolContext("at 10:3", 7), null);
+  assert.deepEqual(core.symbolAt("Pay :gold: now", 6), { name: "gold", start: 4, end: 10 });
+  assert.equal(core.symbolAt("at 10:30: now", 5), null);
+});

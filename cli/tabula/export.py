@@ -107,6 +107,7 @@ code{font-size:.9em}
 pre{background:var(--card);border:1px solid var(--rule);padding:.8rem 1rem;overflow:auto;border-radius:4px}
 figure{margin:1.2rem 0}
 figure img{max-width:100%;border-radius:4px}
+img.sym{height:1.15em;width:auto;vertical-align:-.22em;display:inline;margin:0 .05em}
 figcaption{font:.85rem var(--sans);color:var(--muted);margin-top:.35rem}
 table{border-collapse:collapse;margin:.6rem 0 1.2rem;font:.92rem/1.4 var(--sans)}
 th,td{padding:.4rem .8rem .4rem 0;text-align:left;border-bottom:1px solid var(--rule);vertical-align:top}
@@ -379,6 +380,12 @@ class HtmlRenderer:
         tip = " ".join(texts)
         return tip[:220] + ("…" if len(tip) > 220 else "")
 
+    def image(self, alt: str, src: str) -> str:
+        if alt.startswith("sym:"):           # a symbol: an icon the size of the text
+            return (f'<img class="sym" src="{self.esc(self.data_uri(src))}" alt="{self.esc(alt[4:])}" '
+                    f'title="{self.esc(alt[4:])}">')
+        return f'<img src="{self.esc(self.data_uri(src))}" alt="{self.esc(alt)}">'
+
     def data_uri(self, src: str) -> str:
         import base64
         import mimetypes
@@ -426,7 +433,7 @@ class HtmlRenderer:
         text = ESCAPE_RE.sub(lambda m: keep(self.esc(m.group(1))), text)
         text = CHOICE_RE.sub(lambda m: keep(self.choice(m)), text)
         text = REF_RE.sub(lambda m: keep(self.ref(m.group(1).strip(), (m.group(2) or m.group(1).lstrip("#")).strip())), text)
-        text = IMAGE_RE.sub(lambda m: keep(f'<img src="{self.esc(self.data_uri(m.group(2)))}" alt="{self.esc(m.group(1))}">'), text)
+        text = IMAGE_RE.sub(lambda m: keep(self.image(m.group(1), m.group(2))), text)
         text = LINK_RE.sub(lambda m: keep(self.link(m.group(1), m.group(2))), text)
         text = re.sub(r"`([^`]+)`", lambda m: keep(f"<code>{self.esc(m.group(1))}</code>"), text)
         text = self.esc(text, quote=False)

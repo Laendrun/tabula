@@ -22,7 +22,7 @@ const disposable = { dispose() {} };
 const vscode = {
   Range, CompletionItem, MarkdownString, Hover, Location, Position, WorkspaceEdit, CodeAction, TextEdit,
   CodeActionKind: { QuickFix: "quickfix" },
-  Uri: { file: (f) => ({ fsPath: f }), parse: (u) => ({ toString: () => u }) },
+  Uri: { file: (f) => ({ fsPath: f, toString: () => "file://" + f }), parse: (u) => ({ toString: () => u }) },
   CompletionItemKind: { Reference: 17, Constant: 20, Module: 8, Keyword: 13, File: 16 },
   languages: {
     createDiagnosticCollection: () => ({ set() {}, delete() {}, dispose() {} }),
@@ -245,4 +245,19 @@ test("values: completion after {= and hover, from the game and vault.yaml", () =
   assert.equal(items[1].label.description, '{2p: 7, "*": 5}');
   const h = registered.hover.provideHover(d, { line: 8, character: 12 });
   assert.equal(h.contents.value, "**target** = `100`\n\nfrom vault.yaml");
+});
+
+test("symbols: completion after :x and hover, from the game and vault.yaml", () => {
+  const root = fs.mkdtempSync(path.join(require("os").tmpdir(), "tabula-sym-"));
+  fs.writeFileSync(path.join(root, "vault.yaml"), "symbols:\n  gold: media/gold.png\n");
+  fs.mkdirSync(path.join(root, "g"));
+  const file = path.join(root, "g", "g.game");
+  const text = '---\ntitle: G\nsymbols:\n  star: "⭐"\n---\n# Rules\n\nPay 3 :g\nScore :star: now.\n';
+  const d = doc(text, file);
+  const items = registered.completion.p.provideCompletionItems(d, { line: 7, character: 8 });
+  assert.deepEqual(items.map((i) => [i.label.label, i.insertText, i.range.start.character]), [[":gold:", ":gold:", 6], [":star:", ":star:", 6]]);
+  const h = registered.hover.provideHover(d, { line: 8, character: 8 });
+  assert.equal(h.contents.value, "⭐  `:star:`\n\nfrom this game");
+  const g = registered.hover.provideHover(doc("Pay :gold:\n", file), { line: 0, character: 6 });
+  assert.match(g.contents.value, /^!\[gold\]\(file:.*media\/gold\.png\|height=32\)/);
 });

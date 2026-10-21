@@ -220,6 +220,9 @@
           "include": "#value"
         },
         {
+          "include": "#symbol"
+        },
+        {
           "include": "#braces"
         },
         {
@@ -426,6 +429,21 @@
         },
         "3": {
           "name": "punctuation.definition.value.end.tabula"
+        }
+      }
+    },
+    "symbol": {
+      "match": "(?<![\\w:\\\\/])(:)([A-Za-z0-9][\\w+-]*)(:)(?![\\w:/])",
+      "name": "meta.symbol.tabula",
+      "captures": {
+        "1": {
+          "name": "punctuation.definition.symbol.begin.tabula"
+        },
+        "2": {
+          "name": "constant.other.symbol.tabula"
+        },
+        "3": {
+          "name": "punctuation.definition.symbol.end.tabula"
         }
       }
     }

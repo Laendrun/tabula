@@ -98,7 +98,8 @@ def ref_text(m: re.Match, st: Style) -> str:
 def render_inline(text: str, ctx: Ctx, st: Style) -> str:
     text = resolve_choices(text, ctx, st)
     text = REF_RE.sub(lambda m: ref_text(m, st), text)
-    text = IMAGE_RE.sub(lambda m: st.dim(f"[image: {m.group(1) or m.group(2)}]"), text)
+    text = IMAGE_RE.sub(lambda m: m.group(1)[4:] if m.group(1).startswith("sym:")      # a symbol: its text
+                        else st.dim(f"[image: {m.group(1) or m.group(2)}]"), text)
     text = LINK_RE.sub(lambda m: f"{m.group(1)} {st.dim('(' + m.group(2) + ')')}", text)
     text = re.sub(r"\*\*(.+?)\*\*", lambda m: st.bold(m.group(1)), text)
     text = re.sub(r"(?<!\w)__(?!\s)(.+?)(?<!\s)__(?!\w)", lambda m: st.bold(m.group(1)), text)
