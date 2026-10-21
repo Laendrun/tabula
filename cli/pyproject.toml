@@ -1,13 +1,13 @@
 [project]
 name = "tabula"
-version = "0.9.1"
+version = "0.10.0"
 description = "Board & card game rules in Markdown: show, filter by player count, check."
 requires-python = ">=3.9"
 license = {text = "MIT"}
 dependencies = ["pyyaml>=6"]
 
 [project.optional-dependencies]
-test = ["pytest>=7"]
+test = ["pytest>=7", "epubcheck>=5"]       # epubcheck validates `tabula book` (needs java)
 
 [project.scripts]
 tabula = "tabula.cli:main"
