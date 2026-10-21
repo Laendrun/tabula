@@ -50,7 +50,7 @@ def card_rows(catalog: list[dict], blocks: list[Block], ctx: Ctx):
     counts = card_counts(blocks)
     keys: list[str] = []
     for c in catalog:
-        keys += [k for k in c["def"].fields if k not in keys and k != "count"]
+        keys += [k for k in c["def"].fields if k not in keys and k not in ("count", "image")]   # pictures: drawn
     show_ext = any(c["def"].cond and c["def"].cond.variants for c in catalog)
     rows = []
     for c in catalog:

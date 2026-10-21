@@ -11,7 +11,7 @@ from .syntax import (
     CHOICE_RE, Ctx, ESCAPE_RE, IMAGE_RE, LINK_RE, REF_RE, cond_ok, fold, in_range, open_label,
     Cond, parse_choice, parse_cond, parse_range, split_lang, via_of,
 )
-from .blocks import callout_family, callout_title, Block, components_of, is_sep_row, player_columns, player_rows
+from .blocks import callout_family, callout_title, card_image, shown_fields, Block, components_of, is_sep_row, player_columns, player_rows
 from .filtering import filter_blocks, section_end, section_names, select_key, select_sections
 from .source import UNSAVED
 from .vault import Game, open_vault
@@ -157,6 +157,9 @@ hr.end{border:0;border-top:1px solid var(--rule);width:4rem;margin:1.6rem auto}
 .card.wide{column-span:all}
 table.catalog{width:100%}
 table.catalog td:first-child{font-weight:700}
+.card-img{float:right;width:34%;max-width:9.5rem;max-height:13rem;object-fit:contain;margin:0 0 .5rem .8rem;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.card.has-img::after{content:"";display:block;clear:both}
+table.catalog img.thumb{height:2.2em;width:auto;max-width:3em;object-fit:contain;vertical-align:middle;margin-right:.45em;border-radius:3px}
 .fields{display:flex;flex-wrap:wrap;gap:.3rem;list-style:none;margin:-.15rem 0 .6rem;padding:0;font:.78rem/1.2 var(--sans)}
 .fields li{margin:0;padding:.2rem .45rem;border-radius:4px;background:var(--desk);font-weight:700}
 .fields li span{font-weight:400;color:var(--muted)}
@@ -581,13 +584,18 @@ class HtmlRenderer:
         if size > 900:
             cls += " wide"
         chips = ""
-        shown = {k: self.inline(v) for k, v in d.fields.items()}
+        pic = card_image(d)
+        img = (f'<img class="card-img" src="{self.esc(self.data_uri(pic))}" alt="{self.esc(plain(d.term, self.ctx))}">'
+               if pic else "")
+        if pic:
+            cls += " has-img"
+        shown = {k: self.inline(v) for k, v in shown_fields(d).items()}
         shown = {k: v for k, v in shown.items() if re.sub(r"<[^>]+>", "", v).strip()}
         if shown:
             chips = '<ul class="fields">' + "".join(
                 f'<li><span>{self.esc(k)}</span> {v}</li>' for k, v in shown.items()) + "</ul>"
-        return (f'<article class="{cls}" id="{cid}"{self.dc(d.cond)}><h3>{self.badges(d)}{self.inline(d.term)}</h3>{chips}'
-                f'{self.render(d.children, in_card=True)}</article>')
+        return (f'<article class="{cls}" id="{cid}"{self.dc(d.cond)}>{img}<h3>{self.badges(d)}{self.inline(d.term)}</h3>'
+                f'{chips}{self.render(d.children, in_card=True)}</article>')
 
     def block(self, b: Block, in_card: bool) -> str:
         ext = " from-ext" if (b.via or b.tint) else ""
@@ -710,7 +718,11 @@ class HtmlRenderer:
                     cells.append(f"<td data-counts='{data}'>{self.esc(v)}</td>")
                 elif c == "card":
                     a = self.anchor.get(fold(v))
-                    cells.append(f'<td><a class="ref" href="#{a}">{self.esc(v)}</a></td>' if a else f"<td>{self.esc(v)}</td>")
+                    pic = card_image(r["def"])
+                    thumb = (f'<img class="thumb" src="{self.esc(self.data_uri(pic))}" alt="">'
+                             if pic else "")
+                    cells.append(f'<td>{thumb}<a class="ref" href="#{a}">{self.esc(v)}</a></td>' if a
+                                 else f"<td>{thumb}{self.esc(v)}</td>")
                 elif c == "ext":
                     badge = (self.label_badges(v) if self.ctx.everything
                              else f'<span class="badge ext">{self.esc(v)}</span>') if v else ""

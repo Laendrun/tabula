@@ -7,7 +7,7 @@ from .syntax import (
     CHOICE_RE, Ctx, ESCAPE_RE, IMAGE_RE, LINK_RE, REF_RE, cond_ok, fold, open_label,
     parse_choice, via_of,
 )
-from .blocks import Block, callout_family, callout_title, is_sep_row, player_columns
+from .blocks import Block, callout_family, callout_title, card_image, is_sep_row, player_columns, shown_fields
 
 ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 
@@ -186,7 +186,7 @@ def render_blocks(blocks: list[Block], ctx: Ctx, st: Style, width: int) -> list[
         elif b.kind == "def":
             gap()
             out.append(badge(b) + st.bold(render_inline(b.term, ctx, st)))
-            shown = {k: render_inline(v, ctx, st) for k, v in b.fields.items()}
+            shown = {k: render_inline(v, ctx, st) for k, v in shown_fields(b).items()}
             shown = {k: v for k, v in shown.items() if vlen(v)}      # e.g. points:: {+points: 42} without +points
             if shown:
                 one_line = "   ".join(f"{st.dim(k + ':')} {v}" for k, v in shown.items())
@@ -195,6 +195,8 @@ def render_blocks(blocks: list[Block], ctx: Ctx, st: Style, width: int) -> list[
                 else:                    # long values: one field per line, continued under its value
                     for k, v in shown.items():
                         out += wrap(f"{st.dim(k + ':')} {v}", width, "    ", " " * (6 + len(k)))
+            if pic := card_image(b):
+                out.append("    " + st.dim(f"[picture: {pic}]"))
             out += ["    " + l if l else "" for l in render_blocks(b.children, ctx, st, width - 4)]
         elif b.kind == "item":
             if not counters:

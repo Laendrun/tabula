@@ -153,15 +153,18 @@ Pour une première partie, on joue sans [[cartes Marée]]. Tout le reste ne chan
 
 Coup de vent
 : force:: 1
+  image:: media/cartes/coup-de-vent.png
   effet:: Chaque joueur retire la carte du dessus de son plus petit bateau et la pose sur la [[plage]].
 
 Grande marée
 : force:: 2
+  image:: media/cartes/grande-maree.png
   effet:: Chaque joueur retire la carte du dessous de chacun de ses bateaux qui ne sont pas à l'abri.
     Les cartes retirées vont sur la [[plage]], la plus haute en dernier.
 
 Mer d'huile
 : force:: 0
+  image:: media/cartes/mer-d-huile.png
   effet:: Rien ne se passe, et le joueur qui l'a piochée rejoue un tour complet.
 
 ## Cartes Phare {+phare #cards}
@@ -170,11 +173,13 @@ Mer d'huile
 
 Phare
 : force:: 0
+  image:: media/cartes/phare.png
   effet:: Gardez cette carte devant vous. La prochaine carte Marée ne touche pas votre quai,
     puis défaussez le Phare.
 
 Brume
 : force:: 1
+  image:: media/cartes/brume.png
   effet:: Jusqu'à votre prochain tour, personne ne peut prendre de carte sur la [[plage]].
 
 ---

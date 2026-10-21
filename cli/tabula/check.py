@@ -237,6 +237,10 @@ def check_game(game: Game, vault: Vault, require_defs: bool = False,
                 for key, val in b.fields.items():
                     if not val:
                         iss.warn(path, b.field_lines.get(key, b.line), f"field '{key}' of '{b.term}' is empty")
+                    elif key == "image":           # a card's picture
+                        src = val.strip()
+                        if not re.match(r"^[a-z]+://", src) and not (game.base_dir / src).is_file():
+                            iss.error(path, b.field_lines.get(key, b.line), f"picture of '{b.term}' not found: {src}")
                     else:
                         check_text(val, b.field_lines.get(key, b.line))
                 for key, ln in b.field_lines.get("__dup__", []):

@@ -47,6 +47,20 @@ def is_block_start(t: str) -> bool:
             or bool(DEF_LINE_RE.match(t)) or bool(BLOCK_COND_RE.match(t)))
 
 
+IMAGE_FIELD = "image"       # a card's picture: image:: media/cards/gift.png
+
+
+def card_image(d: "Block") -> str | None:
+    """The picture of a card (its image:: field), or None."""
+    v = (d.fields or {}).get(IMAGE_FIELD, "").strip()
+    return v or None
+
+
+def shown_fields(d: "Block") -> dict:
+    """A definition's fields, without its picture (drawn, not listed)."""
+    return {k: v for k, v in (d.fields or {}).items() if k != IMAGE_FIELD}
+
+
 CALLOUT_RE = re.compile(r"^\[!([^\]\s]+)\]\s*(.*)$")
 
 # callout types, by family (accents and case ignored): how tools draw them

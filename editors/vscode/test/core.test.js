@@ -259,3 +259,10 @@ test("symbols: definitions, typing and hovering", () => {
   assert.deepEqual(core.symbolContext("Pay 3:go", 8), { typed: "go", start: 5, closed: false });
   assert.equal(core.symbolAt("at 10:30: now", 5), null);
 });
+
+test("card pictures: hover shows the image:: field as a picture", () => {
+  const text = "# Cards {#cards}\n\nGift\n: points:: 7\n  image:: media/gift.png\n  Give two cards.\n";
+  const md = core.hoverText(text, "Gift", (p) => "file:///v/g/" + p);
+  assert.equal(md, "**Gift**\n\n![](file:///v/g/media/gift.png|height=160)\n\n**points:** 7\n\nGive two cards.");
+  assert.match(core.hoverText(text, "Gift"), /\*picture: media\/gift\.png\*/);
+});
