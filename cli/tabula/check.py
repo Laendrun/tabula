@@ -22,7 +22,7 @@ from .cards import card_catalog
 from .spell import SpellError, check_spelling
 from .values import value_problems
 from .fields import GAME_KEYS
-from .totals import empty_totals, members
+from .totals import count_mismatches, empty_totals, members
 from .options import option_problems, players_range, year_ok
 from .sheet import check_sheet, load_sheet, sheets_of
 from .wishlist import check_wishes
@@ -282,6 +282,11 @@ def check_game(game: Game, vault: Vault, require_defs: bool = False,
                         check_text(c, ln, allow_block_cond=(j == 0))
 
     walk(game.blocks)
+
+    # ---- groups: their count in the components and their cards' counts
+    if not fragment:
+        for g, msg in count_mismatches(game):
+            iss.warn(path, g.line, msg)
 
     # ---- card catalog: a field most cards of a group have, but this one doesn't
     groups: dict[str, list[Block]] = {}

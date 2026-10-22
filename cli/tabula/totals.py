@@ -143,3 +143,41 @@ def empty_totals(d: Block, source: list[Block]) -> list[str]:
     defs = definitions(source)
     return [k for k, v in d.fields.items() if v == "" and not parts(d, k, defs, frozenset({norm(d.term)}))]
 
+
+
+def count_mismatches(game) -> list[tuple[Block, str]]:
+    """For check: groups whose count in the components differs from the counts of the cards they list
+    (in the base game, with everything, or with one extension or variant): [(group, message)]."""
+    from .cards import card_counts
+    from .filtering import _filter
+    from .syntax import fold
+    groups = [b for b in walk(game.blocks) if b.kind == "def" and members(b)]
+    if not groups:
+        return []
+    defs = definitions(game.blocks)
+    every = {o.lower() for o in game.options}
+    ctxs = [("", Ctx()), (" with every extension and variant", Ctx(variants=every))] if every else [("", Ctx())]
+    ctxs += [(f" with +{o}", Ctx(variants={o.lower()})) for o in game.options]
+    out, done = [], set()
+    for label, ctx in ctxs:
+        counts = card_counts(_filter(game.blocks, ctx))
+        for g in groups:
+            if id(g) in done or fold(g.term) not in counts:
+                continue
+            own = counts[fold(g.term)]
+            listed = []
+            for conds, target in members(g):
+                if target not in defs:
+                    continue
+                m, m_conds = defs[target]
+                if all(cond_ok(c, ctx) for c in conds + m_conds):
+                    listed.append((m.term, counts.get(fold(m.term))))
+            if not listed or not own.isdigit() or any(c is None or not c.isdigit() for _, c in listed):
+                continue                  # a card without a count, or a range: nothing sure to compare
+            total = sum(int(c) for _, c in listed)
+            if total != int(own):
+                done.add(id(g))
+                detail = " + ".join(f"{t} {c}" for t, c in listed)
+                out.append((g, f"'{g.term}': {own} in the components{label}, but the cards it lists add up to "
+                               f"{total} ({detail})"))
+    return out
