@@ -40,6 +40,7 @@ tabula book frantic -p 4 -e pandora    # one game, for one setup
 tabula check                           # find mistakes in every game and translation
 tabula todo                            # the <!-- TODO: … --> reminders left in game files
 tabula sheet frantic -p 4              # the score sheet (frantic/frantic.sheet) for 4 players, to print
+tabula wish                            # the wishlist (wishlist.yaml); tabula wish add "Cascadia" --priority 1
 tabula fmt                             # tidy every file: blank lines, aligned tables, spaces (never changes the rules)
 tabula check -d                        # ...and require a glossary definition for every component
 tabula check --spell                   # ...and check spelling, in each file's language (see below)
@@ -54,6 +55,10 @@ Numbers that depend on the player count can be written once: `values: {main: {2p
 ## Card pictures
 
 A card in a catalog can have a picture: `image:: media/cartes/phare.png` among its fields. The site, the HTML export and the book draw it on the card and in the catalog table; VS Code shows it when you hover a reference to the card.
+
+## Wishlist
+
+Games and extensions you'd like go in `wishlist.yaml` at the root of the vault (name, `for:` an extension's game, `priority`, `price`, `link`, `note`). `tabula wish` lists it, `tabula wish add "Pandora" --for frantic --priority 1` and `tabula wish remove "Pandora"` change it, and `tabula site` writes a wishlist page to share. See the spec, section 12.
 
 ## Score sheets
 
@@ -138,6 +143,7 @@ Open `site/index.html` in a browser; it works offline. You can also put the fold
 | `terminal.py` | terminal and JSON rendering |
 | `show.py`, `lookup.py`, `cards.py`, `check.py`, `export.py`, `site.py` | one command each |
 | `fmt.py` | `tabula fmt`: tidying, and the check that the result reads the same |
+| `wishlist.py` | the wishlist: `wishlist.yaml`, `tabula wish`, its check and site page |
 | `sheet.py` | score sheets: `.sheet` files, their check and `tabula sheet` |
 | `spell.py` | spelling for `check --spell`: dictionaries (downloaded once) and the words to skip |
 | `cli.py` | the command line (`tabula …`) |
