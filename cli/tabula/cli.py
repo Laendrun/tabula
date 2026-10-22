@@ -100,6 +100,7 @@ def main(argv=None) -> int:
     p.add_argument("-k", "--key", action="store_true", help="only the key rules and key sections: a cheat sheet")
     p.add_argument("-t", "--turn", action="store_true", help="the turn summary: #turn sections, then the key rules")
     p.add_argument("--paper", choices=["a4", "a5", "a6", "letter"], help="print on this paper size (e.g. a5 for a player aid)")
+    p.add_argument("--lines", action="store_true", help="mark each block with its line in the file (for editors)")
     p.add_argument("-i", "--interactive", action="store_true",
                    help="everything, with a bar to choose players and extensions in the page (like tabula site)")
     p.add_argument("--stdin", action="store_true",

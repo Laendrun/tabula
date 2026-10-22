@@ -2,7 +2,7 @@
   "name": "tabula-syntax",
   "displayName": "Tabula Game Files",
   "description": "Highlighting and live checks for Tabula .game files (board and card game rules).",
-  "version": "0.16.0",
+  "version": "0.17.0",
   "publisher": "Laendrun",
   "license": "MIT",
   "repository": {
@@ -132,6 +132,11 @@
           "type": "boolean",
           "default": false,
           "markdownDescription": "Every component must also have a glossary definition (like `tabula check -d`)."
+        },
+        "tabula.previewFollowsCursor": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "The preview scrolls to the part of the rules the cursor is in. Double-click in the preview to move the cursor there."
         },
         "tabula.spellCheck": {
           "type": "boolean",

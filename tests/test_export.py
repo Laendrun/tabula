@@ -1,5 +1,6 @@
 """`tabula export`: a self-contained HTML page with the same filtering as `show`."""
 import html.parser
+import re
 
 import pytest
 
@@ -131,3 +132,17 @@ def test_examples_export(export, game):
 def test_extension_cards_keep_their_corner_with_all(export):
     _, out = export("--all")
     assert out.count('class="card ext"') == 2                   # Rocket and Comet
+
+
+def test_lines_marks_blocks_with_their_source_line(capsys):
+    tabula.main(["--vault", str(FIXTURES), "export", "kitchen-sink", "--interactive", "--lines", "-o", "-"])
+    html = capsys.readouterr().out
+    src = (FIXTURES / "kitchen-sink" / "kitchen-sink.game").read_text(encoding="utf-8").split("\n")
+    marks = re.findall(r'<(\w+)[^>]*data-line="(\d+)"[^>]*>(.{0,40})', html)
+    assert len(marks) > 20
+    for tag, line, text in marks:                  # each mark points at the line the block starts on
+        word = re.search(r"[A-Z]{4,}", text)
+        if word and tag in ("p", "li"):
+            assert word.group(0) in src[int(line) - 1], (tag, line, text)
+    tabula.main(["--vault", str(FIXTURES), "export", "kitchen-sink", "-o", "-"])
+    assert "data-line" not in capsys.readouterr().out
