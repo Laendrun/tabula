@@ -180,18 +180,28 @@ def parse_blocks(lines: list[tuple[int, str]]) -> list[Block]:
                                 start=list_start.get(indent, 1)))
             continue
         if t.lstrip().startswith(">"):
-            parts, src = [], []
+            parts, src, inner = [], [], []
             level = len(t) - len(t.lstrip())
             while i < n and lines[i][1].lstrip().startswith(">"):
-                parts.append(lines[i][1].lstrip()[1:].strip())
+                raw = lines[i][1].lstrip()[1:]
+                inner.append((lines[i][0], (raw[1:] if raw.startswith(" ") else raw).rstrip()))   # indentation kept
+                parts.append(raw.strip())
                 src.append((lines[i][0], parts[-1]))
                 i += 1
             note = Block("note", "", ln, src=src, level=level)
             if parts and (cm := CALLOUT_RE.match(parts[0])):         # > [!exemple] Optional title
                 note.callout, note.term = cm.group(1), cm.group(2).strip()
-                parts = parts[1:]
+                parts, inner = parts[1:], inner[1:]
                 src[0] = (src[0][0], cm.group(2).strip())
-            note.text = " ".join(p for p in parts if p) if note.callout else " ".join(parts)
+            body = [(k, s) for k, s in inner]
+            while body and not body[0][1].strip():
+                body.pop(0)
+            structured = any(ITEM_RE.match(s) or s.lstrip().startswith("|") for _, s in body) or \
+                any(not s.strip() for _, s in body)
+            if structured:            # paragraphs ("> " blank lines between them) or a list: read as blocks
+                note.children = parse_blocks(body)
+            else:
+                note.text = " ".join(p for p in parts if p) if note.callout else " ".join(parts)
             blocks.append(note)
             continue
         if (im := IMAGE_RE.fullmatch(t.strip())) and not im.group(1).startswith("sym:"):   # not a symbol

@@ -6,6 +6,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/): Added, Chang
 
 ## Unreleased
 
+## 0.25.0 — 2026-10-22
+
+### Added
+- Paragraphs and lists inside callouts and notes: a `>` line alone separates paragraphs, `> - …` makes a list (items continue on indented lines). Conditions work on each paragraph or item.
+
 ## 0.24.0 — 2026-10-22
 
 ### Added

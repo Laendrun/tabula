@@ -100,6 +100,8 @@ h2.key::before,h3.key::before,h4.key::before,h5.key::before{content:"★ ";color
 a.ref.section::before{content:"→ ";color:var(--muted)}
 aside.note{display:flow-root;margin:.8rem 0 1rem;padding:.5rem .9rem;border-left:2px solid var(--rule);color:var(--muted);font-size:.95rem}
 aside.note p{margin:0}
+aside.note p+p,aside.callout p+p{margin-top:.5rem}
+aside.note ul,aside.note ol,aside.callout ul,aside.callout ol{margin:.35rem 0 0;padding-left:1.3rem}
 aside.callout{display:flow-root;margin:1rem 0 1.1rem;padding:.55rem .95rem .65rem;border-left:4px solid var(--c);background:var(--cbg);border-radius:0 6px 6px 0;font-size:.97rem}
 aside.callout p{margin:.15rem 0 0}
 aside.callout p.callout-title{margin:0;font:600 .88rem/1.35 var(--sans);color:var(--c);letter-spacing:.01em}
@@ -643,10 +645,12 @@ class HtmlRenderer:
             return f'<p class="key{ext}"{c}>{self.badges(b)}{self.inline(b.text)}</p>'
         if b.kind == "note" and b.callout:
             fam = callout_family(b.callout)
-            body = f"<p>{self.inline(b.text)}</p>" if b.text else ""
+            body = self.render(b.children, in_card) if b.children else f"<p>{self.inline(b.text)}</p>" if b.text else ""
             return (f'<aside class="callout callout-{fam}{ext}"{c}><p class="callout-title">{self.badges(b)}'
                     f'<span class="icon" aria-hidden="true">{CALLOUT_ICONS[fam]}</span> '
                     f'{self.inline(callout_title(b))}</p>{body}</aside>')
+        if b.kind == "note" and b.children:
+            return f'<aside class="note{ext}"{c}>{self.badges(b)}{self.render(b.children, in_card)}</aside>'
         if b.kind == "note":
             return f'<aside class="note{ext}"{c}><p>{self.badges(b)}{self.inline(b.text)}</p></aside>'
         if b.kind == "image":

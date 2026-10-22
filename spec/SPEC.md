@@ -153,7 +153,18 @@ A comment that starts with `TODO` or `FIXME` (any case, with or without `:`) is 
 
 - The type is written in the game's language. Tools know these families and draw each one its own way (color, icon): **example** (`exemple`, `example`, `beispiel`…), **warning** (`attention`, `important`, `warning`, `achtung`…), **tip** (`astuce`, `conseil`, `tip`, `tipp`, `stratégie`…), **info** (`précision`, `remarque`, `note`, `rappel`, `clarification`, `hinweis`…), **question** (`question`, `faq`, `frage`). Any other type works too and gets a neutral box.
 - Without a title, the type is the title, with a capital: `[!astuce]` shows "Astuce".
-- Conditions work as on any paragraph (`> {2p} …`), and a callout can be nested in a list item. A plain `>` quote stays a simple note.
+- **Several paragraphs, or a list:** inside a quote (a callout or a plain note), a line with only `>` separates paragraphs, and `> - …` lines make a list. An item continues on the next lines indented under it, as anywhere else:
+
+  ```markdown
+  > [!astuce] Trois petites astuces
+  > - Économisez vos cartes en début de partie.
+  >
+  > - Il n'y a pas de taille de main maximum.
+  >   Si vous êtes à court de cartes, rien de spécial ne se produit.
+  ```
+
+  A quote with only plain lines is one paragraph, its lines joined.
+- Conditions work as on any paragraph (`> {2p} …`, also on one paragraph or item inside a quote), and a callout can be nested in a list item. A plain `>` quote stays a simple note.
 
 **Symbols** are the icons of a game: gold, keys, stars, card suits. Define them once, in `vault.yaml` for the ones many games share, or in a game's frontmatter, and write `:name:` in the text, in tables and in card fields:
 

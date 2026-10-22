@@ -48,6 +48,10 @@ def filter_blocks(blocks: list[Block], ctx: Ctx) -> list[Block]:
                 continue
         if b.kind == "def" and b.children:
             b = dataclasses.replace(b, children=filter_blocks(b.children, ctx))
+        if b.kind == "note" and b.children:              # a callout with paragraphs or a list
+            b = dataclasses.replace(b, children=filter_blocks(b.children, ctx))
+            if not b.children:
+                continue
         out.append(b)
     # drop headings whose whole section was filtered away
     keep = []

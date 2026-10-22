@@ -170,13 +170,18 @@ def render_blocks(blocks: list[Block], ctx: Ctx, st: Style, width: int) -> list[
                            "info": ("ℹ", st.cyan), "question": ("?", st.cyan), "note": ("▪", st.dim)}[fam]
             bar = color("┃ ")
             out.append(pad + bar + badge(b) + color(st.bold(f"{icon} {render_inline(callout_title(b), ctx, st)}")))
-            if txt:
+            if b.children:                     # paragraphs or a list inside
+                out += [(pad + bar + l).rstrip() for l in render_blocks(b.children, ctx, st, width - len(pad) - 2)]
+            elif txt:
                 out += wrap(txt, width, pad + bar)
         elif b.kind == "note":
             if b.level == 0 or not counters:
                 gap()
             pad = " " * (b.level + (2 if b.level else 0))
-            out += wrap(badge(b) + st.dim(txt), width, pad + st.dim("│ "))
+            if b.children:
+                out += [(pad + st.dim("│ ") + l).rstrip() for l in render_blocks(b.children, ctx, st, width - len(pad) - 2)]
+            else:
+                out += wrap(badge(b) + st.dim(txt), width, pad + st.dim("│ "))
         elif b.kind == "image":
             gap()
             out.append(st.dim(f"[image: {txt or b.term}  →  {b.term}]"))
@@ -267,6 +272,11 @@ def block_json(b: Block, ctx: Ctx) -> dict:
         if b.fields:
             d["fields"] = {k: plain(v, ctx) for k, v in b.fields.items()}
         d["body"] = [block_json(k, ctx) for k in b.children]
+    elif b.kind == "note" and b.children:
+        d["body"] = [block_json(k, ctx) for k in b.children]
+        if b.callout:
+            d["callout"] = b.callout
+            d["title"] = plain(callout_title(b), ctx)
     elif b.kind == "code":
         d["text"] = b.text
     else:
