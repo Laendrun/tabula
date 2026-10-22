@@ -1,0 +1,9 @@
+# Games and extensions we'd like (tabula wish). 'for:' links an extension to a game of the vault.
+- name: Cascadia
+  priority: 1
+  price: 35 CHF
+- name: Le Phare, version bois
+  for: maree-haute
+  priority: 2
+  note: les cartes Phare imprimées sur du bois
+- name: Jeu de tarot

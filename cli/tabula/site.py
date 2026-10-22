@@ -13,6 +13,7 @@ from .export import HTML_CSS, HtmlRenderer
 from .filtering import filter_blocks, select_key, select_turn
 from .syntax import Ctx, fold, in_range, parse_range
 from .vault import Game, Vault, open_vault
+from .wishlist import load_wishes, wish_ui, wishlist_page
 from .options import players_range
 from .sheet import load_sheet, render_sheet, sheets_of
 
@@ -69,7 +70,8 @@ def ui_for(lang: str) -> dict:
     return SITE_UI.get(lang, SITE_UI.get(lang.split("-")[0], SITE_UI["en"]))
 
 
-def game_nav(base: Game, lang: str, kind: str, has_key: dict[str, bool], sheets=(), has_turn=None) -> str:
+def game_nav(base: Game, lang: str, kind: str, has_key: dict[str, bool], sheets=(), has_turn=None,
+             wished: int = 0) -> str:
     """Links above a game page, in the page's language: all games · rules / key rules · languages."""
     esc = html.escape
     ui = ui_for(lang)
@@ -83,6 +85,8 @@ def game_nav(base: Game, lang: str, kind: str, has_key: dict[str, bool], sheets=
     for href, title in sheets:                   # score sheets: pages to print
         label = ui["sheet"] if len(sheets) == 1 else title
         parts.append(f'<a href="{href}" title="{esc(title)}">{esc(label)} ⎙</a>')
+    if wished:                                  # extensions of this game on the wishlist
+        parts.append(f'<a href="../wishlist.html#for-{esc(base.slug)}">♡ {esc(wish_ui(lang)["wanted"])} ({wished})</a>')
     if len(base.languages) > 1:
         langs = []
         for l in base.languages:
@@ -94,7 +98,7 @@ def game_nav(base: Game, lang: str, kind: str, has_key: dict[str, bool], sheets=
     return "".join(parts)
 
 
-def write_game(vault: Vault, path: Path, out: Path) -> dict:
+def write_game(vault: Vault, path: Path, out: Path, wished: dict | None = None) -> dict:
     """Write every page of one game; return what the index needs to know about it."""
     base = vault.load(path)
     folder = out / base.slug
@@ -115,19 +119,19 @@ def write_game(vault: Vault, path: Path, out: Path) -> dict:
     for lang, g in versions.items():
         r = HtmlRenderer(g, filtered[lang], ctx, interactive=True)
         r.game_href = "../{}/index.html"
-        nav = game_nav(base, lang, "index", has_key, sheets, has_turn)
+        nav = game_nav(base, lang, "index", has_key, sheets, has_turn, (wished or {}).get(base.slug, 0))
         (folder / page_name("index", lang, base.default_language)).write_text(r.page(nav=nav), encoding="utf-8")
         if keys[lang]:
             r = HtmlRenderer(g, keys[lang], ctx, key_only=True, interactive=True)
             r.game_href = "../{}/index.html"
-            nav = game_nav(base, lang, "key", has_key, sheets, has_turn)
+            nav = game_nav(base, lang, "key", has_key, sheets, has_turn, (wished or {}).get(base.slug, 0))
             (folder / page_name("key", lang, base.default_language)).write_text(
                 r.page(f" — {r.t['key']}", nav=nav), encoding="utf-8")
         if turns[lang]:
             r = HtmlRenderer(g, turns[lang], ctx, interactive=True)
             r.game_href = "../{}/index.html"
             r.sel_label, r.paper = r.t["turn"], "a5"
-            nav = game_nav(base, lang, "turn", has_key, sheets, has_turn)
+            nav = game_nav(base, lang, "turn", has_key, sheets, has_turn, (wished or {}).get(base.slug, 0))
             (folder / page_name("turn", lang, base.default_language)).write_text(
                 r.page(f" — {r.t['turn']}", nav=nav), encoding="utf-8")
     cover = ""
@@ -140,7 +144,7 @@ def write_game(vault: Vault, path: Path, out: Path) -> dict:
             "errors": sum(i.level == "error" for i in base.issues)}
 
 
-def index_page(vault: Vault, entries: list[dict], ui: dict, lang: str) -> str:
+def index_page(vault: Vault, entries: list[dict], ui: dict, lang: str, wishes: int = 0) -> str:
     esc = html.escape
     name = str(vault.config.get("name") or vault.root.name)
     finite = [hi for e in entries for _, hi in (players_range(e["game"], everything=True) or []) if hi != math.inf]
@@ -210,6 +214,7 @@ def index_page(vault: Vault, entries: list[dict], ui: dict, lang: str) -> str:
 <div class="vault">
 <header class="vault-head">
   <h1>{esc(name)}</h1>
+  {f'<a class="wishlist-link" href="wishlist.html">♡ {esc(wish_ui(lang)["link"].format(wishes))}</a>' if wishes else ""}
   <p class="count" id="count">{esc(ui["count"].format(len(entries), len(entries)))}</p>
 </header>
 <form class="filters" id="filters" role="search" onsubmit="return false">
@@ -237,6 +242,7 @@ body{min-height:100vh}
   border-bottom:2px solid var(--ink);padding-bottom:1.2rem}
 .vault-head h1{font:600 clamp(2.2rem,5vw,3.2rem)/1.05 var(--serif);margin:0;letter-spacing:-.015em}
 .vault-head .count{margin:0;color:var(--muted);font:.95rem var(--sans)}
+.vault-head .wishlist-link{font:.95rem var(--sans);color:var(--term);text-decoration:none;margin-left:auto}
 .filters{display:flex;flex-wrap:wrap;gap:.7rem 1.2rem;align-items:center;margin:1.4rem 0 1.8rem;font:.95rem var(--sans)}
 .filters input[type=search]{flex:1 1 16rem;min-width:0;font:inherit;padding:.55rem .8rem;border:1px solid var(--rule);
   border-radius:8px;background:var(--card);color:var(--ink)}
@@ -327,10 +333,18 @@ def cmd_site(args) -> int:
     prepare(out)
     lang = vault.language
     ui = ui_for(lang)
-    entries = [write_game(vault, p, out) for p in paths]
-    (out / "index.html").write_text(index_page(vault, entries, ui, lang), encoding="utf-8")
+    wishes, _ = load_wishes(vault)
+    wished = {}                                       # game slug -> how many of its extensions are wished for
+    for w in wishes:
+        if w.get("for"):
+            wished[str(w["for"])] = wished.get(str(w["for"]), 0) + 1
+    entries = [write_game(vault, p, out, wished) for p in paths]
+    (out / "index.html").write_text(index_page(vault, entries, ui, lang, len(wishes)), encoding="utf-8")
+    if wishes:
+        (out / "wishlist.html").write_text(wishlist_page(vault, wishes, lang, HTML_CSS + INDEX_CSS), encoding="utf-8")
     pages = sum(len(e["game"].languages) + sum(e["has_key"].values()) + sum(e["has_turn"].values()) + e["sheets"]
                 for e in entries)
+    pages += 1 if wishes else 0
     print(f"wrote {out} ({len(entries)} games, {pages + 1} pages) — open {out / 'index.html'}")
     broken = [e["game"].slug for e in entries if e["errors"]]
     if broken:

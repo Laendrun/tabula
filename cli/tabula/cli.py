@@ -28,6 +28,7 @@ from .site import cmd_site
 from .todo import cmd_todo
 from .fmt import cmd_fmt
 from .sheet import cmd_sheet
+from .wishlist import cmd_wish
 from .new import cmd_new
 from .book import cmd_book
 
@@ -165,6 +166,19 @@ def main(argv=None) -> int:
     p.add_argument("--stdin", action="store_true", help="read the .sheet given from standard input (for editors)")
     p.add_argument("--vault", default=argparse.SUPPRESS)
     p.set_defaults(func=cmd_sheet)
+
+    p = sub.add_parser("wish", help="the wishlist (wishlist.yaml): games and extensions you'd like")
+    p.add_argument("action", nargs="?", choices=["list", "add", "remove"], default="list")
+    p.add_argument("name", nargs="?", help="the game or extension (for add and remove)")
+    p.add_argument("--for", dest="for_game", metavar="GAME", help="an extension of this game (or: only its wishes)")
+    p.add_argument("--priority", type=int, help="1 for the most wanted")
+    p.add_argument("--price", help="e.g. '35 CHF'")
+    p.add_argument("--link", help="where to buy it")
+    p.add_argument("--note")
+    p.add_argument("--json", action="store_true")
+    p.add_argument("--no-color", action="store_true")
+    p.add_argument("--vault", default=argparse.SUPPRESS)
+    p.set_defaults(func=cmd_wish)
 
     p = sub.add_parser("fmt", help="tidy game files (blank lines, tables, spaces) without changing what they say")
     p.add_argument("games", nargs="*", help="games to format, with their translations (default: every file in the vault)")

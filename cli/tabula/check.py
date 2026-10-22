@@ -23,6 +23,7 @@ from .spell import SpellError, check_spelling
 from .values import value_problems
 from .options import option_problems, players_range
 from .sheet import check_sheet, load_sheet, sheets_of
+from .wishlist import check_wishes
 from .symbols import SYMBOL_RE, merged_symbols, symbol_problems
 
 STRUCTURAL_KEYS = ("players", "best_players", "duration", "age", "year", "cover")
@@ -399,10 +400,11 @@ def cmd_check(args) -> int:
     tt = ts = 0
 
     if not args.games:
-        for i in vault.issues:
+        vault_issues = list(vault.issues) + list(check_wishes(vault))      # vault.yaml, wishlist.yaml
+        for i in vault_issues:
             show(i, "")
-        te += sum(i.level == "error" for i in vault.issues)
-        tw += sum(i.level == "warning" for i in vault.issues)
+        te += sum(i.level == "error" for i in vault_issues)
+        tw += sum(i.level == "warning" for i in vault_issues)
     for p in paths:
         game, iss = check_all_languages(vault, p, args.definitions, args.spell)
         todos = [i for i in iss if i.level == "todo"]
@@ -520,7 +522,7 @@ def check_sheets(vault: Vault, paths: list[Path], args) -> int:
 
 def check_json(vault: Vault, paths: list[Path], args) -> int:
     """check --json: every issue with an absolute path, for editors and scripts."""
-    found = list(vault.issues) if not args.games else []
+    found = list(vault.issues) + list(check_wishes(vault)) if not args.games else []
     files = []
     for p in paths:
         game, iss = check_all_languages(vault, p, args.definitions, args.spell)

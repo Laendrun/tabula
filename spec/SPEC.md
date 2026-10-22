@@ -26,6 +26,7 @@ A plain-text format for board, card, dice, dexterity, outdoor and homemade games
 ```
 my-games/                       ← the vault
 ├── vault.yaml                  ← optional settings
+├── wishlist.yaml               ← games and extensions you'd like (optional, see 12)
 ├── _shared/                    ← shared fragments, included by games (see 10)
 │   ├── deck-52.game
 │   └── deck-52.fr.game
@@ -119,8 +120,8 @@ Série
 | `source` | text | `Rulebook 2nd ed.` | where the rules come from |
 | `require_definitions` | true/false | `true` | `tabula check`: every component needs a glossary definition (see 5) |
 | `unused_definitions` | true/false | `false` | `tabula check`: warn about definitions nothing refers to (default `true`, see 5) |
-| `spelling` | true/false | `false` | `tabula check`: check spelling in this game (`false` turns it off even with `--spell`, see 13) |
-| `words` | list | `[Whitby, Lüthi]` | words the spell check should accept in this game (see 13) |
+| `spelling` | true/false | `false` | `tabula check`: check spelling in this game (`false` turns it off even with `--spell`, see 14) |
+| `words` | list | `[Whitby, Lüthi]` | words the spell check should accept in this game (see 14) |
 | `symbols` | map name → text or image | `{key: media/key.png}` | symbols written `:key:` in the text (see 4) |
 | `values` | map name → value | `{main: {2p: 7, "*": 5}}` | values written `{=main}` in the text (see 8.6) |
 
@@ -609,7 +610,27 @@ rounds: 10            # how many times a {r} row is repeated (default 10)
 - Other frontmatter keys: `margin` (mm, default 10), `font_size` (points, default 11), `language`.
 - `tabula sheet GAME` writes the game's sheets as HTML pages the size of the paper, to print or save as PDF; `tabula site` links them from the game's page. `tabula check` checks them (size, orientation, merges, rows of different lengths, misspelt symbols), and `tabula fmt` aligns their tables.
 
-## 12. Ideas for later (not part of v0.9)
+## 12. Wishlist
+
+Games and extensions you'd like go in `wishlist.yaml`, at the root of the vault:
+
+```yaml
+- name: Cascadia
+  priority: 1                 # 1 = most wanted
+  price: 35 CHF
+  link: https://…             # where to buy it
+- name: Pandora's Box
+  for: frantic                # an extension of a game in the vault (its slug)
+  priority: 2
+  note: the purple box
+- name: Jeu de tarot          # only a name is fine too (or just "- Jeu de tarot")
+```
+
+- `tabula wish` lists it, by priority, games first, then extensions with their game. `tabula wish add "Name" --for frantic --priority 1 --price "15 CHF" --link …` adds a wish at the end of the file, and `tabula wish remove "Name"` takes one out (when it has arrived), leaving the rest of the file and its comments as they are. `--for GAME` also shows only a game's wishes, and `--json` prints them.
+- `tabula site` writes a wishlist page, linked from the index ("Souhaits"), and the page of a game links to the extensions wished for it.
+- `tabula check` checks the file: a name for each wish, `for:` naming a game of the vault, a whole-number priority, links starting with `https://`, and misspelt keys.
+
+## 13. Ideas for later (not part of v0.9)
 
 These came up while designing. They'll be added once real games need them.
 
@@ -620,13 +641,13 @@ These came up while designing. They'll be added once real games need them.
 - **Player-count expressions:** text computed from the player count, like "deal {= 2 * n} cards" (values, 8.6, cover the common case).
 - **Teaching:** marking sections as `{teach}` to produce a 2-minute teaching version.
 - **FAQ, errata and house rules:** sections that are always shown but marked as such, perhaps `{house}`.
-- **Collection data:** wishlist or owned, lent to, missing pieces (a checklist built from the component list).
+- **Collection data:** owned, lent to, missing pieces (a checklist built from the component list).
 - **Play log:** date, players, scores, winner, used for statistics and "what haven't we played lately?".
 - **Links between games:** `[[game:catan]]`, linking an expansion to its base game.
 
 ---
 
-## 13. CLI (informative)
+## 14. CLI (informative)
 
 The reference CLI is `tabula`. Point it at a vault with `--vault PATH`, or set `$TABULA_VAULT`, or run it from inside the vault.
 
@@ -641,6 +662,7 @@ The reference CLI is `tabula`. Point it at a vault with `--vault PATH`, or set `
 | `tabula book [GAME…] [-p N] [-e …] [-v …] [-k] [-l CODE] [-t TITLE] [-o FILE]` | write games as an EPUB 3 book (default: the whole vault, in `<vault-name>.epub`): a title page and a chapter per game (cover, facts, rules, glossary, card catalogs), with a table of contents of the games and their sections. Without `-e`/`-v` everything is included and marked; with them, only those extensions and variants. `-p` leaves out the games that aren't for that many players. `-k`: only the key rules. Images from the web can't be shown in a book, so their caption stays; links to games that aren't in the book become plain text. |
 | `tabula new SLUG [-t TITLE] [-p N] [-l CODE]` / `tabula new bgg ID [SLUG]` | start a game file: `<slug>/<slug>.game` with the frontmatter and the usual sections (with roles, headings in the game's language, a TODO in each). `new bgg ID` fills the frontmatter from BoardGameGeek (title, players, duration, age, year, designers, artists, publisher, box image saved as `media/cover.*`, found without a `cover:` line); `new bgg NAME` lists matching games and their IDs. Needs a BoardGameGeek token in `BGG_TOKEN`. Never replaces an existing game without `--force`. |
 | `tabula sheet GAME [NAME] [N] [-p N] [--list] [-o FILE]` | write the game's score sheets (`.sheet`, see 11) as HTML pages the size of the paper, to print or save as PDF: one player column per player (`-p N` or a number, within the game's player count; by default its largest). `NAME` picks one sheet; `--list` lists them; the target can also be a `.sheet` file (`--stdin` for editors) |
+| `tabula wish [add\|remove NAME] [--for GAME] [--priority N] [--price …] [--link …] [--note …] [--json]` | the wishlist (`wishlist.yaml`, see 12): list it, add a wish, or remove one |
 | `tabula fmt [GAME…] [--check] [--stdin]` | tidy files without changing what they say: one blank line around headings and `---`, no runs of blank lines, aligned table columns (in the table's own `|---|` or `| --- |` style), no trailing spaces, one newline at the end. The frontmatter, code blocks and comments are left as they are, and so are Windows line endings. Every result is parsed again and compared with the original; a file that would read differently is left as it is and reported. Without GAME, every file in the vault (fragments too); with GAME, that game and its translations. `--check`: only list the files that would change (exit 1 if any). `--stdin`: format the one file given from standard input, to standard output (used by editors) |
 | `tabula todo [GAME…] [--json]` | list the `<!-- TODO: … -->` and `FIXME` reminders, with file and line, translations included. |
 | `tabula check [GAME…] [--strict] [-d] [-s]` | find mistakes: frontmatter, references that match nothing, invalid or never-applying conditions, undeclared variants, missing images, duplicate terms, leftover v0.3 syntax, translation problems. Also checks the shared fragments in `_shared/`, warns about definitions nothing refers to, and counts TODO reminders (they never fail `--strict`). `-d`/`--definitions`: every component must also have a glossary definition. `-s`/`--spell`: also check spelling (see below). `--json`: the issues as JSON, with absolute paths. `--stdin`: check unsaved text for the one file given (used by editors) |
@@ -655,7 +677,7 @@ Planned: PDF export, `cheatsheet`, `server`.
 
 ---
 
-## 14. Cheat sheet
+## 15. Cheat sheet
 
 ```
 ---  frontmatter (YAML)  ---          title, players, variants, language…
