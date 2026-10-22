@@ -171,6 +171,8 @@ hr.end{border:0;border-top:1px solid var(--rule);width:4rem;margin:1.6rem auto}
 .card.wide{column-span:all}
 table.catalog{width:100%}
 table.catalog td:first-child{font-weight:700}
+table.catalog tr.group td{border-top:1px solid var(--rule)}
+table.catalog .sigma{color:var(--muted);font-weight:400}
 .card-img{float:right;width:34%;max-width:9.5rem;max-height:13rem;object-fit:contain;margin:0 0 .5rem .8rem;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,.25)}
 .card.has-img::after{content:"";display:block;clear:both}
 table.catalog img.thumb{height:2.2em;width:auto;max-width:3em;object-fit:contain;vertical-align:middle;margin-right:.45em;border-radius:3px}
@@ -619,7 +621,7 @@ class HtmlRenderer:
 
     def total(self, d: Block, key: str, html_value: str) -> str:
         """A field filled in from the cards a group lists: added up again by the page for the chosen options."""
-        if not (self.interactive and key in d.totals):
+        if not (self.interactive and d.totals.get(key)):
             return html_value
         data = self.esc(json.dumps(d.totals[key], separators=(",", ":")))
         return f"<i class=\"total\" data-counts='{data}'>{html_value}</i>"
@@ -787,15 +789,18 @@ class HtmlRenderer:
                     pic = card_image(r["def"])
                     thumb = (f'<img class="thumb" src="{self.esc(self.data_uri(pic))}" alt="">'
                              if pic else "")
-                    cells.append(f'<td>{thumb}<a class="ref" href="#{a}">{self.esc(v)}</a></td>' if a
-                                 else f"<td>{thumb}{self.esc(v)}</td>")
+                    sigma = ' <span class="sigma" title="Σ">Σ</span>' if r["kind"] == "group" else ""
+                    pad = f' style="padding-left:{0.5 + 1.2 * r["depth"]:g}em"' if r["depth"] else ""
+                    cells.append(f'<td{pad}>{thumb}<a class="ref" href="#{a}">{self.esc(v)}</a>{sigma}</td>' if a
+                                 else f"<td{pad}>{thumb}{self.esc(v)}{sigma}</td>")
                 elif c == "ext":
                     badge = (self.label_badges(v) if self.ctx.everything
                              else f'<span class="badge ext">{self.esc(v)}</span>') if v else ""
                     cells.append(f"<td>{badge}</td>")
                 else:
                     cells.append(f"<td>{self.total(r['def'], c, self.inline(v))}</td>")
-            body.append(f"<tr{self.dc(r['def'].cond)}>" + "".join(cells) + "</tr>")
+            cls = ' class="group"' if r["kind"] == "group" else ""
+            body.append(f"<tr{cls}{self.dc(r['def'].cond)}>" + "".join(cells) + "</tr>")
         return f'<table class="catalog"><thead><tr>{head}</tr></thead><tbody>{"".join(body)}</tbody></table>'
 
     def table(self, b: Block) -> str:

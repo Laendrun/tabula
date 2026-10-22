@@ -7,7 +7,8 @@ import re
 import shutil
 import sys
 
-from .syntax import Ctx, fold
+from .syntax import Ctx, fold, norm
+from .totals import is_group, members
 from .blocks import Block, components_of
 from .filtering import filter_blocks
 from .vault import open_vault
@@ -59,19 +60,56 @@ def card_rows(catalog: list[dict], blocks: list[Block], ctx: Ctx):
         count = counts.get(fold(d.term), d.fields.get("count", ""))
         ext = " ".join("+" + v for v in (d.cond.variants if d.cond else []))
         rows.append({"card": d.term, "count": count, "ext": ext, "group": c["group"], "def": d,
+                     "kind": "group" if is_group(d) else "card", "depth": 0,
                      **{k: d.fields.get(k, "") for k in keys}})
+    rows = nest_groups(rows)
     cols = ["card"] + (["count"] if any(r["count"] for r in rows) else []) + keys + (["ext"] if show_ext else [])
     return cols, rows
 
 
+def nest_groups(rows: list[dict]) -> list[dict]:
+    """Each group (a definition that adds up the cards it lists, see totals.py) followed by those cards of the
+    same sub-section, one level deeper (`depth`); a card in several groups goes under the first one."""
+    if not any(r["kind"] == "group" for r in rows):
+        return rows
+    by_key = {(r["group"], norm(r["card"])): r for r in rows}
+    claimed = set()
+    for r in rows:                                # cards claimed by a group (they leave their own place)
+        if r["kind"] == "group":
+            for _, t in members(r["def"]):
+                m = by_key.get((r["group"], t))
+                if m is not None and m is not r and id(m) not in claimed:
+                    claimed.add(id(m))
+                    r.setdefault("cards", []).append(m)
+    out, placed = [], set()
+
+    def place(r, depth):
+        if id(r) in placed:
+            return
+        placed.add(id(r))
+        out.append({**r, "depth": depth})
+        for m in r.get("cards", []):
+            place(m, depth + 1)
+    for r in rows:
+        if id(r) not in claimed:
+            place(r, 0)
+    for r in rows:                                # claimed only by groups inside a loop
+        place(r, 0)
+    return out
+
+
 def sort_rows(rows: list[dict], key: str | None) -> list[dict]:
+    """Sorted by a column, cards only (groups come last, in their order)."""
     if not key:
         return rows
+    rows = [{**r, "depth": 0} for r in rows]
+    groups = [r for r in rows if r["kind"] == "group"]
+    rows = [r for r in rows if r["kind"] != "group"]
     def k(r):
         v = plain(str(r.get(key, "")), Ctx(everything=True))
         num = re.match(r"^-?\d+(\.\d+)?", v)
         return (0, float(num.group(0)), "") if num else (1, 0, fold(v))
-    return sorted(rows, key=k)
+    return sorted(rows, key=k) + groups
 
 
 def fit_widths(widths: list[int], total: int, gap: int = 2, least: int = 16) -> list[int]:
@@ -93,6 +131,12 @@ def table_row(cells: list[str], widths: list[int], gap: int = 2) -> list[str]:
         parts = [(w[i] if i < len(w) else "") for w in wrapped]
         lines.append((" " * gap).join(p + " " * (widths[j] - vlen(p)) for j, p in enumerate(parts)).rstrip())
     return lines
+
+
+def card_cell(r: dict, st: Style) -> str:
+    """'Attaque Σ' for a group, its cards indented under it."""
+    name = "  " * r.get("depth", 0) + st.bold(r["card"])
+    return name + (" " + st.dim("Σ") if r["kind"] == "group" else "")
 
 
 def cmd_cards(args) -> int:
@@ -123,8 +167,9 @@ def cmd_cards(args) -> int:
         print(f"tabula: no column '{args.sort}'; columns: {', '.join(cols)}", file=sys.stderr)
         return 2
     if args.json:
-        print(json.dumps([{c: plain(str(r.get(c, "")), ctx) for c in cols} | {"group": r["group"]} for r in rows],
-                         indent=2, ensure_ascii=False))
+        print(json.dumps([{c: plain(str(r.get(c, "")), ctx) for c in cols} | {"group": r["group"], "kind": r["kind"]}
+                          | ({"cards": [m["card"] for m in r.get("cards", [])]} if r["kind"] == "group" else {})
+                          for r in rows], indent=2, ensure_ascii=False))
         return 0
     st = Style(sys.stdout.isatty() and not os.environ.get("NO_COLOR") and not args.no_color)
     term_width = shutil.get_terminal_size((100, 20)).columns
@@ -137,7 +182,7 @@ def cmd_cards(args) -> int:
         groups[g].append(r)
     out = []
     for g in order:
-        table = [cols] + [[render_inline(str(r.get(c, "")), ctx, st) if c != "card" else st.bold(r["card"])
+        table = [cols] + [[render_inline(str(r.get(c, "")), ctx, st) if c != "card" else card_cell(r, st)
                            for c in cols] for r in groups[g]]
         widths = fit_widths([max(vlen(row[j]) for row in table) for j in range(len(cols))], term_width)
         if out:
@@ -147,7 +192,11 @@ def cmd_cards(args) -> int:
         out += [st.dim(line) for line in table_row(table[0], widths)]
         for row in table[1:]:
             out += table_row(row, widths)
-    total = len(rows)
-    out += ["", st.dim(f"{total} card{'s' if total != 1 else ''}" + (" · sorted by " + args.sort if args.sort else ""))]
+    total = sum(1 for r in rows if r["kind"] != "group")
+    n_groups = len(rows) - total
+    out += ["", st.dim(f"{total} card{'s' if total != 1 else ''}"
+                       + (f" · {n_groups} group{'s' if n_groups != 1 else ''} (Σ: the cards under it added up)"
+                          if n_groups else "")
+                       + (" · sorted by " + args.sort if args.sort else ""))]
     print("\n".join(out))
     return 0

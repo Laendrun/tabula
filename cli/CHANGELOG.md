@@ -6,6 +6,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/): Added, Chang
 
 ## Unreleased
 
+## 0.28.0 — 2026-10-22
+
+### Added
+- `tabula cards` and the catalog table list a group's cards under it, indented, and mark the group with Σ; groups aren't counted as cards. `cards --json` adds `kind` (card or group) and a group's `cards`.
+
 ## 0.27.0 — 2026-10-22
 
 ### Added
