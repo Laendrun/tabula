@@ -9,7 +9,7 @@ from pathlib import Path
 from ._version import __version__
 from .syntax import (
     CHOICE_RE, Ctx, ESCAPE_RE, IMAGE_RE, LINK_RE, REF_RE, cond_ok, fold, in_range, open_label,
-    Cond, parse_choice, parse_cond, parse_range, split_lang, via_of,
+    Cond, cond_tokens, json_range, parse_choice, parse_cond, parse_range, split_lang, via_of,
 )
 from .blocks import callout_family, callout_title, card_image, shown_fields, Block, components_of, is_sep_row, player_columns, player_rows
 from .filtering import filter_blocks, section_end, section_names, select_key, select_sections, select_turn
@@ -177,6 +177,7 @@ table.catalog img.thumb{height:2.2em;width:auto;max-width:3em;object-fit:contain
 .fields{display:flex;flex-wrap:wrap;gap:.3rem;list-style:none;margin:-.15rem 0 .6rem;padding:0;font:.78rem/1.2 var(--sans)}
 .fields li{margin:0;padding:.2rem .45rem;border-radius:4px;background:var(--desk);font-weight:700}
 .fields li span{font-weight:400;color:var(--muted)}
+.fields li i.total{font-style:normal}
 .card:target{outline:3px solid var(--term);outline-offset:2px}
 .card .from-ext{color:inherit}
 footer{grid-column:1/-1;border-top:1px solid var(--rule);padding-top:1rem;color:var(--muted);font:.82rem var(--sans)}
@@ -340,22 +341,6 @@ FILTER_JS = r"""
   read();
 })();
 """
-
-
-def json_range(rng) -> list:
-    """[(2, 4), (6, inf)] -> [[2, 4], [6, null]] for the page's script."""
-    return [[lo, None if hi == float("inf") else hi] for lo, hi in rng]
-
-
-def cond_tokens(cond: Cond | None) -> list:
-    """A condition as JSON-ready tokens: ["p", negated, ranges] and ["v", negated, name] ("*" is left out)."""
-    out = []
-    for kind, neg, val in (cond.tokens if cond else []):
-        if kind == "p":
-            out.append(["p", neg, json_range(val)])
-        elif kind == "v":
-            out.append(["v", neg, val])
-    return out
 
 
 CALLOUT_ICONS = {"example": "◆", "warning": "⚠\ufe0e", "tip": "✦", "info": "ℹ\ufe0e", "question": "?", "note": "▪"}
@@ -628,9 +613,16 @@ class HtmlRenderer:
         shown = {k: v for k, v in shown.items() if re.sub(r"<[^>]+>", "", v).strip()}
         if shown:
             chips = '<ul class="fields">' + "".join(
-                f'<li><span>{self.esc(k)}</span> {v}</li>' for k, v in shown.items()) + "</ul>"
+                f'<li><span>{self.esc(k)}</span> {self.total(d, k, v)}</li>' for k, v in shown.items()) + "</ul>"
         return (f'<article class="{cls}" id="{cid}"{self.dc(d.cond)}{self.ln(d)}>{img}<h3>{self.badges(d)}{self.inline(d.term)}</h3>'
                 f'{chips}{self.render(d.children, in_card=True)}</article>')
+
+    def total(self, d: Block, key: str, html_value: str) -> str:
+        """A field filled in from the cards a group lists: added up again by the page for the chosen options."""
+        if not (self.interactive and key in d.totals):
+            return html_value
+        data = self.esc(json.dumps(d.totals[key], separators=(",", ":")))
+        return f"<i class=\"total\" data-counts='{data}'>{html_value}</i>"
 
     def block(self, b: Block, in_card: bool) -> str:
         ext = " from-ext" if (b.via or b.tint) else ""
@@ -802,7 +794,7 @@ class HtmlRenderer:
                              else f'<span class="badge ext">{self.esc(v)}</span>') if v else ""
                     cells.append(f"<td>{badge}</td>")
                 else:
-                    cells.append(f"<td>{self.inline(v)}</td>")
+                    cells.append(f"<td>{self.total(r['def'], c, self.inline(v))}</td>")
             body.append(f"<tr{self.dc(r['def'].cond)}>" + "".join(cells) + "</tr>")
         return f'<table class="catalog"><thead><tr>{head}</tr></thead><tbody>{"".join(body)}</tbody></table>'
 

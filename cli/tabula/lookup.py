@@ -148,10 +148,10 @@ def cmd_lookup(args) -> int:
 
     results = []
     for e in matches:
-        shown = filter_blocks(e.blocks, ctx)
+        shown = filter_blocks(e.blocks, ctx, game.blocks)
         hidden = not shown or not cond_ok(e.cond, ctx)
         if hidden:                                        # not in the current selection: show it anyway, marked
-            shown = filter_blocks(e.blocks, Ctx(players=ctx.players, everything=True))
+            shown = filter_blocks(e.blocks, Ctx(players=ctx.players, everything=True), game.blocks)
         results.append((e, shown, hidden, see_also(e, entries)))
 
     if args.json:

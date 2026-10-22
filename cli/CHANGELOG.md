@@ -6,6 +6,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/): Added, Chang
 
 ## Unreleased
 
+## 0.27.0 — 2026-10-22
+
+### Added
+- Totals: a field left empty in a definition that lists cards (`avec::` above `- [[Attaque 2x]]`, `- {+barking} [[…]]`) is the sum of that field on those cards, for the chosen extensions and player count. It updates on the interactive page, and works in `show`, `lookup`, `cards`, the exports and JSON.
+
+### Changed
+- `tabula check` no longer warns about an empty field that is a total; it says so when nothing listed has that field.
+
 ## 0.26.0 — 2026-10-22
 
 ### Added

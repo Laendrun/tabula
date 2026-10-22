@@ -22,6 +22,7 @@ from .cards import card_catalog
 from .spell import SpellError, check_spelling
 from .values import value_problems
 from .fields import GAME_KEYS
+from .totals import empty_totals, members
 from .options import option_problems, players_range, year_ok
 from .sheet import check_sheet, load_sheet, sheets_of
 from .wishlist import check_wishes
@@ -244,7 +245,12 @@ def check_game(game: Game, vault: Vault, require_defs: bool = False,
                     iss.warn(path, b.line, f"definition of '{b.term}' is empty")
                 for key, val in b.fields.items():
                     if not val:
-                        iss.warn(path, b.field_lines.get(key, b.line), f"field '{key}' of '{b.term}' is empty")
+                        if key in empty_totals(b, game.blocks):
+                            iss.warn(path, b.field_lines.get(key, b.line),
+                                     f"field '{key}' of '{b.term}' is empty" + (
+                                         f", and none of the cards it lists has a '{key}' to add up"
+                                         if members(b) else
+                                         " (an empty field is a total: list the cards to add up, '- [[Card]]')"))
                     elif key == "image":           # a card's picture
                         src = val.strip()
                         if not re.match(r"^[a-z]+://", src) and not (game.base_dir / src).is_file():

@@ -153,6 +153,7 @@ What changed in each version: [cli/CHANGELOG.md](cli/CHANGELOG.md) for `tabula`,
 | `sheet.py` | score sheets: `.sheet` files, their check and `tabula sheet` |
 | `spell.py` | spelling for `check --spell`: dictionaries (downloaded once) and the words to skip |
 | `fields.py` | your own frontmatter keys and extension details, shown as "Label: value"; `year` |
+| `totals.py` | totals: empty fields of a definition filled in from the cards it lists |
 | `cli.py` | the command line (`tabula …`) |
 
 Without installing: `python cli/tabula show hearts`.
