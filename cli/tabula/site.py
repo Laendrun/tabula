@@ -15,6 +15,7 @@ from .syntax import Ctx, fold, in_range, parse_range
 from .vault import Game, Vault, open_vault
 from .wishlist import load_wishes, wish_ui, wishlist_page
 from .options import players_range
+from .fields import year as year_of
 from .sheet import load_sheet, render_sheet, sheets_of
 
 MARKER = ".tabula-site"          # marks a folder made by `tabula site`, so it can be safely replaced
@@ -169,6 +170,8 @@ def index_page(vault: Vault, entries: list[dict], ui: dict, lang: str, wishes: i
             facts.append(f'{str(meta["duration"]).replace("-", "–")} {ui["min"]}')
         if meta.get("age") is not None:
             facts.append(ui["age"].format(str(meta["age"]).rstrip("+")))
+        if year_of(meta):
+            facts.append(year_of(meta))
         d = g.default_language
         # the rules in the vault's language when the game has it, else in the game's own language
         main_lang = lang if lang in g.languages else d

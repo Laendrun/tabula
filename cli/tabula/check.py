@@ -21,15 +21,14 @@ from .terminal import Style, find_section
 from .cards import card_catalog
 from .spell import SpellError, check_spelling
 from .values import value_problems
-from .options import option_problems, players_range
+from .fields import GAME_KEYS
+from .options import option_problems, players_range, year_ok
 from .sheet import check_sheet, load_sheet, sheets_of
 from .wishlist import check_wishes
 from .symbols import SYMBOL_RE, merged_symbols, symbol_problems
 
 STRUCTURAL_KEYS = ("players", "best_players", "duration", "age", "year", "cover")
-FRONTMATTER_KEYS = ("title", "players", "best_players", "duration", "age", "type", "tags", "designer", "artist",
-                    "publisher", "year", "language", "variants", "extensions", "location", "cover", "links",
-                    "source", "require_definitions", "unused_definitions", "spelling", "words", "values", "symbols")
+FRONTMATTER_KEYS = GAME_KEYS
 
 
 def unique(iss: Issues) -> Issues:
@@ -69,6 +68,8 @@ def check_game(game: Game, vault: Vault, require_defs: bool = False,
         iss.warn(path, 1, f"duration should be minutes, e.g. 30 or 30-60 (got '{meta['duration']}')")
     if meta.get("age") is not None and not str(meta["age"]).rstrip("+").isdigit():
         iss.warn(path, 1, f"age should be a number (got '{meta['age']}')")
+    if meta.get("year") is not None and not year_ok(meta["year"]):
+        iss.warn(path, 1, f"year should be the year the game came out, e.g. 2019 (got '{meta['year']}')")
     if meta.get("cover") and not (game.base_dir / str(meta["cover"])).exists():
         iss.error(path, 1, f"cover image not found: {meta['cover']}")
     v = meta.get("variants")
@@ -88,8 +89,8 @@ def check_game(game: Game, vault: Vault, require_defs: bool = False,
     for msg in value_problems(own.get("values")) + symbol_problems(own.get("symbols"), game.base_dir):
         iss.error(path, 1, msg)
 
-    for msg in option_problems(game):
-        iss.error(path, 1, msg)
+    for level, msg in option_problems(game):
+        (iss.error if level == "error" else iss.warn)(path, 1, msg)
 
     game_rng = players_range(game, everything=True)          # extensions may add player counts
     declared = {k.lower() for k in game.options}

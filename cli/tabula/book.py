@@ -252,6 +252,10 @@ def chapter(book: Book, game: Game, ctx: Ctx, key: bool) -> dict | None:
         head.append(f'<p class="facts">{" · ".join(facts)}</p>')
     if credits := r.credits():
         head.append(f'<p class="credits">{" · ".join(credits)}</p>')
+    if details := r.details():
+        head.append(f'<p class="credits">{" · ".join(details)}</p>')
+    if opts := r.options_info():
+        head.append(opts)
     if game.cover and game.cover.is_file() and (src := book.image(game.cover)):
         head.append(f'<img class="cover" src="{src}" alt=""/>')
     return {"file": f"{game.slug}.xhtml", "title": game.title, "lang": game.language,

@@ -5,10 +5,12 @@
         description: "Pandora's Box"
         players: 2-10          # the player counts the game gets with it (added to the base game's)
         duration: 10-50
+        year: 2019             # when it came out
         needs: [troublemaker]  # turned on with it
         excludes: [points]     # can't be used together
 
-The short forms (`extensions: [pandora]`, `pandora: "description"`) still work.
+The short forms (`extensions: [pandora]`, `pandora: "description"`) still work. Other keys are your own:
+they are kept and shown as they are (see fields.py).
 """
 from __future__ import annotations
 
@@ -17,7 +19,7 @@ import sys
 
 from .syntax import Ctx, in_range, parse_range
 
-OPTION_KEYS = ("description", "players", "duration", "needs", "excludes")
+OPTION_KEYS = ("description", "players", "duration", "year", "needs", "excludes")
 
 
 def names(v) -> list[str]:
@@ -105,8 +107,8 @@ def apply_options(game, ctx: Ctx, players: int | None) -> int | None:
     return None
 
 
-def option_problems(game) -> list[str]:
-    """What is wrong in the details of the variants and extensions (for check)."""
+def option_problems(game) -> list[tuple[str, str]]:
+    """What is wrong in the details of the variants and extensions (for check): [(level, message)]."""
     out = []
     declared = {k.lower() for k in game.options}
     for key in ("variants", "extensions"):
@@ -117,20 +119,29 @@ def option_problems(game) -> list[str]:
             if not isinstance(d, dict):
                 continue
             for k in d:
-                if k not in OPTION_KEYS:
-                    close = difflib.get_close_matches(str(k), OPTION_KEYS, n=1, cutoff=0.6)
-                    out.append(f"'{name}': unknown detail '{k}'" + (f" (did you mean '{close[0]}'?)" if close else
-                                                                  f" (use {', '.join(OPTION_KEYS)})"))
+                # your own details are fine, but one close to a known detail is probably a typo
+                close = difflib.get_close_matches(str(k), OPTION_KEYS, n=1, cutoff=0.8)
+                if k not in OPTION_KEYS and close:
+                    out.append(("warning", f"'{name}': '{k}' looks like a typo of '{close[0]}' "
+                                           "(other details are kept as they are)"))
             for k in ("players", "duration"):
                 if d.get(k) is not None and parse_range(d[k]) is None:
-                    out.append(f"'{name}': invalid {k} '{d[k]}' (use N, N-M or N+)")
+                    out.append(("error", f"'{name}': invalid {k} '{d[k]}' (use N, N-M or N+)"))
+            if d.get("year") is not None and not year_ok(d["year"]):
+                out.append(("warning", f"'{name}': year should be a year, e.g. 2019 (got '{d['year']}')"))
             for k in ("needs", "excludes"):
                 for n in names(d.get(k)):
                     if n == str(name).lower():
-                        out.append(f"'{name}' {k} itself")
+                        out.append(("error", f"'{name}' {k} itself"))
                     elif n not in declared:
-                        out.append(f"'{name}' {k} '{n}', which is not declared under variants or extensions")
+                        out.append(("error", f"'{name}' {k} '{n}', which is not declared under variants or "
+                                             "extensions"))
             both = set(names(d.get("needs"))) & set(names(d.get("excludes")))
             if both:
-                out.append(f"'{name}' both needs and excludes {', '.join(sorted(both))}")
+                out.append(("error", f"'{name}' both needs and excludes {', '.join(sorted(both))}"))
     return out
+
+
+def year_ok(v) -> bool:
+    """2019, '2019' or '-500' (a year), not 'soon'."""
+    return not isinstance(v, bool) and str(v).strip().lstrip("-").isdigit()
