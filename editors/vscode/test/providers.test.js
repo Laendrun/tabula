@@ -13,21 +13,24 @@ class Location { constructor(uri, pos) { this.uri = uri; this.range = pos && pos
 class Position { constructor(line, character) { this.line = line; this.character = character; } }
 class WorkspaceEdit {
   constructor() { this.ops = []; }
+  createFile(uri, opts) { this.ops.push({ create: uri, contents: opts.contents }); }
   replace(uri, range, text) { this.ops.push({ uri, range, text }); }
   insert(uri, pos, text) { this.ops.push({ uri, range: { start: pos, end: pos }, text }); }
 }
 class CodeLens { constructor(range, command) { this.range = range; this.command = command; } }
 class DocumentLink { constructor(range, target) { this.range = range; this.target = target; } }
 class InlayHint { constructor(position, label) { this.position = position; this.label = label; } }
+class DocumentDropEdit { constructor(insertText) { this.insertText = insertText; } }
+class DocumentPasteEdit { constructor(insertText, title, kind) { this.insertText = insertText; this.title = title; this.kind = kind; } }
 class Selection { constructor(a, b) { this.anchor = a; this.active = b; } }
 class TextEdit { static replace(range, text) { return { range, text }; } }
 class CodeAction { constructor(title, kind) { this.title = title; this.kind = kind; } }
 const disposable = { dispose() {} };
 const vscode = {
-  Range, CompletionItem, MarkdownString, Hover, Location, Position, WorkspaceEdit, CodeAction, TextEdit, Selection, CodeLens, DocumentLink, InlayHint,
+  Range, CompletionItem, MarkdownString, Hover, Location, Position, WorkspaceEdit, CodeAction, TextEdit, Selection, CodeLens, DocumentLink, InlayHint, DocumentDropEdit, DocumentPasteEdit,
   TextEditorRevealType: { InCenterIfOutsideViewport: 2 },
   CodeActionKind: { QuickFix: "quickfix" },
-  Uri: { file: (f) => ({ fsPath: f, toString: () => "file://" + f }), parse: (u) => ({ toString: () => u }) },
+  Uri: { file: (f) => ({ fsPath: f, scheme: "file", toString: () => "file://" + f }), parse: (u) => u.startsWith("file://") ? ({ fsPath: u.slice(7), scheme: "file", toString: () => u }) : ({ toString: () => u }) },
   CompletionItemKind: { Reference: 17, Constant: 20, Module: 8, Keyword: 13, File: 16 },
   languages: {
     createDiagnosticCollection: () => ({ set() {}, delete() {}, dispose() {} }),
@@ -43,6 +46,8 @@ const vscode = {
     registerCodeLensProvider: (sel, p) => { registered.lenses = p; return disposable; },
     registerDocumentLinkProvider: (sel, p) => { registered.links = p; return disposable; },
     registerInlayHintsProvider: (sel, p) => { registered.hints = p; return disposable; },
+    registerDocumentDropEditProvider: (sel, p) => { registered.drop = p; return disposable; },
+    registerDocumentPasteEditProvider: (sel, p, meta) => { registered.paste = p; registered.pasteMeta = meta; return disposable; },
   },
   window: {
     createOutputChannel: () => ({ appendLine() {}, dispose() {} }),
@@ -304,4 +309,35 @@ test("references, use counts, links, image hover and inline values", () => {
   assert.match(registered.hover.provideHover(d, { line: 19, character: 15 }).contents.value, /Image not found: `media\/none\.png`/);
   const hints = registered.hints.provideInlayHints(d, new Range(0, 0, 30, 0));
   assert.deepEqual(hints.map((x) => [x.position.line, x.label]), [[7, "= 2p 7 · * 5"]]);
+});
+
+test("images pasted or dropped: copied to media/ and referenced", async () => {
+  const root = fs.mkdtempSync(path.join(require("os").tmpdir(), "tabula-img-"));
+  fs.mkdirSync(path.join(root, "g", "media"), { recursive: true });
+  fs.writeFileSync(path.join(root, "g", "media", "here.png"), "x");
+  const outside = path.join(root, "photo.JPG");
+  fs.writeFileSync(outside, "jpg");
+  vscode.workspace.fs = { readFile: async (u) => fs.readFileSync(u.fsPath) };
+  const file = path.join(root, "g", "g.game");
+  const text = "# Rules\n\nText.\n\n# Cards {#cards}\n\nGrande marée\n: force:: 2\n  Wave.\n";
+  const d = doc(text, file);
+  const transfer = (entries) => ({ get: (m) => entries[m] ? { asString: async () => entries[m] } : undefined,
+                                   [Symbol.iterator]: function* () { for (const k in entries) yield [k, entries[k]]; } });
+  // a pasted image on a card: media/cards/<card>.png, and an image:: field
+  const pasted = { "image/png": { asFile: () => ({ name: "image.png", data: async () => new Uint8Array([1, 2]) }) } };
+  const [edit] = await registered.paste.provideDocumentPasteEdits(d, [new Range(8, 2, 8, 2)], transfer(pasted));
+  assert.equal(edit.insertText, "");
+  const create = edit.additionalEdit.ops.find((o) => o.create);
+  assert.equal(path.relative(root, create.create.fsPath).split(path.sep).join("/"), "g/media/cards/grande-maree.png");
+  assert.deepEqual([...create.contents], [1, 2]);
+  assert.equal(edit.additionalEdit.ops.find((o) => o.text).text, "  image:: media/cards/grande-maree.png\n");
+  // a file dropped from outside, in the rules: copied to media/, inline image
+  const drop = await registered.drop.provideDocumentDropEdits(d, { line: 2, character: 0 }, transfer({ "text/uri-list": "file://" + outside }));
+  assert.equal(drop.insertText, "![photo](media/photo.jpg)");
+  assert.equal(String(drop.additionalEdit.ops[0].contents), "jpg");
+  // a file already in the game's folder: referenced, not copied
+  const here = await registered.drop.provideDocumentDropEdits(d, { line: 2, character: 0 }, transfer({ "text/uri-list": "file://" + path.join(root, "g", "media", "here.png") }));
+  assert.equal(here.insertText, "![here](media/here.png)");
+  assert.equal(here.additionalEdit.ops.length, 0);
+  assert.ok(registered.pasteMeta.pasteMimeTypes.includes("image/png"));
 });

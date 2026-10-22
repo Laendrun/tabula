@@ -652,6 +652,87 @@ const inlayHintsProvider = {
   },
 };
 
+// ------------------------------------------------------------------ images pasted or dropped
+
+const MIME_EXT = { "image/png": ".png", "image/jpeg": ".jpg", "image/gif": ".gif", "image/webp": ".webp", "image/svg+xml": ".svg" };
+const IMAGE_FILE = /\.(png|jpe?g|gif|webp|svg)$/i;
+
+/** The image of a paste or drop: { data } (pasted bytes) or { src } (a file), with its extension and name. */
+async function droppedImage(dataTransfer) {
+  const list = dataTransfer.get("text/uri-list");
+  if (list) {
+    for (const line of (await list.asString()).split(/\r?\n/)) {
+      if (!line.trim() || line.startsWith("#")) continue;
+      const uri = vscode.Uri.parse(line.trim());
+      if (uri.scheme === "file" && IMAGE_FILE.test(uri.fsPath)) {
+        return { src: uri, ext: path.extname(uri.fsPath).toLowerCase(), name: path.basename(uri.fsPath, path.extname(uri.fsPath)) };
+      }
+    }
+  }
+  for (const [mime, item] of dataTransfer) {
+    if (!MIME_EXT[mime]) continue;
+    const file = item.asFile && item.asFile();
+    if (!file) continue;
+    return { data: await file.data(), ext: MIME_EXT[mime], name: file.name ? path.basename(file.name, path.extname(file.name)) : "image" };
+  }
+  return null;
+}
+
+/**
+ * What a pasted or dropped image does: copied to media/ (media/cards/ on a card) unless it's already in the
+ * game's folder, then referenced (image:: on a card, ![…](…) elsewhere). Returns { insertText, additionalEdit }.
+ */
+async function imageEdit(doc, line, dataTransfer) {
+  const img = await droppedImage(dataTransfer);
+  if (!img) return null;
+  const dir = path.dirname(doc.uri.fsPath);
+  const text = doc.getText();
+  const probe = core.imagePlacement(text, line, "x");
+  const folder = path.join(dir, "media", probe.kind === "card" ? "cards" : "");
+  const we = new vscode.WorkspaceEdit();
+  let file;
+  if (img.src && !path.relative(dir, img.src.fsPath).startsWith("..")) {
+    file = img.src.fsPath;                                    // already in the game's folder: just refer to it
+  } else {
+    let existing = [];
+    try {
+      existing = fs.readdirSync(folder);
+    } catch { /* the folder is created with the file */ }
+    file = path.join(folder, core.imageFileName(probe.kind === "card" ? probe.term : img.name, img.ext, existing));
+    const contents = img.data || (await vscode.workspace.fs.readFile(img.src));
+    we.createFile(vscode.Uri.file(file), { contents, ignoreIfExists: false });
+  }
+  const rel = path.relative(dir, file).split(path.sep).join("/");
+  const place = core.imagePlacement(text, line, rel, probe.kind === "card" ? "" : img.name);
+  if (place.kind === "inline") return { insertText: place.text, additionalEdit: we };
+  for (const e of place.edits) {
+    if (e.line >= doc.lineCount) we.insert(doc.uri, new vscode.Position(doc.lineCount, 0), e.text);
+    else we.replace(doc.uri, new vscode.Range(e.line, e.start, e.line, e.end), e.text);
+  }
+  return { insertText: "", additionalEdit: we };
+}
+
+const dropProvider = {
+  async provideDocumentDropEdits(doc, pos, dataTransfer) {
+    const r = await imageEdit(doc, pos.line, dataTransfer);
+    if (!r) return undefined;
+    const edit = new vscode.DocumentDropEdit(r.insertText);
+    edit.additionalEdit = r.additionalEdit;
+    return edit;
+  },
+};
+
+const pasteProvider = {
+  async provideDocumentPasteEdits(doc, ranges, dataTransfer) {
+    const r = await imageEdit(doc, ranges[0].start.line, dataTransfer);
+    if (!r) return undefined;
+    const kind = vscode.DocumentDropOrPasteEditKind ? vscode.DocumentDropOrPasteEditKind.Empty.append("tabula", "image") : undefined;
+    const edit = new vscode.DocumentPasteEdit(r.insertText, "Insert the image (Tabula)", kind);
+    edit.additionalEdit = r.additionalEdit;
+    return [edit];
+  },
+};
+
 // ------------------------------------------------------------------ quick fixes and rename
 
 const vaults = new Map();        // document -> the vault folder its last check reported (for words.txt)
@@ -782,6 +863,13 @@ function activate(context) {
     vscode.languages.registerCodeLensProvider(sel, codeLensProvider),
     vscode.languages.registerDocumentLinkProvider(sel, linkProvider),
     vscode.languages.registerInlayHintsProvider(sel, inlayHintsProvider),
+    ...(vscode.languages.registerDocumentDropEditProvider
+      ? [vscode.languages.registerDocumentDropEditProvider(sel, dropProvider)] : []),
+    ...(vscode.languages.registerDocumentPasteEditProvider
+      ? [vscode.languages.registerDocumentPasteEditProvider(sel, pasteProvider, {
+          providedPasteEditKinds: vscode.DocumentDropOrPasteEditKind ? [vscode.DocumentDropOrPasteEditKind.Empty.append("tabula", "image")] : [],
+          pasteMimeTypes: ["image/png", "image/jpeg", "image/gif", "image/webp", "text/uri-list"],
+        })] : []),
     vscode.commands.registerCommand("tabula.addWord", addWord),
     vscode.languages.registerDocumentFormattingEditProvider(sel, formatter),
     vscode.commands.registerCommand("tabula.formatFile", () => vscode.commands.executeCommand("editor.action.formatDocument")),

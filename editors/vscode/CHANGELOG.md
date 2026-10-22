@@ -5,6 +5,14 @@ Newest first. VS Code shows this file in the extension's "Changelog" tab. Add yo
 
 ## Unreleased
 
+## 0.19.0 — 2026-10-22
+
+### Added
+- Paste an image, or drop an image file from the explorer: it's copied to `media/` (`media/cards/<card>.png` on a card) and referenced: `image::` on a card (added or replaced), `![…](…)` elsewhere. An image already in the game's folder is just referenced.
+
+### Changed
+- Needs VS Code 1.97 or newer (for pasting).
+
 ## 0.18.0 — 2026-10-22
 
 ### Added
