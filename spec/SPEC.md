@@ -1,4 +1,4 @@
-# Tabula — specification v0.9 (draft)
+# Tabula — specification v1.0
 
 A plain-text format for board, card, dice, dexterity, outdoor and homemade games. Each game is a single `.game` file: a game description and its rules, written in Markdown with three small additions.
 
@@ -15,7 +15,7 @@ A plain-text format for board, card, dice, dexterity, outdoor and homemade games
    - definitions for the glossary
 3. **Player-count aware.** Any part of the rules can apply only to certain player counts, variants or extensions, so a tool can show "the rules for 2 players with the Supercharge extension" and nothing else.
 4. **One file per game**, with optional translations.
-5. **Grow from real use.** Features get added once real games need them. See section 9 for ideas.
+5. **Grow from real use.** Features get added once real games need them. See section 13 for ideas, and section 16 for what changed between versions.
 
 ---
 
@@ -541,7 +541,7 @@ Suggested roles: `components`, `goal`, `setup`, `play`, `turn`, `scoring`, `end`
 
 Tools use roles to show part of a game. `tabula show frantic -s glossary` shows only the glossary, and `-s components -s setup` shows two sections. Filters still apply. `-s` also accepts a heading's title (`-s "fin de la partie"`), so it works on games without roles too. Later, roles will let tools build cheat sheets, card catalogs and a web view with a table of contents.
 
-#**Turn summary:** give the section that describes a turn the role `turn` (`## À votre tour {#turn}`). `tabula show GAME --turn` then shows a summary to keep at hand during the game: that section (with its sub-sections), then the key rules and key sections found anywhere else. `tabula export GAME --turn --paper a5` makes a page to print, and `tabula site` adds a "Résumé du tour" page to games that have one.
+**Turn summary:** give the section that describes a turn the role `turn` (`## À votre tour {#turn}`). `tabula show GAME --turn` then shows a summary to keep at hand during the game: that section (with its sub-sections), then the key rules and key sections found anywhere else. `tabula export GAME --turn --paper a5` makes a page to print, and `tabula site` adds a "Résumé du tour" page to games that have one.
 
 ## 9.1 Card catalog
 
@@ -678,7 +678,7 @@ Games and extensions you'd like go in `wishlist.yaml`, at the root of the vault:
 - `tabula site` writes a wishlist page, linked from the index ("Souhaits"), and the page of a game links to the extensions wished for it.
 - `tabula check` checks the file: a name for each wish, `for:` naming a game of the vault, `in:` naming another wish, a whole-number priority, links starting with `https://`, and misspelt keys.
 
-## 13. Ideas for later (not part of v0.9)
+## 13. Ideas for later (not part of v1.0)
 
 These came up while designing. They'll be added once real games need them.
 
@@ -756,4 +756,31 @@ extensions: [supercharge]              in frontmatter; then {+supercharge}
 <!-- comment -->                       hidden
 oh-my-socks.de.game                    translation
 oh-my-socks.sheet                      score sheet: | Manche | {player} |, {r} rows, // shaded, < ^ merged
+## À votre tour {#turn}                 turn summary (show/export --turn)
+Carte                                  a card with fields and a picture
+: points:: 3
+  image:: media/cards/carte.png
+Attaque                                a group: the empty field is the sum of the listed cards' fields
+: avec::
+  - [[Attaque 2x]]
+year: 2019 / series: Micro             in frontmatter: the year it came out / your own key, shown as "Series: Micro"
 ```
+
+---
+
+## 16. Versions
+
+The spec has a version of its own; the `tabula` CLI and the VS Code extension have theirs (see their changelogs). From 1.0 on, a new feature that doesn't change what existing files mean is a minor version (1.1, 1.2…); a change that makes an existing file mean something else, or no longer valid, is a major version (2.0), and `tabula check` points out what to change, as it does for v0.3 syntax.
+
+**1.0** (October 2026): the format is considered stable. Added since 0.9:
+
+- symbols `:gold:`, in the frontmatter or `vault.yaml` (4);
+- callouts `> [!type] Title`, grouped in families, with paragraphs and lists inside (4);
+- card pictures `image::` (9.1), and totals: a field left empty in a definition that lists cards is the sum of theirs (9.1);
+- the `#turn` role and the turn summary (9);
+- extension and variant details: `players`, `duration`, `year`, `needs`, `excludes` (8.5);
+- your own frontmatter keys and extension details, shown as "Label: value", and `year` (3.1);
+- score sheets `.sheet` (11) and the wishlist `wishlist.yaml`, with packs (12);
+- JSON Schemas of the frontmatter, `vault.yaml`, `wishlist.yaml` and `.sheet` files (2.2.1).
+
+**0.9**: values `{=name}` (8.6). **0.4**: Markdown headings, `[[references]]` and `{conditions}`, replacing the v0.3 syntax (`=` headings, `@component`, `[p=…]`).
