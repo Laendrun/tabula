@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Oh My Socks! — règles clés</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Literata:opsz,wght@7..72,400;7..72,600;7..72,700&display=swap">
+<style>
+:root{
+  --paper:#fbfcfd; --ink:#1d2433; --muted:#5b6475; --rule:#d8dde5; --card:#ffffff; --desk:#eef1f5;
+  --term:#0f6e74; --ext:#6b3fa0; --ext-bg:#f4effa; --open:#9a5b00; --open-bg:#fff5e3; --key:#1d2433;
+  --serif:"Literata",Georgia,"Iowan Old Style","Palatino Linotype",serif;
+  --sans:"Atkinson Hyperlegible",system-ui,"Segoe UI",Roboto,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root{
+  --paper:#15181e; --ink:#e4e7ec; --muted:#9aa3b2; --rule:#2c323d; --card:#1c2028; --desk:#101318;
+  --term:#5cc4c9; --ext:#c3a1f0; --ext-bg:#241c33; --open:#f0b55a; --open-bg:#2c2214; --key:#f4f5f7;}}
+*{box-sizing:border-box}
+html{background:var(--desk)}
+body{margin:0;color:var(--ink);background:var(--paper);font:17px/1.62 var(--serif);
+  font-feature-settings:"onum","kern";-webkit-text-size-adjust:100%}
+.page{display:grid;grid-template-columns:minmax(0,15rem) minmax(0,46rem);gap:3.5rem;justify-content:center;
+  max-width:70rem;margin:0 auto;padding:3rem 2rem 5rem}
+header.game{grid-column:1/-1;display:grid;grid-template-columns:1fr auto;gap:2rem;align-items:end;
+  padding-bottom:1.6rem;border-bottom:2px solid var(--ink)}
+header.game h1{font:600 clamp(2.4rem,6vw,3.6rem)/1.02 var(--serif);letter-spacing:-.015em;margin:0 0 .9rem}
+.facts{display:flex;flex-wrap:wrap;gap:.45rem;margin:0;padding:0;list-style:none;font:500 .86rem/1 var(--sans)}
+.facts li{border:1px solid var(--rule);border-radius:999px;padding:.38rem .7rem;background:var(--card)}
+.credits{margin:.9rem 0 0;color:var(--muted);font:.88rem/1.5 var(--sans)}
+.credits b{font-weight:600;color:var(--ink)}
+.credits.details{margin-top:.3rem}
+details.options-info{margin:.7rem 0 0;font:.88rem/1.5 var(--sans);color:var(--muted)}
+details.options-info summary{cursor:pointer;color:var(--ink);font-weight:600}
+.options-info ul,ul.options-info{margin:.35rem 0 0;padding-left:1.1rem}
+.options-info b{color:var(--ink);font-weight:600}
+.options-info code{font-size:.8em}
+.options-info .more::before{content:"— "}
+.cover{max-width:11rem;max-height:11rem;border-radius:6px;box-shadow:0 1px 0 var(--rule)}
+.selection{grid-column:1/-1;margin:-1.5rem 0 0;padding:.75rem 0 0;font:.9rem/1.5 var(--sans);color:var(--muted)}
+.selection strong{color:var(--ink);font-weight:600}
+nav.toc{position:sticky;top:2rem;align-self:start;font:.92rem/1.45 var(--sans);max-height:calc(100vh - 4rem);overflow:auto}
+nav.toc h2{font:600 .95rem/1 var(--sans);margin:0 0 .8rem;color:var(--muted)}
+nav.toc ol{list-style:none;margin:0;padding:0}
+nav.toc ol ol{padding-left:.9rem;margin:.2rem 0 .4rem;font-size:.88rem}
+nav.toc li{margin:.28rem 0}
+nav.toc a{color:var(--ink);text-decoration:none;border-left:2px solid transparent;padding-left:.55rem;margin-left:-.6rem;display:block}
+nav.toc a:hover,nav.toc a:focus-visible{border-left-color:var(--term);color:var(--term)}
+main{min-width:0}
+main>*:first-child{margin-top:0}
+h2,h3,h4,h5{font-family:var(--serif);line-height:1.2;scroll-margin-top:1.5rem}
+main h2{font-size:1.75rem;font-weight:600;margin:3rem 0 1rem;padding-top:.6rem;border-top:1px solid var(--rule)}
+main h3{font-size:1.25rem;font-weight:600;margin:2rem 0 .6rem}
+main h4,main h5,main h6{font-size:1.05rem;font-weight:600;margin:1.4rem 0 .4rem}
+p{margin:0 0 .9rem}
+ul,ol{margin:0 0 1rem;padding-left:1.4rem}
+li{margin:.25rem 0}
+li>ul,li>ol{margin:.25rem 0 .2rem}
+ol>li::marker{font:600 .95em var(--sans);color:var(--muted)}
+p.key{font-weight:600;padding:.55rem .8rem;border-left:4px solid var(--key);background:var(--card);margin:1rem 0}
+p.key::before,li.key::before{content:"★ ";color:var(--open)}
+li.key{font-weight:600}
+.key-section{border-left:4px solid var(--key);background:var(--card);padding:.2rem 1rem .4rem;margin:1.4rem 0}
+.key-section>h2:first-child,.key-section>h3:first-child,.key-section>h4:first-child{margin-top:.6rem}
+h2.key::before,h3.key::before,h4.key::before,h5.key::before{content:"★ ";color:var(--open)}
+a.ref.section::before{content:"→ ";color:var(--muted)}
+aside.note{display:flow-root;margin:.8rem 0 1rem;padding:.5rem .9rem;border-left:2px solid var(--rule);color:var(--muted);font-size:.95rem}
+aside.note p{margin:0}
+aside.note p+p,aside.callout p+p{margin-top:.5rem}
+aside.note ul,aside.note ol,aside.callout ul,aside.callout ol{margin:.35rem 0 0;padding-left:1.3rem}
+aside.callout{display:flow-root;margin:1rem 0 1.1rem;padding:.55rem .95rem .65rem;border-left:4px solid var(--c);background:var(--cbg);border-radius:0 6px 6px 0;font-size:.97rem}
+aside.callout p{margin:.15rem 0 0}
+aside.callout p.callout-title{margin:0;font:600 .88rem/1.35 var(--sans);color:var(--c);letter-spacing:.01em}
+aside.callout .icon{font-family:var(--sans)}
+.callout-example{--c:#1f6fb2;--cbg:#eef5fc}.callout-warning{--c:#b42318;--cbg:#fdf0ef}.callout-tip{--c:#2e7d32;--cbg:#eff7ef}
+.callout-info{--c:#3d5a80;--cbg:#f0f3f8}.callout-question{--c:#a0522d;--cbg:#fbf2ec}.callout-note{--c:var(--muted);--cbg:var(--card)}
+@media (prefers-color-scheme:dark){.callout-example{--c:#7cb4f0;--cbg:#16212e}.callout-warning{--c:#f28b82;--cbg:#2e1a19}
+.callout-tip{--c:#81c995;--cbg:#172619}.callout-info{--c:#9fb6d6;--cbg:#1b2230}.callout-question{--c:#e3a27a;--cbg:#2c1f17}}
+a{color:var(--term)}
+a.ref{color:var(--term);text-decoration:underline dotted 1.5px;text-underline-offset:.18em}
+a.ref:hover{text-decoration-style:solid}
+span.ref{border-bottom:1px dotted var(--muted)}
+code{font-size:.9em}
+pre{background:var(--card);border:1px solid var(--rule);padding:.8rem 1rem;overflow:auto;border-radius:4px}
+figure{margin:1.2rem 0}
+figure img{max-width:100%;border-radius:4px}
+img.sym{height:1.15em;width:auto;vertical-align:-.22em;display:inline;margin:0 .05em}
+figcaption{font:.85rem var(--sans);color:var(--muted);margin-top:.35rem}
+table{border-collapse:collapse;margin:.6rem 0 1.2rem;font:.92rem/1.4 var(--sans)}
+th,td{padding:.4rem .8rem .4rem 0;text-align:left;border-bottom:1px solid var(--rule);vertical-align:top}
+th{font-weight:600;border-bottom:2px solid var(--ink)}
+td:not(:first-child),th:not(:first-child){font-variant-numeric:tabular-nums}
+.badge{display:inline-block;font:600 .74rem/1 var(--sans);padding:.22rem .42rem;border-radius:4px;
+  vertical-align:.12em;margin-right:.35rem;white-space:nowrap}
+.badge.open{color:var(--open);background:var(--open-bg);border:1px solid currentColor}
+.badge.ext{color:#fff;background:var(--ext)}
+.badge.opt{color:var(--ext);background:var(--ext-bg);border:1px solid currentColor}
+@media (prefers-color-scheme:dark){.badge.ext{color:#15181e}}
+.from-ext{color:var(--ext)}
+p.from-ext,aside.from-ext,table.from-ext{border-left:3px solid var(--ext);padding-left:.8rem}
+li.from-ext::marker{color:var(--ext)}
+mark.chosen{background:var(--ext-bg);color:var(--ext);padding:0 .15em;border-radius:3px}
+.choice{font-family:var(--sans);font-size:.92em;white-space:nowrap}
+.choice .alt{border:1px solid var(--open);border-radius:4px;padding:0 .3em;margin:0 .1em;color:var(--ink)}
+.choice .alt b{color:var(--open);font-weight:600;margin-right:.25em}
+.choice .alt b.opt{color:var(--ext)}
+/* glossary entries as playing cards */
+nav.site{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:.4rem 1.2rem;margin:-1.5rem 0 -1.5rem;
+  font:.9rem/1.4 var(--sans)}
+nav.site a{color:var(--term);text-decoration:none}
+nav.site a:hover{text-decoration:underline}
+nav.site .here{color:var(--muted)}
+.cards{columns:2 17rem;column-gap:.9rem;margin:1rem 0 1.6rem}
+hr.end{border:0;border-top:1px solid var(--rule);width:4rem;margin:1.6rem auto}
+.card{position:relative;display:inline-block;width:100%;margin:0 0 .9rem;background:var(--card);
+  border:1px solid var(--rule);border-radius:11px;padding:.95rem 1.05rem .9rem;font-size:.93rem;line-height:1.5;
+  break-inside:avoid;scroll-margin-top:1.5rem}
+.card>h3{font:700 1rem/1.25 var(--sans);margin:0 0 .55rem;padding-right:1.6rem}
+.card>h3 .badge{float:right;margin:0 -0.3rem 0 .4rem}
+.card p:last-child,.card ul:last-child,.card ol:last-child,.card>:last-child{margin-bottom:0}
+.card ul,.card ol{padding-left:1.1rem}
+.card h4,.card h5{font:600 .93rem/1.3 var(--sans);margin:.9rem 0 .3rem}
+.card.ext{border-color:color-mix(in srgb,var(--ext) 45%,var(--rule))}
+.card.ext::after{content:"";position:absolute;top:0;right:0;width:1.7rem;height:1.7rem;
+  background:linear-gradient(225deg,var(--ext) 50%,transparent 50%);border-top-right-radius:10px}
+.card.wide{column-span:all}
+table.catalog{width:100%}
+table.catalog td:first-child{font-weight:700}
+table.catalog tr.group td{border-top:1px solid var(--rule)}
+table.catalog .sigma{color:var(--muted);font-weight:400}
+.card-img{float:right;width:34%;max-width:9.5rem;max-height:13rem;object-fit:contain;margin:0 0 .5rem .8rem;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.card.has-img::after{content:"";display:block;clear:both}
+table.catalog img.thumb{height:2.2em;width:auto;max-width:3em;object-fit:contain;vertical-align:middle;margin-right:.45em;border-radius:3px}
+.fields{display:flex;flex-wrap:wrap;gap:.3rem;list-style:none;margin:-.15rem 0 .6rem;padding:0;font:.78rem/1.2 var(--sans)}
+.fields li{margin:0;padding:.2rem .45rem;border-radius:4px;background:var(--desk);font-weight:700}
+.fields li span{font-weight:400;color:var(--muted)}
+.fields li i.total{font-style:normal}
+.card:target{outline:3px solid var(--term);outline-offset:2px}
+.card .from-ext{color:inherit}
+footer{grid-column:1/-1;border-top:1px solid var(--rule);padding-top:1rem;color:var(--muted);font:.82rem var(--sans)}
+:focus-visible{outline:2px solid var(--term);outline-offset:2px}
+@media (max-width:60rem){
+  .page{grid-template-columns:minmax(0,1fr);gap:2rem;padding:1.6rem 1.1rem 4rem}
+  header.game{grid-template-columns:1fr}
+  .cover{max-width:7rem}
+  nav.toc{position:static;max-height:none;border:1px solid var(--rule);border-radius:8px;padding:.9rem 1rem;background:var(--card)}
+  .selection{margin-top:-1rem}
+}
+@media print{
+  html,body{background:#fff;color:#000}
+  :root{--ink:#000;--muted:#444;--rule:#bbb;--card:#fff;--term:#000;--paper:#fff}
+  aside.callout{--cbg:#fff;break-inside:avoid}
+  body{font-size:10.5pt}
+  .page{display:block;padding:0;max-width:none}
+  nav.toc{display:none}
+  a.ref{text-decoration:none;border-bottom:.5pt dotted #777}
+  main h2{break-after:avoid;margin-top:1.6rem}
+  .cards{columns:2;column-gap:6pt}
+  .card{border-color:#999;padding:6pt 8pt}
+  table,figure,p.key{break-inside:avoid}
+}
+@media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
+
+[hidden],.empty{display:none!important}
+.game-filters{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:.6rem 1.2rem;margin:-1.5rem 0 0;
+  padding:.8rem 1rem;border:1px solid var(--rule);border-radius:10px;background:var(--card);font:.92rem/1.4 var(--sans)}
+.game-filters select{font:inherit;padding:.3rem .5rem;border:1px solid var(--rule);border-radius:6px;background:var(--paper);color:var(--ink)}
+.game-filters label{display:inline-flex;align-items:center;gap:.4rem;cursor:pointer}
+.game-filters .opts{display:inline-flex;flex-wrap:wrap;gap:.4rem 1rem}
+.game-filters .opts.off{opacity:.5}
+.choice.picked .alt{border:0;padding:0;background:none}
+</style>
+</head>
+<body>
+<div class="page">
+<nav class="site"><a href="../index.html">← Tous les jeux</a><a href="index.html">Règles</a><span class="here">Règles clés</span></nav>
+<header class="game"><div><h1>Oh My Socks!</h1>
+<ul class="facts"><li>2–5 joueurs</li><li>15 min</li><li>6 ans et +</li></ul>
+<p class="credits"><b>Auteurs</b> Antoine Bauza, Théo Rivière &nbsp; <b>Illustrations</b> Camille Chaussy</p>
+</div></header>
+<form class="game-filters" id="tabula-filters" onsubmit="return false"><label>Joueurs <select id="f-players"><option value="">tous</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></label></form>
+<nav class="toc" aria-label="Sommaire"><h2>Sommaire</h2><ol><li><a href="#deroulement-dune-partie">Déroulement d'une partie</a></li><li><a href="#fin-de-partie">Fin de partie</a></li><li><a href="#decompte-des-point">Décompte des points</a></li></ol></nav>
+<main>
+<section class="sec"><h2 id="deroulement-dune-partie">Déroulement d'une partie</h2><p class="key">Seuls les effets des cartes que vous <strong>gardez</strong> s'appliquent : une carte donnée n'active pas son effet.</p></section>
+<section class="sec"><h2 id="fin-de-partie">Fin de partie</h2><p class="key">La partie prend fin immédiatement quand quelqu'un pioche la <span class="ref" title="1x carte Machine à laver">carte Machine à laver</span>.</p></section>
+<section class="sec"><h2 id="decompte-des-point">Décompte des points</h2><p class="key">Pour chaque <span class="ref" title="Toutes les cartes Chaussettes du même motif.">série</span>, seul un nombre <strong>pair</strong> de chaussettes (2, 4, 6, 8 ou 10) rapporte des points.</p></section>
+</main>
+<footer>Exporté avec tabula 0.29.0 le 2026-10-22.</footer>
+</div>
+<script>
+(function () {
+  var bar = document.getElementById('tabula-filters');
+  if (!bar) return;
+  var sel = document.getElementById('f-players'), all = document.getElementById('f-all');
+  var opts = bar.querySelector('.opts');
+  var boxes = opts ? Array.prototype.slice.call(opts.querySelectorAll('input')) : [];
+  function each(q, f) { Array.prototype.forEach.call(document.querySelectorAll(q), f); }
+  function parse(el, attr) { return JSON.parse(el.getAttribute(attr) || '[]'); }
+  var conds = [], choices = [], counts = [];
+  each('[data-c]:not(.alt)', function (el) { conds.push([el, parse(el, 'data-c')]); });
+  each('[data-choice]', function (ch) {
+    choices.push([ch, Array.prototype.map.call(ch.children, function (a) {
+      return { el: a, star: a.hasAttribute('data-star'), c: parse(a, 'data-c') };
+    })]);
+  });
+  each('[data-counts]', function (el) { counts.push([el, parse(el, 'data-counts')]); });
+  each('ol', function (ol) {
+    var first = Array.prototype.filter.call(ol.children, function (li) { return li.tagName === 'LI'; })[0];
+    ol.setAttribute('data-start', first && first.value ? first.value : 1);
+  });
+  var S = { p: null, all: true, o: {} };
+  function inRange(r, n) { return r.some(function (x) { return n >= x[0] && (x[1] === null || n <= x[1]); }); }
+  // the same rules as `tabula show`: a condition passes unless the chosen player count or options rule it out
+  function ok(c) {
+    for (var i = 0; i < c.length; i++) {
+      var t = c[i];
+      if (t[0] === 'p' && S.p !== null && inRange(t[2], S.p) === t[1]) return false;
+      if (t[0] === 'v' && !S.all && !!S.o[t[2]] === t[1]) return false;
+    }
+    return true;
+  }
+  function undecided(c) {
+    return c.some(function (t) { return (t[0] === 'p' && S.p === null) || (t[0] === 'v' && S.all); });
+  }
+  function visible(el) { return !el.hidden && !el.classList.contains('empty'); }
+  function apply() {
+    conds.forEach(function (e) { e[0].hidden = !ok(e[1]); });
+    choices.forEach(function (e) {
+      var alts = e[1], left = alts.filter(function (a) { return a.star || ok(a.c); });
+      var concrete = left.filter(function (a) { return !a.star; }), show = left, labels = true;
+      if (concrete.length && !undecided(concrete[0].c)) { show = [concrete[0]]; labels = false; }
+      else if (!concrete.length) { show = left.slice(0, 1); labels = false; }
+      e[0].classList.toggle('picked', !labels);
+      alts.forEach(function (a) {
+        a.el.hidden = show.indexOf(a) < 0;
+        var b = a.el.querySelector('b');
+        if (b) b.hidden = !labels;
+      });
+    });
+    counts.forEach(function (e) {
+      var n = 0;
+      e[1].forEach(function (part) { if (ok(part[0])) n += part[1]; });
+      e[0].textContent = n;
+    });
+    each('ol', function (ol) {
+      var n = parseInt(ol.getAttribute('data-start'), 10) || 1;
+      Array.prototype.forEach.call(ol.children, function (li) { if (li.tagName === 'LI' && !li.hidden) li.value = n++; });
+    });
+    // containers left without anything to show disappear, deepest first (like empty sections in `tabula show`)
+    each('.empty', function (el) { el.classList.remove('empty'); });
+    var boxesQ = 'ul, ol, .cards, main table, section.sec';
+    var list = Array.prototype.slice.call(document.querySelectorAll(boxesQ)).reverse();
+    list.forEach(function (el) {
+      var kids = Array.prototype.slice.call(el.tagName === 'TABLE' ? el.querySelectorAll('tbody > tr') : el.children);
+      if (el.tagName === 'SECTION') kids = kids.filter(function (k) { return !/^(H[1-6]|HR)$/.test(k.tagName) && !k.classList.contains('catalog'); });
+      if (kids.length && !kids.some(visible)) el.classList.add('empty');
+    });
+    each('nav.toc a[href^="#"]', function (a) {
+      var target = document.getElementById(a.getAttribute('href').slice(1));
+      a.parentNode.hidden = !!(target && target.closest('[hidden], .empty'));
+    });
+    if (opts) opts.classList.toggle('off', S.all);
+    boxes.forEach(function (b) { b.disabled = S.all; });
+    var h = [];
+    if (S.p !== null) h.push('p=' + S.p);
+    if (!S.all) h.push('o=' + Object.keys(S.o).filter(function (k) { return S.o[k]; }).join(','));
+    var state = h.length ? '#' + h.join('&') : '';
+    if (window.tabulaVscode) {           // in the VS Code preview: keep the choice across refreshes
+      var api = window.tabulaVscode, saved = api.getState() || {};
+      saved.hash = state;
+      api.setState(saved);
+    } else {
+      history.replaceState(null, '', state || location.pathname + location.search);
+    }
+  }
+  function read() {
+    S.p = sel && sel.value ? parseInt(sel.value, 10) : null;
+    S.all = all ? all.checked : true;
+    S.o = {};
+    boxes.forEach(function (b) { S.o[b.value] = b.checked; });
+    apply();
+  }
+  // the choice lives in the address (#p=4&o=pandora,points), so a link opens the same view
+  function fromHash(given) {
+    var hash = given === undefined ? location.hash : given;
+    var m = hash.match(/^#((?:p|o)=[^#]*)$/);
+    if (!m && hash) return false;                     // an anchor (#t-card): keep the current choice
+    if (sel) sel.value = '';
+    if (all) all.checked = true;
+    boxes.forEach(function (b) { b.checked = false; });
+    (m ? m[1].split('&') : []).forEach(function (kv) {
+      var k = kv.split('=')[0], v = decodeURIComponent(kv.slice(k.length + 1));
+      if (k === 'p' && sel) sel.value = v;
+      if (k === 'o') {
+        if (all) all.checked = false;
+        var on = v ? v.split(',') : [];
+        boxes.forEach(function (b) { b.checked = on.indexOf(b.value) >= 0; });
+      }
+    });
+    return true;
+  }
+  bar.addEventListener('change', read);
+  window.addEventListener('hashchange', function () { if (fromHash()) read(); });
+  var saved = window.tabulaVscode && (window.tabulaVscode.getState() || {}).hash;
+  fromHash(saved !== undefined && saved !== null ? saved : undefined);
+  read();
+})();
+</script>
+</body>
+</html>
