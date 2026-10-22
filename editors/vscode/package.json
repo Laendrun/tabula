@@ -2,7 +2,7 @@
   "name": "tabula-syntax",
   "displayName": "Tabula Game Files",
   "description": "Highlighting and live checks for Tabula .game files (board and card game rules).",
-  "version": "0.22.0",
+  "version": "0.23.0",
   "publisher": "Laendrun",
   "license": "MIT",
   "repository": {
@@ -283,6 +283,22 @@
       {
         "view": "tabula.games",
         "contents": "No games found. Open the folder of your vault (the one with vault.yaml), or set tabula.vault."
+      }
+    ],
+    "yamlValidation": [
+      {
+        "fileMatch": [
+          "vault.yaml",
+          "vault.yml"
+        ],
+        "url": "./schemas/vault.schema.json"
+      },
+      {
+        "fileMatch": [
+          "wishlist.yaml",
+          "wishlist.yml"
+        ],
+        "url": "./schemas/wishlist.schema.json"
       }
     ]
   },

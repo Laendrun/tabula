@@ -418,8 +418,35 @@ function symbolMarkdown(s) {
   return `${pic}  \`:${s.name}:\`${s.file && s.text ? ` — ${s.text} in the terminal` : ""}\n\nfrom ${s.from}`;
 }
 
+// the JSON Schemas of spec/schemas (copied into the extension): frontmatter keys and their descriptions
+const SCHEMAS = {};
+for (const name of ["game", "sheet"]) {
+  try {
+    SCHEMAS[name] = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "schemas", `${name}.schema.json`), "utf8"));
+  } catch {
+    SCHEMAS[name] = null;
+  }
+}
+const kindOf = (doc) => (doc.uri.fsPath.endsWith(".sheet") ? "sheet" : "game");
+
+function frontmatterCompletions(doc, pos) {
+  const fm = core.frontmatterContext(doc.getText(), pos.line, pos.character);
+  if (!fm) return null;
+  const range = new vscode.Range(pos.line, fm.start, pos.line, pos.character);
+  return core.schemaKeys(SCHEMAS, kindOf(doc), fm.level).filter((k) => !fm.present.includes(k.key)).map((k) => {
+    const item = new vscode.CompletionItem(k.key, vscode.CompletionItemKind.Property);
+    item.range = range;
+    item.insertText = k.key + ": ";
+    item.detail = fm.level === "option" ? "extension/variant detail" : kindOf(doc) === "sheet" ? "sheet setting" : "frontmatter";
+    item.documentation = new vscode.MarkdownString(k.description);
+    return item;
+  });
+}
+
 const completionProvider = {
   provideCompletionItems(doc, pos) {
+    const fmItems = frontmatterCompletions(doc, pos);
+    if (fmItems) return fmItems;
     const sctx = core.symbolContext(doc.lineAt(pos.line).text, pos.character);
     if (sctx) {
       const list = symbolsFor(doc);
@@ -468,6 +495,11 @@ const completionProvider = {
 
 const hoverProvider = {
   provideHover(doc, pos) {
+    const fk = core.frontmatterKeyAt(doc.getText(), pos.line, pos.character);
+    if (fk) {
+      return new vscode.Hover(new vscode.MarkdownString(core.frontmatterHover(SCHEMAS, kindOf(doc), fk.level, fk.key)),
+        new vscode.Range(pos.line, fk.start, pos.line, fk.end));
+    }
     const inc = core.includeAt(doc.lineAt(pos.line).text, pos.character);
     if (inc) {
       const file = fragmentFile(doc.uri.fsPath, inc.name);

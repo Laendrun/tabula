@@ -8,7 +8,7 @@ dependencies = ["pyyaml>=6"]
 
 [project.optional-dependencies]
 spell = ["spylls>=0.1.7"]                  # tabula check --spell (Hunspell dictionaries)
-test = ["pytest>=7", "epubcheck>=5", "spylls>=0.1.7"]   # epubcheck validates `tabula book` (needs java)
+test = ["pytest>=7", "epubcheck>=5", "spylls>=0.1.7", "jsonschema>=4"]   # epubcheck: `tabula book` (needs java); jsonschema: spec/schemas
 
 [project.scripts]
 tabula = "tabula.cli:main"

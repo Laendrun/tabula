@@ -391,3 +391,26 @@ test("the Tabula panel: games with their status, translations and sheets; the wi
     assert.ok(registered.commands[c], c);
   }
 });
+
+test("frontmatter: completes the spec's keys, and the details of an extension", () => {
+  const text = "---\ntitle: F\npla\nextensions:\n  pandora:\n    description: P\n    ye\n---\n# Rules\n";
+  const items = registered.completion.p.provideCompletionItems(doc(text), { line: 2, character: 3 });
+  const keys = items.map((i) => i.label);
+  assert.ok(keys.includes("players") && keys.includes("year") && !keys.includes("title"));   // title is already there
+  const players = items.find((i) => i.label === "players");
+  assert.equal(players.insertText, "players: ");
+  assert.match(players.documentation.value, /Player counts/);
+  const opt = registered.completion.p.provideCompletionItems(doc(text), { line: 6, character: 6 });
+  assert.deepEqual(opt.map((i) => i.label), ["players", "duration", "year", "needs", "excludes"]);
+  assert.equal(opt[0].detail, "extension/variant detail");
+  const sheet = registered.completion.p.provideCompletionItems(doc("---\nsi\n---\n", "/vault/g/g.sheet"), { line: 1, character: 2 });
+  assert.ok(sheet.map((i) => i.label).includes("orientation"));
+});
+
+test("frontmatter: hover on a key", () => {
+  const text = "---\nyear: 2018\nbought_at: Spiel\nextensions:\n  p:\n    box: blue\n---\n";
+  assert.match(registered.hover.provideHover(doc(text), { line: 1, character: 1 }).contents.value, /^\*\*year\*\* — The year the game came out/);
+  assert.equal(registered.hover.provideHover(doc(text), { line: 2, character: 3 }).contents.value,
+    "**bought_at** — your own key: shown as “Bought at: …” on the game's page and in `tabula show`.");
+  assert.match(registered.hover.provideHover(doc(text), { line: 5, character: 5 }).contents.value, /your own detail/);
+});

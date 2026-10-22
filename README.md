@@ -1,6 +1,6 @@
 # Tabula
 
-Board, card and homemade games as plain Markdown files (`.game`). The rules can be filtered by player count, variant and language. See `spec/SPEC.md` for the format (v0.9).
+Board, card and homemade games as plain Markdown files (`.game`). The rules can be filtered by player count, variant and language. See `spec/SPEC.md` for the format (v0.9), and `spec/schemas/` for JSON Schemas of the frontmatter, `vault.yaml`, `wishlist.yaml` and `.sheet` files.
 
 ## Install
 

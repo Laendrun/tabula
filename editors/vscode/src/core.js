@@ -1053,6 +1053,100 @@ function inlineHints(text, values) {
 
 // ------------------------------------------------------------------ images pasted or dropped
 
+// ------------------------------------------------------------------ frontmatter keys (spec/schemas)
+
+/** The lines of the frontmatter: [first, last] (the lines between the two "---"), or null. */
+function frontmatterRange(lines) {
+  if (!lines.length || lines[0].trim() !== "---") return null;
+  const end = lines.findIndex((l, k) => k > 0 && (l.trim() === "---" || l.trim() === "..."));
+  return end > 0 ? [1, end - 1] : null;
+}
+
+const indentOf = (l) => l.match(/^\s*/)[0].length;
+
+/**
+ * What a frontmatter line is part of: "top" (the file's own keys), "option" (the details of an extension or
+ * a variant: extensions: → name: → here), or null (somewhere else: under values:, a list…).
+ */
+function frontmatterLevel(lines, line, indent) {
+  if (indent === 0) return "top";
+  const parents = [];
+  let want = indent;
+  for (let k = line - 1; k >= 1 && want > 0; k--) {
+    const l = lines[k];
+    if (!l.trim() || l.trim().startsWith("#")) continue;
+    const i = indentOf(l);
+    if (i < want) {
+      parents.unshift(l.trim());
+      want = i;
+    }
+  }
+  if (parents.length === 2 && /^(extensions|variants)\s*:\s*$/.test(parents[0]) && /^[^\s:#-][^:]*:\s*$/.test(parents[1])) return "option";
+  return null;
+}
+
+/** Keys a schema defines at a level: [{ key, description }]. `schemas`: { game, sheet } (the JSON Schemas). */
+function schemaKeys(schemas, kind, level) {
+  const root = kind === "sheet" ? schemas.sheet : schemas.game;
+  if (!root) return [];
+  let props = root.properties || {};
+  if (level === "option") {
+    const opt = ((((root.properties || {}).extensions || {}).oneOf || [])[1] || {}).additionalProperties || {};
+    props = ((opt.oneOf || []).find((o) => o.type === "object") || {}).properties || {};
+  } else if (level !== "top") return [];
+  return Object.entries(props).map(([key, v]) => ({ key, description: v.description || "" }));
+}
+
+/**
+ * Completing a key in the frontmatter: { level, typed, start, present } (present: the keys already written
+ * at that level), or null.
+ */
+function frontmatterContext(text, line, column) {
+  const lines = text.replace(/\r\n?/g, "\n").split("\n");
+  const r = frontmatterRange(lines);
+  if (!r || line < r[0] || line > r[1]) return null;
+  const m = lines[line].slice(0, column).match(/^(\s*)([\w-]*)$/);
+  if (!m) return null;
+  const level = frontmatterLevel(lines, line, m[1].length);
+  if (!level) return null;
+  const present = [];
+  for (let k = r[0]; k <= r[1]; k++) {
+    if (k === line) continue;
+    const km = lines[k].match(/^(\s*)([\w-]+)\s*:/);
+    if (km && km[1].length === m[1].length && frontmatterLevel(lines, k, km[1].length) === level) {
+      // same level and, for an option, the same option (no other key at a smaller indent in between)
+      if (level === "option") {
+        const [a, b] = k < line ? [k, line] : [line, k];
+        if (lines.slice(a + 1, b).some((l) => l.trim() && indentOf(l) < m[1].length)) continue;
+      }
+      present.push(km[2]);
+    }
+  }
+  return { level, typed: m[2], start: m[1].length, present };
+}
+
+/** The frontmatter key under the cursor: { level, key, start, end }, or null. */
+function frontmatterKeyAt(text, line, column) {
+  const lines = text.replace(/\r\n?/g, "\n").split("\n");
+  const r = frontmatterRange(lines);
+  if (!r || line < r[0] || line > r[1]) return null;
+  const m = lines[line].match(/^(\s*)([\w-]+)\s*:/);
+  if (!m || column < m[1].length || column > m[1].length + m[2].length) return null;
+  const level = frontmatterLevel(lines, line, m[1].length);
+  return level ? { level, key: m[2], start: m[1].length, end: m[1].length + m[2].length } : null;
+}
+
+/** The hover of a frontmatter key: what the spec says it does, or that it is your own. */
+function frontmatterHover(schemas, kind, level, key) {
+  const known = schemaKeys(schemas, kind, level).find((k) => k.key === key);
+  if (known) return `**${key}**${known.description ? ` — ${known.description}` : ""}`;
+  const label = key.replace(/_/g, " ");
+  const shown = label === label.toLowerCase() ? label[0].toUpperCase() + label.slice(1) : label;
+  if (kind === "sheet") return `**${key}** — not a sheet setting: tabula ignores it.`;
+  return `**${key}** — your own ${level === "option" ? "detail" : "key"}: shown as “${shown}: …”` +
+    (level === "option" ? " with the extension or variant." : " on the game's page and in `tabula show`.");
+}
+
 /** "Grande marée" -> "grande-maree" (for file names). */
 function slug(text) {
   return text.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase()
@@ -1135,5 +1229,6 @@ module.exports = {
   slug, imagePlacement, imageFileName, playerCounts, wishTree,
   allRefs, occurrences, useCounts, pathLinks, imagePathAt, valueLabel, inlineHints,
   defFields, defMembers, groupTotals, addUp,
+  frontmatterRange, frontmatterLevel, schemaKeys, frontmatterContext, frontmatterKeyAt, frontmatterHover,
   skippedLines, renameTarget, renameEdits, quickFixes, closest, glossaryInsertLine,
 };
