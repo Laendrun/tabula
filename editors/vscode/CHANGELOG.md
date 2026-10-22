@@ -5,6 +5,13 @@ Newest first. VS Code shows this file in the extension's "Changelog" tab. Add yo
 
 ## Unreleased
 
+## 0.22.0 — 2026-10-22
+
+### Added
+- Totals: a field left empty in a group (`avec::` above `- [[Attaque 2x]]`…) shows what it adds up to, as an inline hint (`Σ 7 (base game: 4)`, each card in the tooltip) and in the hover.
+
+Needs tabula 0.27.
+
 ## 0.21.0 — 2026-10-22
 
 ### Added

@@ -260,8 +260,115 @@ function definitionBody(lines, def) {
   return body.map((l) => l.slice(Math.min(indent, l.length))).join("\n").replace(/^\n+|\n+$/g, "");
 }
 
+// ------------------------------------------------------------------ totals (fields of groups)
+
+const FIELD_LINE = /^([^\W\d][\w -]*?)::\s?(.*)$/u;
+
+/** The "key:: value" fields at the top of a definition: [{ key, value, line }] (value "" for a total). */
+function defFields(lines, def) {
+  const out = [];
+  let k = def.line + 1;
+  let first = true;
+  for (; k <= def.end; k++) {
+    const raw = first ? lines[k].replace(/^:\s?/, "") : lines[k];
+    if (!first && !/^\s+\S/.test(raw)) break;
+    const t = raw.trim();
+    const m = t.match(FIELD_LINE);
+    if (!m) {
+      if (out.length && /^\s{3,}\S/.test(raw) && !first) {        // continues the previous value
+        out[out.length - 1].value += " " + t;
+        continue;
+      }
+      break;
+    }
+    out.push({ key: m[1].trim().toLowerCase(), value: m[2].trim(), line: k });
+    first = false;
+  }
+  return out;
+}
+
+/** The cards a definition lists: [{ name, cond }] (the item's condition, as written). */
+function defMembers(lines, def) {
+  const out = [];
+  for (let k = def.line + 1; k <= def.end; k++) {
+    const m = lines[k].replace(/^:/, " ").match(/^\s*[-*+]\s+(?:\{([^{}]*)\}\s*)?.*?(?<!\\)\[\[([^\[\]|#\n]+)/);
+    if (m) out.push({ name: m[2].trim(), cond: (m[1] || "").trim() });
+  }
+  return out;
+}
+
+/** The extensions and variants a condition needs: "+barking 3p" -> ["barking"]. */
+function needed(cond) {
+  return (cond || "").split(/[\s,]+/).filter((t) => /^\+[\w-]+$/.test(t)).map((t) => t.slice(1));
+}
+
+/**
+ * The totals of every group: a definition with empty fields that lists cards. Map(def line -> { key ->
+ * { all, base, parts: [{ name, value, needs }] } }): `all` with every extension, `base` with none.
+ */
+function groupTotals(text) {
+  const lines = text.replace(/\r\n?/g, "\n").split("\n");
+  const o = outline(text);
+  const byName = new Map();
+  for (const d of o.definitions) {
+    if (byName.has(fold(d.term))) continue;
+    const heads = o.headings.filter((h) => h.line < d.line && h.end >= d.line);
+    const conds = [d.cond, ...heads.map((h) => h.attrs)];
+    byName.set(fold(d.term), { def: d, fields: defFields(lines, d), needs: conds.flatMap(needed) });
+  }
+  function parts(entry, key, seen) {
+    const out = [];
+    for (const m of defMembers(lines, entry.def)) {
+      const target = byName.get(fold(m.name));
+      if (!target || seen.has(fold(m.name))) continue;
+      const f = target.fields.find((x) => x.key === key);
+      if (!f) continue;
+      const needs = [...needed(m.cond), ...target.needs];
+      if (f.value === "") {
+        for (const p of parts(target, key, new Set([...seen, fold(m.name)]))) {
+          out.push({ ...p, needs: [...new Set([...needs, ...p.needs])] });
+        }
+      } else out.push({ name: target.def.term, value: f.value, needs: [...new Set(needs)] });
+    }
+    return out;
+  }
+  const result = new Map();
+  for (const entry of byName.values()) {
+    const empty = entry.fields.filter((f) => f.value === "");
+    if (!empty.length || !defMembers(lines, entry.def).length) continue;
+    const totals = {};
+    for (const f of empty) {
+      const ps = parts(entry, f.key, new Set([fold(entry.def.term)]));
+      if (!ps.length) continue;
+      totals[f.key] = { all: addUp(ps.map((p) => p.value)), base: addUp(ps.filter((p) => !p.needs.length).map((p) => p.value)), parts: ps };
+    }
+    result.set(entry.def.line, totals);
+  }
+  return result;
+}
+
+/** Numbers added up (2 + 2.5 -> "4.5"); other values listed once each. */
+function addUp(values) {
+  const nums = values.map((v) => Number(String(v).replace(",", ".").trim()));
+  if (values.length && nums.every((n) => !Number.isNaN(n) && String(values[0]).trim() !== "")) {
+    const s = nums.reduce((a, b) => a + b, 0);
+    return String(Math.round(s * 1e6) / 1e6);
+  }
+  return [...new Set(values)].join(", ");
+}
+
+/** "7 (base game: 4)" for a hover or a hint. */
+function totalLabel(t) {
+  return t.base !== t.all && t.base !== "" ? `${t.all} (base game: ${t.base})` : t.all;
+}
+
+/** The detail of a total, one card per line: "Attaque 2x: 2", "Attaque Personnelle 3x: 1 (+barking)". */
+function totalDetail(t) {
+  return t.parts.map((p) => `${p.name}: ${p.value}${p.needs.length ? ` (+${p.needs.join(" +")})` : ""}`).join("\n");
+}
+
 /** A definition body as Markdown: "key:: value" fields at the top become bold lines, references plain text. */
-function definitionMarkdown(body, imageUrl) {
+function definitionMarkdown(body, imageUrl, totals = {}) {
   const lines = body.split("\n");
   const fields = [];
   let picture = "";
@@ -272,7 +379,8 @@ function definitionMarkdown(body, imageUrl) {
       picture = imageUrl ? `![](${imageUrl(value.trim())}|height=160)` : `*picture: ${value.trim()}*`;
       continue;
     }
-    fields.push(`**${key.trim()}:** ${plainRefs(value.trim())}`);
+    const t = totals[key.trim().toLowerCase()];
+    fields.push(`**${key.trim()}:** ${!value.trim() && t ? `Σ ${totalLabel(t)}` : plainRefs(value.trim())}`);
   }
   const rest = plainRefs(lines.join("\n")).trim();
   return [picture, fields.join("  \n"), rest].filter(Boolean).join("\n\n");
@@ -381,7 +489,8 @@ function hoverText(text, name, imageUrl) {
   const defs = o.definitions.filter((d) => fold(d.term) === key);
   const comps = o.components.filter((c) => fold(c.name) === key);
   if (!defs.length && !comps.length) return null;
-  const parts = defs.map((d) => `**${d.term}**${d.cond ? ` \`{${d.cond}}\`` : ""}\n\n${definitionMarkdown(definitionBody(lines, d), imageUrl)}`);
+  const totals = defs.length ? groupTotals(text) : new Map();
+  const parts = defs.map((d) => `**${d.term}**${d.cond ? ` \`{${d.cond}}\`` : ""}\n\n${definitionMarkdown(definitionBody(lines, d), imageUrl, totals.get(d.line) || {})}`);
   if (comps.length) {
     parts.push(comps.map((c) => "- " + plainRefs(lines[c.line].trim().replace(/^[-*+]\s+/, ""))).join("\n"));
   }
@@ -929,6 +1038,16 @@ function inlineHints(text, values) {
       out.push({ line: k, character: lines[k].length, label: `parts: ${sum} ≠ ${m[2]}`, tooltip: "the indented parts don't add up to this count" });
     }
   }
+  // totals: "avec::" left empty in a group shows what it adds up to
+  const defs = outline(text).definitions;
+  for (const [defLine, totals] of groupTotals(text)) {
+    const d = defs.find((x) => x.line === defLine);
+    for (const f of defFields(lines, d)) {
+      const t = totals[f.key];
+      if (f.value !== "" || !t) continue;
+      out.push({ line: f.line, character: lines[f.line].length, label: `Σ ${totalLabel(t)}`, tooltip: totalDetail(t) });
+    }
+  }
   return out.sort((a, b) => a.line - b.line || a.character - b.character);
 }
 
@@ -1015,5 +1134,6 @@ module.exports = {
   yamlEntries, valuesOf, valueContext, valueAt, symbolParts, symbolsOf, symbolContext, symbolAt,
   slug, imagePlacement, imageFileName, playerCounts, wishTree,
   allRefs, occurrences, useCounts, pathLinks, imagePathAt, valueLabel, inlineHints,
+  defFields, defMembers, groupTotals, addUp,
   skippedLines, renameTarget, renameEdits, quickFixes, closest, glossaryInsertLine,
 };
