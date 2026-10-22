@@ -276,3 +276,28 @@ test("paths, value labels, parts that don't add up", () => {
   const comps = "- 10x [[a]]\n  - 6x [[b]]\n  - 4x [[c]]\n- 5x [[d]]\n  - 2x [[e]]\n  - 2x [[f]]\n    - 1x [[g]]\n";
   assert.deepEqual(core.inlineHints(comps, []).map((h) => [h.line, h.label]), [[3, "parts: 4 ≠ 5"]]);
 });
+
+test("totals of a group: hover and inline hints", () => {
+  const text = [
+    "# Glossaire {#glossary}", "",
+    "Attaque", ": avec::", "  sans::", "  type::", "  Toutes les attaques.",
+    "  - [[Attaque 2x]]", "  - {+barking} [[Perso|personnelle]]", "",
+    "Tout", ": avec::", "  - [[Attaque]]", "  - [[Passe]]", "",
+    "Attaque 2x", ": avec:: 2", "  sans:: 3", "  type:: attaque", "  Texte.", "",
+    "Passe", ": avec:: 4", "  Texte.", "",
+    "## Barking {+barking}", "",
+    "Perso", ": avec:: 1.5", "  type:: perso", "  Texte.", "",
+  ].join("\n");
+  const totals = core.groupTotals(text);
+  assert.equal(totals.get(2).avec.all, "3.5");
+  assert.equal(totals.get(2).avec.base, "2");
+  assert.equal(totals.get(2).sans.all, "3");
+  assert.equal(totals.get(2).type.all, "attaque, perso");
+  assert.equal(totals.get(10).avec.all, "7.5");                       // a group of groups
+  const hints = core.inlineHints(text, []).filter((h) => h.label.startsWith("Σ"));
+  assert.deepEqual(hints.map((h) => [h.line, h.label]),
+    [[3, "Σ 3.5 (base game: 2)"], [4, "Σ 3"], [5, "Σ attaque, perso (base game: attaque)"], [11, "Σ 7.5 (base game: 6)"]]);
+  assert.equal(hints[0].tooltip, "Attaque 2x: 2\nPerso: 1.5 (+barking)");
+  assert.match(core.hoverText(text, "Attaque"), /\*\*avec:\*\* Σ 3\.5 \(base game: 2\)  \n\*\*sans:\*\* Σ 3/);
+  assert.match(core.hoverText(text, "Attaque 2x"), /\*\*avec:\*\* 2/);
+});
