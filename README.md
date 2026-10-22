@@ -129,6 +129,10 @@ Open `site/index.html` in a browser; it works offline. You can also put the fold
 
 `editors/vscode/` is a VS Code extension: highlighting, `tabula check` while you type (squiggles and the Problems panel), a live preview with the filters (Ctrl+K V), quick fixes, rename (F2), formatting (Shift+Alt+F), an outline, and Ctrl+click on `[[references]]`. Install it from the `.vsix` that CI builds (Actions tab → a green run → Artifacts → *vscode-extension*). See [its README](editors/vscode/README.md) for the settings.
 
+## Changelog
+
+What changed in each version: [cli/CHANGELOG.md](cli/CHANGELOG.md) for `tabula`, [editors/vscode/CHANGELOG.md](editors/vscode/CHANGELOG.md) for the VS Code extension. Add your changes under *Unreleased*; when you bump a version, rename that heading (a test checks that the newest entry matches the version).
+
 ## Code layout
 
 `cli/tabula/` is a small Python package. Each module handles one thing:
