@@ -137,3 +137,10 @@ def test_role_typos(tmp_path, capsys):
 def test_english_accepts_british_spellings(tmp_path, dicts, capsys):
     _, out = check(capsys, vault(tmp_path, "# Rules\n\nThe colour of the centre card, the colr.\n"), "--spell")
     assert words(out) == ["colr"]
+
+
+def test_paths_and_pictures_are_skipped(tmp_path, dicts, capsys):
+    body = ("# Rules\n\nDraw media/cards/zorb.png and rulez.pdf.\n\n# Glossary {#glossary}\n\n## Cards {#cards}\n\n"
+            "Card\n: image:: media/cardz/cardd.png\n  Draw a card.\n")
+    _, out = check(capsys, vault(tmp_path, body), "--spell")
+    assert words(out) == []
