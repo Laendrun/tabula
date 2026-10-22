@@ -5,6 +5,20 @@ Newest first. VS Code shows this file in the extension's "Changelog" tab. Add yo
 
 ## Unreleased
 
+## 0.20.0 — 2026-10-22
+
+### Added
+- A Tabula panel in the activity bar:
+  - **Games**: each game with its player count and duration, ✓ or ⚠ from the checks, its translations and score sheets; click to open, buttons for the preview and to print the score sheet (for a chosen player count).
+  - **Wishlist**: the wishes by priority; click to open `wishlist.yaml` at the wish; *Add to the wishlist* asks for the name, the game and the priority.
+  - Buttons to check the vault, write the site (and open it in the browser) and write the book.
+- Setting `tabula.siteFolder`.
+
+### Fixed
+- *Check the whole vault* no longer counts TODOs and unknown words as warnings.
+
+Needs tabula 0.23.
+
 ## 0.19.0 — 2026-10-22
 
 ### Added

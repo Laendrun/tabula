@@ -2,7 +2,7 @@
   "name": "tabula-syntax",
   "displayName": "Tabula Game Files",
   "description": "Highlighting and live checks for Tabula .game files (board and card game rules).",
-  "version": "0.19.0",
+  "version": "0.20.0",
   "publisher": "Laendrun",
   "license": "MIT",
   "repository": {
@@ -65,7 +65,8 @@
       {
         "command": "tabula.checkVault",
         "title": "Check the whole vault",
-        "category": "Tabula"
+        "category": "Tabula",
+        "icon": "$(check-all)"
       },
       {
         "command": "tabula.checkFile",
@@ -87,6 +88,42 @@
         "command": "tabula.formatVault",
         "title": "Format every file in the vault",
         "category": "Tabula"
+      },
+      {
+        "command": "tabula.refreshPanel",
+        "title": "Refresh",
+        "category": "Tabula",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "tabula.buildSite",
+        "title": "Write the site",
+        "category": "Tabula",
+        "icon": "$(globe)"
+      },
+      {
+        "command": "tabula.buildBook",
+        "title": "Write the book (EPUB)",
+        "category": "Tabula",
+        "icon": "$(book)"
+      },
+      {
+        "command": "tabula.printSheet",
+        "title": "Print the score sheet",
+        "category": "Tabula",
+        "icon": "$(table)"
+      },
+      {
+        "command": "tabula.previewGame",
+        "title": "Open preview",
+        "category": "Tabula",
+        "icon": "$(open-preview)"
+      },
+      {
+        "command": "tabula.addWish",
+        "title": "Add to the wishlist",
+        "category": "Tabula",
+        "icon": "$(add)"
       }
     ],
     "configuration": {
@@ -142,6 +179,11 @@
           "type": "boolean",
           "default": false,
           "markdownDescription": "Underline the words the dictionary doesn't know, in the game's language (like `tabula check --spell`; needs tabula 0.12 with `spylls`). Correct words go in `words.txt` in the vault, or `words:` in the frontmatter. Also turned on by `check: {spelling: true}` in `vault.yaml`."
+        },
+        "tabula.siteFolder": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Where *Tabula: Write the site* writes the site (default: a `site` folder in the vault). Relative to the vault."
         }
       }
     },
@@ -152,6 +194,60 @@
           "when": "editorLangId == tabula",
           "group": "navigation"
         }
+      ],
+      "view/title": [
+        {
+          "command": "tabula.checkVault",
+          "when": "view == tabula.games",
+          "group": "navigation@1"
+        },
+        {
+          "command": "tabula.buildSite",
+          "when": "view == tabula.games",
+          "group": "navigation@2"
+        },
+        {
+          "command": "tabula.buildBook",
+          "when": "view == tabula.games",
+          "group": "navigation@3"
+        },
+        {
+          "command": "tabula.refreshPanel",
+          "when": "view == tabula.games",
+          "group": "navigation@4"
+        },
+        {
+          "command": "tabula.addWish",
+          "when": "view == tabula.wishlist",
+          "group": "navigation@1"
+        },
+        {
+          "command": "tabula.refreshPanel",
+          "when": "view == tabula.wishlist",
+          "group": "navigation@2"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "tabula.previewGame",
+          "when": "view == tabula.games && viewItem =~ /^game/",
+          "group": "inline@1"
+        },
+        {
+          "command": "tabula.printSheet",
+          "when": "view == tabula.games && (viewItem == game-with-sheet || viewItem == sheet)",
+          "group": "inline@2"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "tabula.printSheet",
+          "when": "false"
+        },
+        {
+          "command": "tabula.previewGame",
+          "when": "false"
+        }
       ]
     },
     "keybindings": [
@@ -160,6 +256,33 @@
         "key": "ctrl+k v",
         "mac": "cmd+k v",
         "when": "editorLangId == tabula"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "tabula",
+          "title": "Tabula",
+          "icon": "media/tabula.svg"
+        }
+      ]
+    },
+    "views": {
+      "tabula": [
+        {
+          "id": "tabula.games",
+          "name": "Games"
+        },
+        {
+          "id": "tabula.wishlist",
+          "name": "Wishlist"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "tabula.games",
+        "contents": "No games found. Open the folder of your vault (the one with vault.yaml), or set tabula.vault."
       }
     ]
   },

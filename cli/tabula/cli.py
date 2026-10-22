@@ -41,6 +41,7 @@ def main(argv=None) -> int:
     p = sub.add_parser("list", help="list the games in the vault")
     p.add_argument("-p", "--players", type=int, help="only games playable with N players")
     p.add_argument("-l", "--lang", help="titles in this language where available")
+    p.add_argument("--json", action="store_true", help="the games as JSON (paths, translations, score sheets), for editors")
     p.add_argument("--vault", default=argparse.SUPPRESS)
     p.set_defaults(func=cmd_list)
 

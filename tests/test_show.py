@@ -190,3 +190,15 @@ def test_numbered_steps_count_from_the_list_start(tmp_path, capsys):
     tabula.main(["--vault", str(tmp_path), "export", "g", "-p", "3", "-o", "-"])
     html = capsys.readouterr().out
     assert 'value="1">Shuffle.' in html and 'value="4">Fifth.' in html
+
+
+def test_list_json(capsys):
+    from conftest import EXAMPLES
+    tabula.main(["--vault", str(EXAMPLES), "list", "--json"])
+    data = json.loads(capsys.readouterr().out)
+    assert data["name"] == "Family game vault"
+    mh = next(g for g in data["games"] if g["slug"] == "maree-haute")
+    assert mh["title"] == "Marée haute" and mh["players"] == "2-5" and mh["duration"] == "20-30"
+    assert mh["translations"] == {"en": str(EXAMPLES / "maree-haute" / "maree-haute.en.game")}
+    assert mh["sheets"] == [str(EXAMPLES / "maree-haute" / "maree-haute.sheet")]
+    assert mh["cover"].endswith("cover.png")

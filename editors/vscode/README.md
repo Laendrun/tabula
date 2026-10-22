@@ -3,6 +3,10 @@
 Highlighting, live checks and a live preview for Tabula `.game` files.
 
 - **Score sheets** (`.sheet` files) get the same highlighting, checks while you type, formatting and preview: the preview shows the printed page, with one column per player for the game's largest player count.
+- **Tabula panel** (the cards icon in the activity bar):
+  - **Games**: every game with its player count and duration, a ✓ or ⚠ from the checks, and its translations and score sheets under it. Click to open; the buttons beside a game open its preview and print its score sheet (you choose how many players).
+  - **Wishlist**: your wishes, by priority (★). Click one to open `wishlist.yaml` at that wish; **+** adds one (name, a new game or an extension of one you have, priority, price).
+  - At the top: check the vault, write the site (then open it in the browser; setting `tabula.siteFolder`, default `site/` in the vault), write the book (EPUB), refresh.
 - **Live preview.** Click the preview button in the editor's title bar, or press Ctrl+K V (Cmd+K V on a Mac). The game opens beside the editor as `tabula site` renders it, with the player and option filters. It updates as you type (before you save), follows the `.game` file you switch to, and keeps your filter choice and scroll position. It also follows the cursor, scrolling to the part of the rules you're editing; double-click in the preview to jump to that line in the file (tabula 0.22). Links to other games open their file, web links open in your browser.
 - **Checks while you type.** `tabula check` runs on the file you're editing, even before you save. Problems show up as squiggles and in the Problems panel (Ctrl+Shift+M). The squiggle goes on what the message is about, for example the `[[ref]]` that matches nothing. Translations of the same game (`slug.fr.game`) are checked at the same time. `<!-- TODO: … -->` reminders show up as information (blue), not as warnings.
 - **Spelling** (optional): words the dictionary doesn't know are underlined as information, in the game's language. Turn it on with the `tabula.spellCheck` setting, or `check: {spelling: true}` in `vault.yaml`. It needs tabula 0.12 with `spylls` (`pipx inject tabula spylls`). Correct words go in `words.txt` at the root of the vault.
@@ -75,6 +79,7 @@ npm run package
 | `tabula.run` | `onType` | `onType`: check after a short pause in typing. `onSave`: only when saving. |
 | `tabula.delay` | `500` | The pause, in milliseconds (checks and preview). |
 | `tabula.requireDefinitions` | `false` | Same as `tabula check -d`. |
+| `tabula.siteFolder` | `site` in the vault | Where *Write the site* writes it (relative to the vault). |
 | `tabula.spellCheck` | `false` | Same as `tabula check --spell`: underline unknown words. |
 
 If nothing happens, open *View → Output* and pick **Tabula** in the list: it shows the command that was run and its error.

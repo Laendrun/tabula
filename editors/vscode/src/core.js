@@ -972,13 +972,25 @@ function imageFileName(base, ext, existing) {
   return name;
 }
 
+/** "2-5" -> [2, 3, 4, 5]; "3+" -> [3 … 8]; "2,4" -> [2, 4]. */
+function playerCounts(players) {
+  const out = new Set();
+  for (const part of String(players || "").split(",")) {
+    const m = part.trim().match(/^(\d+)(?:-(\d+)|(\+))?$/);
+    if (!m) continue;
+    const lo = +m[1], hi = m[2] ? +m[2] : m[3] ? Math.max(lo, 8) : lo;
+    for (let n = lo; n <= hi; n++) out.add(n);
+  }
+  return [...out].sort((a, b) => a - b);
+}
+
 module.exports = {
   severity, checkArgs, fmtArgs, previewArgs, expand, parseCheckOutput, issueColumns, fold, outline, refAt, findTargets,
   plainRefs, definitionBody, definitionMarkdown, completionContext, completions, hoverText,
   includeAt, includeContext, includeHover,
   fragmentSection, expandIncludes, previewHtml, previewLink,
   yamlEntries, valuesOf, valueContext, valueAt, symbolParts, symbolsOf, symbolContext, symbolAt,
-  slug, imagePlacement, imageFileName,
+  slug, imagePlacement, imageFileName, playerCounts,
   allRefs, occurrences, useCounts, pathLinks, imagePathAt, valueLabel, inlineHints,
   skippedLines, renameTarget, renameEdits, quickFixes, closest, glossaryInsertLine,
 };
