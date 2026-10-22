@@ -22,12 +22,18 @@ class DocumentLink { constructor(range, target) { this.range = range; this.targe
 class InlayHint { constructor(position, label) { this.position = position; this.label = label; } }
 class DocumentDropEdit { constructor(insertText) { this.insertText = insertText; } }
 class DocumentPasteEdit { constructor(insertText, title, kind) { this.insertText = insertText; this.title = title; this.kind = kind; } }
+class TreeItem { constructor(label, state) { this.label = label; this.collapsibleState = state; } }
+class ThemeIcon { constructor(id, color) { this.id = id; this.color = color; } }
+class ThemeColor { constructor(id) { this.id = id; } }
+class EventEmitter { constructor() { this.listeners = []; this.event = (f) => { this.listeners.push(f); return disposable; }; } fire(x) { this.listeners.forEach((f) => f(x)); } }
 class Selection { constructor(a, b) { this.anchor = a; this.active = b; } }
 class TextEdit { static replace(range, text) { return { range, text }; } }
 class CodeAction { constructor(title, kind) { this.title = title; this.kind = kind; } }
 const disposable = { dispose() {} };
 const vscode = {
-  Range, CompletionItem, MarkdownString, Hover, Location, Position, WorkspaceEdit, CodeAction, TextEdit, Selection, CodeLens, DocumentLink, InlayHint, DocumentDropEdit, DocumentPasteEdit,
+  Range, CompletionItem, MarkdownString, Hover, Location, Position, WorkspaceEdit, CodeAction, TextEdit, Selection, CodeLens, DocumentLink, InlayHint, DocumentDropEdit, DocumentPasteEdit, TreeItem, ThemeIcon, ThemeColor, EventEmitter,
+  TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 }, DiagnosticSeverity: { Error: 0, Warning: 1, Information: 2, Hint: 3 },
+  ProgressLocation: { Window: 10, Notification: 15 },
   TextEditorRevealType: { InCenterIfOutsideViewport: 2 },
   CodeActionKind: { QuickFix: "quickfix" },
   Uri: { file: (f) => ({ fsPath: f, scheme: "file", toString: () => "file://" + f }), parse: (u) => u.startsWith("file://") ? ({ fsPath: u.slice(7), scheme: "file", toString: () => u }) : ({ toString: () => u }) },
@@ -46,12 +52,16 @@ const vscode = {
     registerCodeLensProvider: (sel, p) => { registered.lenses = p; return disposable; },
     registerDocumentLinkProvider: (sel, p) => { registered.links = p; return disposable; },
     registerInlayHintsProvider: (sel, p) => { registered.hints = p; return disposable; },
+    getDiagnostics: (uri) => (registered.diags || {})[uri.fsPath] || [],
+    onDidChangeDiagnostics: () => disposable,
     registerDocumentDropEditProvider: (sel, p) => { registered.drop = p; return disposable; },
     registerDocumentPasteEditProvider: (sel, p, meta) => { registered.paste = p; registered.pasteMeta = meta; return disposable; },
   },
   window: {
     createOutputChannel: () => ({ appendLine() {}, dispose() {} }),
     onDidChangeActiveTextEditor: () => disposable,
+    registerTreeDataProvider: (id, p) => { (registered.trees = registered.trees || {})[id] = p; return disposable; },
+    withProgress: (o, f) => f(),
     onDidChangeTextEditorSelection: (f) => { registered.onSelection = f; return disposable; },
     showTextDocument: (doc) => { const ed = { document: doc, revealRange(r) { ed.revealed = r; } }; registered.shown = ed; return Promise.resolve(ed); },
     activeTextEditor: null,
@@ -340,4 +350,38 @@ test("images pasted or dropped: copied to media/ and referenced", async () => {
   assert.equal(here.insertText, "![here](media/here.png)");
   assert.equal(here.additionalEdit.ops.length, 0);
   assert.ok(registered.pasteMeta.pasteMimeTypes.includes("image/png"));
+});
+
+test("the Tabula panel: games with their status, translations and sheets; the wishlist", async () => {
+  const root = fs.mkdtempSync(path.join(require("os").tmpdir(), "tabula-panel-"));
+  const g = path.join(root, "frantic", "frantic.game");
+  const list = { vault: root, name: "Jeux", games: [
+    { slug: "frantic", title: "Frantic", path: g, players: "2-8", players_note: "2-10 +pandora", duration: "5-45",
+      location: "armoire", language: "fr", translations: { en: g.replace(".game", ".en.game") }, sheets: [g.replace(".game", ".sheet")], cover: null },
+    { slug: "solo", title: "Solo", path: path.join(root, "solo.game"), players: "1", players_note: "", duration: null,
+      location: null, language: "fr", translations: {}, sheets: [], cover: null }] };
+  const wish = [{ name: "Pandora", for: "frantic", priority: 1, price: "15 CHF" }, { name: "Cascadia" }];
+  const fake = path.join(root, "fake-list.js");
+  fs.writeFileSync(fake, `const a=process.argv.slice(2);
+    if(a.includes('list')) process.stdout.write(${JSON.stringify(JSON.stringify(list))});
+    else if(a.includes('wish')) process.stdout.write(${JSON.stringify(JSON.stringify(wish))});
+    else if(a.includes('check')) process.stdout.write(JSON.stringify({vault:'', files:[], issues:[]}));
+    else process.exit(3);`);
+  registered.config = { path: process.execPath, extraArgs: [fake] };
+  registered.diags = { [g]: [{ source: "tabula", severity: 1 }] };                 // a warning in frantic.game
+  const games = registered.trees["tabula.games"];
+  const top = await games.getChildren();
+  const items = top.map((x) => games.getTreeItem(x));
+  assert.deepEqual(items.map((i) => [i.label, i.description, i.iconPath.id]),
+    [["Frantic", "2-8 (2-10 +pandora) players · 5-45 min", "warning"], ["Solo", "1 players", "pass"]]);
+  assert.equal(items[0].contextValue, "game-with-sheet");
+  assert.equal(items[0].command.arguments[0].fsPath, g);
+  const kids = (await games.getChildren(top[0])).map((x) => games.getTreeItem(x));
+  assert.deepEqual(kids.map((k) => [k.label, k.iconPath.id]), [["Frantic (en)", "globe"], ["frantic.sheet", "table"]]);
+  const wl = registered.trees["tabula.wishlist"];
+  const w = (await wl.getChildren()).map((x) => wl.getTreeItem(x));
+  assert.deepEqual(w.map((i) => [i.label, i.description, i.iconPath.id]), [["Pandora", "for Frantic · 15 CHF", "star-full"], ["Cascadia", "", "star-empty"]]);
+  for (const c of ["tabula.refreshPanel", "tabula.buildSite", "tabula.buildBook", "tabula.printSheet", "tabula.addWish", "tabula.previewGame"]) {
+    assert.ok(registered.commands[c], c);
+  }
 });

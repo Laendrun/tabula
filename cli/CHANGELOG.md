@@ -6,6 +6,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/): Added, Chang
 
 ## Unreleased
 
+## 0.23.0 — 2026-10-22
+
+### Added
+- `tabula list --json`: the games with their paths, translations, score sheets and cover (used by the VS Code panel).
+
 ## 0.22.0 — 2026-10-22
 
 ### Added

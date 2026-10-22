@@ -134,6 +134,23 @@ def cmd_show(args) -> int:
 
 def cmd_list(args) -> int:
     vault = open_vault(args.vault)
+    if getattr(args, "json", False):
+        from .sheet import sheets_of
+        out = []
+        for p in vault.discover():
+            g = vault.load(p, args.lang)
+            if args.players is not None and not in_range(players_range(g, everything=True) or [], args.players):
+                continue
+            out.append({"slug": g.slug, "title": g.title, "path": str(p), "players": g.meta.get("players"),
+                        "players_note": players_note(g), "duration": g.meta.get("duration"),
+                        "location": g.meta.get("location"), "language": g.default_language,
+                        "translations": {l: str(p.parent / f"{g.slug}.{l}.game") for l in g.languages
+                                         if l != g.default_language},
+                        "sheets": [str(s) for s in sheets_of(p, vault.root)],
+                        "cover": str(g.cover) if g.cover and g.cover.is_file() else None})
+        print(json.dumps({"vault": str(vault.root), "name": str(vault.config.get("name") or vault.root.name),
+                          "games": out}, indent=2, ensure_ascii=False, default=str))
+        return 0
     rows = []
     for p in vault.discover():
         g = vault.load(p, args.lang)

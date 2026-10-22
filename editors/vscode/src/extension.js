@@ -7,6 +7,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const core = require("./core");
+const sidebar = require("./sidebar");
 
 let diagnostics;
 let output;
@@ -29,6 +30,7 @@ function settings(uri) {
     delay: c.get("delay") ?? 500,
     definitions: !!c.get("requireDefinitions"),
     spell: !!c.get("spellCheck"),
+    siteFolder: x(c.get("siteFolder") || ""),
     followCursor: c.get("previewFollowsCursor") !== false,
     cwd: ws || (uri ? path.dirname(uri.fsPath) : os.homedir()),
   };
@@ -166,7 +168,8 @@ function schedule(doc, delay) {
   }, delay));
 }
 
-async function checkVault() {
+async function checkVault(opts = {}) {
+  const quiet = !!(opts && opts.quiet);         // the panel's first look: no message, no Problems panel
   const editor = vscode.window.activeTextEditor;
   const uri = editor && isGame(editor.document) ? editor.document.uri : (vscode.workspace.workspaceFolders || [])[0]?.uri;
   const cfg = settings(uri);
@@ -185,7 +188,8 @@ async function checkVault() {
     vaultUris.add(u.toString());
   }
   const errors = result.issues.filter((i) => i.level === "error").length;
-  const warnings = result.issues.length - errors;
+  const warnings = result.issues.filter((i) => i.level === "warning").length;
+  if (quiet) return;
   vscode.window.showInformationMessage(
     errors || warnings ? `Tabula: ${errors} error(s), ${warnings} warning(s) in ${result.vault}` : `Tabula: no problems in ${result.vault}`
   );
@@ -874,7 +878,7 @@ function activate(context) {
     vscode.languages.registerDocumentFormattingEditProvider(sel, formatter),
     vscode.commands.registerCommand("tabula.formatFile", () => vscode.commands.executeCommand("editor.action.formatDocument")),
     vscode.commands.registerCommand("tabula.formatVault", formatVault),
-    vscode.commands.registerCommand("tabula.checkVault", checkVault),
+    vscode.commands.registerCommand("tabula.checkVault", () => checkVault()),
     vscode.commands.registerCommand("tabula.openPreview", openPreview),
     vscode.window.onDidChangeActiveTextEditor((ed) => { if (ed && preview && isGame(ed.document)) previewDocument(ed.document); }),
     vscode.window.onDidChangeTextEditorSelection((e) => {          // the preview follows the cursor
@@ -906,6 +910,7 @@ function activate(context) {
     })
   );
   vscode.workspace.textDocuments.forEach((d) => schedule(d, 0));
+  sidebar.register(context, { runTabula, settings, checkVault });
 }
 
 function deactivate() {
