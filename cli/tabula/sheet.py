@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .blocks import Block, is_sep_row, parse_blocks
-from .source import Issues, UNSAVED, read_source
+from .source import Issues, UNSAVED, local_file, read_source
 from .symbols import SYMBOL_RE, expand_symbols, merged_symbols, symbol_problems
 from .syntax import IMAGE_RE, REF_RE
 from .values import expand_values, merged_values
@@ -47,6 +47,7 @@ class Sheet:
     issues: Issues
     game_meta: dict = field(default_factory=dict)
     lines: list = field(default_factory=list)
+    root: Path | None = None          # the vault: pictures must be inside it
 
     @property
     def title(self) -> str:
@@ -161,7 +162,7 @@ def load_sheet(path: Path, vault) -> Sheet:
     base = path.parent
     lines = expand_values(lines, merged_values(vault.config, game_meta, meta), issues, path)
     lines = expand_symbols(lines, merged_symbols(vault.root, base, vault.config, game_meta, meta))
-    return Sheet(path, meta, parse_blocks(lines), issues, game_meta, lines)
+    return Sheet(path, meta, parse_blocks(lines), issues, game_meta, lines, root=vault.root)
 
 
 # ------------------------------------------------------------------ check
@@ -182,7 +183,7 @@ def check_sheet(sheet: Sheet, vault) -> Issues:
         close = difflib.get_close_matches(str(key), SHEET_KEYS, n=1, cutoff=0.8)
         if str(key) not in SHEET_KEYS and close:
             iss.warn(p, 1, f"'{key}:' in frontmatter: did you mean '{close[0]}'?")
-    for msg in symbol_problems(meta.get("symbols"), p.parent):
+    for msg in symbol_problems(meta.get("symbols"), p.parent, vault.root):
         iss.error(p, 1, msg)
     names = list(merged_symbols(vault.root, p.parent, vault.config, sheet.game_meta, meta))
     for ln, t in sheet.lines:
@@ -210,17 +211,19 @@ def esc(s: str) -> str:
     return html.escape(s, quote=True)
 
 
-def data_uri(base: Path, src: str) -> str:
-    if re.match(r"^[a-z]+://", src):
+def data_uri(base: Path, src: str, root: Path | None = None) -> str:
+    if re.match(r"^https?://", src, re.I):
         return src
-    f = base / src
+    f = local_file(base, src, root)
+    if f is None:                             # another scheme, or outside the vault: never embedded
+        return ""
     if not f.is_file():
         return src
     mime = mimetypes.guess_type(f.name)[0] or "application/octet-stream"
     return f"data:{mime};base64," + base64.b64encode(f.read_bytes()).decode()
 
 
-def inline(text: str, base: Path) -> str:
+def inline(text: str, base: Path, root: Path | None = None) -> str:
     stash: list[str] = []
 
     def keep(h: str) -> str:
@@ -231,8 +234,9 @@ def inline(text: str, base: Path) -> str:
         alt, src = m.group(1), m.group(2)
         cls = ' class="sym"' if alt.startswith("sym:") else ""
         alt = alt[4:] if cls else alt
-        return keep(f'<img{cls} src="{esc(data_uri(base, src))}" alt="{esc(alt)}" title="{esc(alt)}">')
+        return keep(f'<img{cls} src="{esc(data_uri(base, src, root))}" alt="{esc(alt)}" title="{esc(alt)}">')
 
+    text = text.replace("\x00", "")          # the stash's marker: never from the file itself
     text = re.sub(r"\\([\[\]{}!\\*#|])", lambda m: keep(esc(m.group(1))), text)
     text = IMAGE_RE.sub(image, text)
     text = REF_RE.sub(lambda m: keep(esc((m.group(2) or m.group(1)).lstrip("#").strip())), text)
@@ -240,16 +244,20 @@ def inline(text: str, base: Path) -> str:
     text = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", text)
     text = re.sub(r"(?<![*\w])\*(?!\s)(.+?)(?<!\s)\*(?![*\w])", r"<em>\1</em>", text)
     text = re.sub(r"(?<!\w)_(?!\s)(.+?)(?<!\s)_(?!\w)", r"<em>\1</em>", text)
-    while "\x00" in text:
-        text = re.sub(r"\x00(\d+)\x00", lambda m: stash[int(m.group(1))], text)
-    return text
+    while True:                       # stashed parts can contain others: until nothing is left
+        new = re.sub(r"\x00(\d+)\x00", lambda m: stash[int(m.group(1))], text)
+        if new == text:
+            break
+        text = new
+    return text.replace("\x00", "")
 
 
 def visible_len(cell: str) -> int:
     return len(re.sub(r"!\[sym:([^\]]*)\]\([^)]*\)", "XX", re.sub(r"\*\*|__|\[\[|\]\]", "", cell)))
 
 
-def render_table(b: Block, base: Path, players: int = DEFAULT_MAX_PLAYERS, rounds: int = 10) -> tuple[str, int]:
+def render_table(b: Block, base: Path, players: int = DEFAULT_MAX_PLAYERS, rounds: int = 10,
+                 root: Path | None = None) -> tuple[str, int]:
     """The table's HTML, and its number of body rows (to share the page's height)."""
     rows = expand_grid([cells for _, cells in b.rows if not is_sep_row(cells)], players, rounds)
     n = max((len(r) for r in rows), default=0)
@@ -294,7 +302,7 @@ def render_table(b: Block, base: Path, players: int = DEFAULT_MAX_PLAYERS, round
             if cell == BLOCKED:
                 tag_row.append(f'<td class="x"{attrs}></td>')
             else:
-                tag_row.append(f"<{tag}{attrs}>{inline(cell, base)}</{tag}>")
+                tag_row.append(f"<{tag}{attrs}>{inline(cell, base, root)}</{tag}>")
         out.append("<tr>" + "".join(tag_row) + "</tr>")
     thead = f"<thead>{out[0]}</thead>" if head else ""
     tbody = "<tbody>" + "".join(out[1:] if head else out) + "</tbody>"
@@ -350,17 +358,17 @@ def render_sheet(sheet: Sheet, players: int | None = None) -> str:
             continue
         if b.kind == "heading":
             lvl = min(b.level, 3)
-            pages[-1].append(f"<h{lvl}>{inline(b.text, base)}</h{lvl}>")
+            pages[-1].append(f"<h{lvl}>{inline(b.text, base, sheet.root)}</h{lvl}>")
         elif b.kind == "table":
-            table, rows = render_table(b, base, n, rounds)
+            table, rows = render_table(b, base, n, rounds, sheet.root)
             cls = "grid" if fit else "grid natural"
             pages[-1].append(f'<div class="{cls}" style="--rows:{rows}">{table}</div>')
         elif b.kind == "image":
-            pages[-1].append(f'<p><img src="{esc(data_uri(base, b.term))}" alt="{esc(b.text)}"></p>')
+            pages[-1].append(f'<p><img src="{esc(data_uri(base, b.term, sheet.root))}" alt="{esc(b.text)}"></p>')
         elif b.kind == "item":
-            pages[-1].append(f"<p>• {inline(b.text, base)}</p>")
+            pages[-1].append(f"<p>• {inline(b.text, base, sheet.root)}</p>")
         elif b.kind in ("para", "note", "key"):
-            pages[-1].append(f"<p>{inline(b.text, base)}</p>")
+            pages[-1].append(f"<p>{inline(b.text, base, sheet.root)}</p>")
     pages = [p for p in pages if p] or [[]]
     lang = esc(str(sheet.meta.get("language") or sheet.game_meta.get("language") or "fr"))
     css = SHEET_CSS % {"w": w, "h": h, "m": sheet.margin, "f": font}

@@ -6,6 +6,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/): Added, Chang
 
 ## Unreleased
 
+## 0.30.0 — 2026-10-22
+
+### Fixed
+- Security: a game could make the exported page, the site, the book and score sheets embed any file of the computer (`![x](/etc/passwd)`, `image:: ../../.ssh/id_rsa`, `cover:`, a symbol). Only files inside the vault are read now, and `tabula check` reports the others ("outside the vault").
+- Security: `[x](javascript:…)` (and `data:`, `vbscript:`…) links ran scripts in the pages; only web, mail and phone addresses, `game:` links and relative paths are links now. The same for a wish's `link:`.
+- Security: `language:` was put in pages and file names as it was; it must be a language code now (check reports it, the vault's language is used instead).
+- `![[../../x]]` included a file from anywhere: fragments are names in `_shared/` only.
+- `tabula new bgg ID ../x` wrote outside the vault: a game's name can't be a path.
+- A NUL character in a file made the export, the site, the book and the VS Code preview run forever; it is dropped, with a warning.
+- `tabula fmt` rewrote files that aren't UTF-8 (Latin-1…) and lost their accents for good; it leaves them as they are now, and `tabula check` says the file isn't UTF-8 instead of failing.
+
 ## 0.29.0 — 2026-10-22
 
 ### Added

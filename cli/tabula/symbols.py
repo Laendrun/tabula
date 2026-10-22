@@ -15,6 +15,7 @@ import os
 import re
 from pathlib import Path
 
+from .source import file_problem
 from .syntax import FENCE_RE
 
 SYMBOL_RE = re.compile(r"(?<![^\W\d])(?<![_:\\/]):([A-Za-z0-9][\w+-]*):(?![\w:/])")   # "3:gold:" too
@@ -49,7 +50,7 @@ def merged_symbols(vault_root: Path, base_dir: Path, vault_config: dict, *metas:
     return out
 
 
-def symbol_problems(symbols, folder: Path) -> list[str]:
+def symbol_problems(symbols, folder: Path, root: Path | None = None) -> list[str]:
     if symbols is None:
         return []
     if not isinstance(symbols, dict):
@@ -66,8 +67,8 @@ def symbol_problems(symbols, folder: Path) -> list[str]:
         img, _ = symbol_parts(v)
         if img and re.search(r"\s", img):
             out.append(f"symbol '{name}': the image path can't contain spaces ({img})")
-        elif img and not (folder / img).exists():
-            out.append(f"symbol '{name}': image not found: {img}")
+        elif img and (why := file_problem(folder, img, root or folder)):
+            out.append(f"symbol '{name}': image {why}: {img}")
     return out
 
 

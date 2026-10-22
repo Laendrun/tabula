@@ -147,6 +147,8 @@ A list is shown with commas, a mapping as "Key: value; …"; empty keys are left
 
 All the usual Markdown: headings `#` to `######`, paragraphs, `*italic*` and `**bold**`, lists (`-`, `*`, `1.`), `> quotes` (shown as notes, or as callouts, see below), tables, images `![caption](media/photo.jpg)`, links, and fenced code blocks.
 
+**Files and links stay safe to share.** Every file a game names (images, card pictures, `cover:`, symbol images, `![[fragments]]`) must be inside the vault: an absolute path, or a `../` that leads out of it, is never read, and `tabula check` reports it as an error. Fragments are names (`![[deck-52]]`), not paths. Links can be web addresses (`https:`, `http:`), `mailto:` and `tel:` addresses, `game:` links and relative paths; other schemes (`javascript:`, `data:`…) are shown as plain text. A game's `language:` must be a language code (`fr`, `pt-BR`). Files are UTF-8.
+
 **Comments** use standard HTML comments, which are never shown:
 
 ```markdown

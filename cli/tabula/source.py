@@ -41,10 +41,46 @@ UNSAVED: dict[Path, str] = {}        # check --stdin: file contents from an edit
 TODO_RE = re.compile(r"<!--\s*(?:TODO|FIXME)\b[\s:\-–—]*(.*?)\s*-->", re.S | re.I)
 
 
+URL_SCHEME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*:")
+
+
+def is_url(src: str) -> bool:
+    """https://…, data:…: not a file of the vault (a Windows path like C:\\x counts too: never read)."""
+    return bool(URL_SCHEME_RE.match(src or ""))
+
+
+def local_file(base: Path, src: str, root: Path | None) -> Path | None:
+    """A file a game names (a picture, its cover, a symbol), but only if it is inside the vault (`root`, else
+    `base`): an absolute path, a web address or a ../ that leads out of the vault gives None. Exported pages and
+    the site embed these files, so a game someone shares can't make them publish /etc/passwd or a key."""
+    src = (src or "").strip()
+    if not src or is_url(src) or src.startswith(("/", "\\", "~")) or Path(src).is_absolute():
+        return None
+    p = base / src
+    try:
+        if not p.resolve().is_relative_to((root or base).resolve()):
+            return None
+    except (OSError, ValueError):
+        return None
+    return p
+
+
+def file_problem(base: Path, src: str, root: Path | None) -> str | None:
+    """For check: 'not found' or 'outside the vault' for a file a game names (None when it's fine or a URL)."""
+    if is_url(src.strip()) and not re.match(r"^[A-Za-z]:[\\/]", src.strip()):
+        return None
+    f = local_file(base, src, root)
+    if f is None:
+        return "outside the vault (only files inside the vault are used)"
+    return None if f.exists() else "not found"
+
+
 def raw_text(path: Path) -> str:
     """A file's text, or the unsaved text an editor sent with check --stdin."""
     text = UNSAVED.get(Path(path).resolve())
-    return path.read_text(encoding="utf-8") if text is None else text
+    if text is None:      # a file in another encoding is read anyway (check says so), never written back
+        text = path.read_bytes().decode("utf-8", errors="replace")
+    return text
 
 
 def find_todos(path: Path) -> list[tuple[int, str]]:
@@ -57,6 +93,17 @@ def find_todos(path: Path) -> list[tuple[int, str]]:
 def read_source(path: Path, issues: Issues) -> tuple[dict, list[tuple[int, str]]]:
     text = raw_text(path)
     text = text.lstrip("\ufeff").replace("\r\n", "\n")
+    if "\ufffd" in text and issues is not None and Path(path).resolve() not in UNSAVED:
+        try:
+            Path(path).read_bytes().decode("utf-8")
+        except UnicodeDecodeError as e:
+            issues.error(path, Path(path).read_bytes()[:e.start].count(10) + 1,
+                         "the file isn't UTF-8 (Latin-1?): save it as UTF-8, or its accents show as �")
+    if "\x00" in text:                 # tabula uses it as an internal marker: a stray one is dropped
+        if issues is not None:
+            issues.warn(path, text.count("\n", 0, text.index("\x00")) + 1,
+                        "a NUL character (\\0) in the file: it is ignored")
+        text = text.replace("\x00", "")
     text = re.sub(r"<!--.*?-->", lambda m: "\n" * m.group(0).count("\n"), text, flags=re.S)
     if (i := text.find("<!--")) >= 0:
         issues.error(path, text.count("\n", 0, i) + 1, "unclosed comment '<!--' (missing '-->')")

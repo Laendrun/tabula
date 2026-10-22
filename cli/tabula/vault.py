@@ -11,11 +11,11 @@ try:
 except ImportError:  # pragma: no cover
     sys.exit("tabula needs PyYAML:  pip install pyyaml")
 
-from .syntax import split_lang
+from .syntax import LANG_RE, split_lang
 from .fragments import SHARED_DIR, expand_includes
 from .values import expand_values, merged_values, value_problems
 from .symbols import expand_symbols, merged_symbols, symbol_problems
-from .source import Issues, read_source
+from .source import Issues, local_file, read_source
 from .blocks import Block, parse_blocks
 
 IMAGE_EXTS = (".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif", ".svg")
@@ -36,6 +36,7 @@ class Game:
     fallback: bool = False
     body_path: Path | None = None
     tr_meta: dict = field(default_factory=dict)
+    root: Path | None = None          # the vault: files a game names must be inside it
 
     @property
     def title(self) -> str:
@@ -54,7 +55,8 @@ class Game:
         if v is False:
             return None
         if v not in (None, ""):
-            return self.base_dir / str(v)
+            p = local_file(self.base_dir, str(v), self.root)
+            return p if p is not None else None          # outside the vault: never used (check says so)
         media = self.base_dir / "media"
         if not media.is_dir():
             return None
@@ -103,6 +105,9 @@ class Vault:
             for msg in value_problems(self.config.get("values")) + symbol_problems(self.config.get("symbols"), self.root):
                 self.issues.error(cfg, 1, msg)
         self.language = str(self.config.get("language") or "en")
+        if not LANG_RE.match(self.language):          # it names pages and files: a code, nothing else
+            self.issues.error(cfg, 1, f"language '{self.language}' is not a language code (fr, en, de, pt-BR…)")
+            self.language = "en"
 
     def discover(self) -> list[Path]:
         found = []
@@ -149,6 +154,9 @@ class Vault:
         folder = None if path.parent.resolve() == self.root else path.parent
         meta, lines = read_source(path, issues)
         default_lang = str(meta.get("language") or self.language)
+        if not LANG_RE.match(default_lang):
+            issues.error(path, 1, f"language '{default_lang}' is not a language code (fr, en, de, pt-BR…)")
+            default_lang = self.language
         if path.parent.name != SHARED_DIR:            # a fragment's includes are expanded where it's used
             lines = expand_includes(lines, self.root, default_lang, issues, path)
         langs = {default_lang}
@@ -178,7 +186,7 @@ class Vault:
                               strict=path.parent.name != SHARED_DIR)    # a fragment: the game's values
         lines = expand_symbols(lines, merged_symbols(self.root, folder or path.parent, self.config, meta))
         return Game(slug, path, folder, meta, parse_blocks(lines), lines, issues, language,
-                    default_lang, languages, fallback, body_path, tr_meta)
+                    default_lang, languages, fallback, body_path, tr_meta, root=self.root)
 
 
 def open_vault(arg: str | None, ref: str | None = None) -> Vault:

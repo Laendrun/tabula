@@ -188,9 +188,15 @@ def cmd_fmt(args) -> int:
         paths = [p for p in vault.root.rglob("*.game")] + fragment_files(vault.root) + list(vault.root.rglob("*.sheet"))
     changed = unsafe = 0
     for p in sorted(set(paths)):
-        text = p.read_bytes().decode("utf-8", errors="replace")        # as written: keeps \r\n
-        new, safe = format_game(p, text)
         rel = p.relative_to(vault.root) if p.is_relative_to(vault.root) else p
+        try:
+            text = p.read_bytes().decode("utf-8")        # as written: keeps \r\n
+        except UnicodeDecodeError as e:                   # rewriting it would lose its accents for good
+            unsafe += 1
+            print(f"not formatted (not UTF-8, line {p.read_bytes()[:e.start].count(10) + 1}: save it as UTF-8 "
+                  f"first): {rel}")
+            continue
+        new, safe = format_game(p, text)
         if not safe:
             unsafe += 1
             print(f"not formatted (the result would read differently, please report it): {rel}")

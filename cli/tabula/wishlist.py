@@ -23,6 +23,7 @@ import difflib
 import html
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -315,7 +316,7 @@ def wishlist_page(vault, wishes: list[dict], lang: str, css: str) -> str:
             bits.append(f'<span class="wfor">{esc(ui["for"])} {game}</span>')
         if w.get("price"):
             bits.append(f'<span class="price">{esc(str(w["price"]))}</span>')
-        if w.get("link"):
+        if w.get("link") and re.match(r"^https?://", str(w["link"]).strip(), re.I):     # never javascript:…
             bits.append(f'<a class="shop" href="{esc(str(w["link"]))}" rel="noopener">{esc(ui["shop"])} →</a>')
         note = f'<p class="note">{esc(str(w["note"]))}</p>' if w.get("note") else ""
         anchor = f' id="for-{esc(str(w["game"]))}"' if w.get("game") and not w.get("_part") else ""
