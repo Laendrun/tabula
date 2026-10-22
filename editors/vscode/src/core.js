@@ -766,11 +766,178 @@ function symbolAt(lineText, column) {
   return null;
 }
 
+// ------------------------------------------------------------------ references, use counts, paths, inline values
+
+/** Every [[reference]] outside code: [{ line, start, end, name, alias }] (name without "#" for section links). */
+function allRefs(text) {
+  const lines = text.replace(/\r\n?/g, "\n").split("\n");
+  const skip = skippedLines(lines);
+  const out = [];
+  for (let k = 0; k < lines.length; k++) {
+    if (skip[k]) continue;
+    const code = [...lines[k].matchAll(/`[^`\n]*`/g)].map((c) => [c.index, c.index + c[0].length]);
+    for (const m of lines[k].matchAll(REF_ALL)) {
+      if (code.some(([a, b]) => m.index >= a && m.index < b)) continue;
+      const raw = m[1].trim();
+      out.push({ line: k, start: m.index, end: m.index + m[0].length, section: raw.startsWith("#"),
+                 name: raw.replace(/^#\s*/, ""), alias: m[2] });
+    }
+  }
+  return out;
+}
+
+/**
+ * Where what is at (line, column) appears: its definitions (or heading) and every reference to it.
+ * Returns { name, kind, definitions: [{line, start, end}], references: [{line, start, end}] }, or null.
+ */
+function occurrences(text, line, column) {
+  let target;
+  try {
+    target = renameTarget(text, line, column);
+  } catch {
+    return null;
+  }
+  const o = outline(text);
+  const lines = text.replace(/\r\n?/g, "\n").split("\n");
+  const key = fold(target.name);
+  const definitions = [];
+  if (target.kind === "term") {
+    for (const d of o.definitions.filter((x) => fold(x.term) === key)) {
+      const at = lines[d.line].indexOf(d.term);
+      definitions.push({ line: d.line, start: at, end: at + d.term.length });
+    }
+  } else {
+    for (const h of o.headings.filter((x) => fold(x.title) === key)) {
+      const at = lines[h.line].indexOf(h.title, lines[h.line].indexOf("#") + h.level);
+      definitions.push({ line: h.line, start: at, end: at + h.title.length });
+    }
+  }
+  const references = allRefs(text)
+    .filter((r) => r.section === (target.kind === "section") && fold(r.name) === key)
+    .map(({ line: l, start, end }) => ({ line: l, start, end }));
+  return { name: target.name, kind: target.kind, definitions, references };
+}
+
+/**
+ * How often each definition and section is referred to: [{ line, kind, name, count }] — definitions always,
+ * headings only when something links to them (for "used N times" above them).
+ */
+function useCounts(text) {
+  const o = outline(text);
+  const refs = allRefs(text);
+  const terms = new Map(), sections = new Map();
+  for (const r of refs) {
+    const m = r.section ? sections : terms;
+    m.set(fold(r.name), (m.get(fold(r.name)) || 0) + 1);
+  }
+  const out = [];
+  for (const d of o.definitions) out.push({ line: d.line, kind: "term", name: d.term, count: terms.get(fold(d.term)) || 0 });
+  for (const h of o.headings) {
+    const n = sections.get(fold(h.title)) || 0;
+    if (n && h.title) out.push({ line: h.line, kind: "section", name: h.title, count: n });
+  }
+  return out.sort((a, b) => a.line - b.line);
+}
+
+const IMAGE_PATH = /\.(png|jpe?g|gif|svg|webp)$/i;
+
+/**
+ * File paths a game refers to: image:: fields, cover: in the frontmatter, ![caption](path) images and
+ * ![[fragment]] includes. [{ line, start, end, path, kind: "image" | "fragment", section }]
+ */
+function pathLinks(text) {
+  const lines = text.replace(/\r\n?/g, "\n").split("\n");
+  const fmEnd = lines[0] !== undefined && lines[0].trim() === "---" ? lines.findIndex((l, k) => k > 0 && l.trim() === "---") : -1;
+  const skip = skippedLines(lines);
+  const out = [];
+  for (let k = 0; k < lines.length; k++) {
+    const l = lines[k];
+    let m;
+    if (k > 0 && k < fmEnd) {
+      if ((m = l.match(/^(cover:\s*)(\S.*?)\s*$/)) && !/^(false|null|~)$/.test(m[2])) {
+        out.push({ line: k, start: m[1].length, end: m[1].length + m[2].length, path: m[2].replace(/^["']|["']$/g, ""), kind: "image" });
+      }
+      continue;
+    }
+    if (skip[k]) continue;
+    if ((m = l.match(/^(\s*(?::\s*)?image::\s*)(\S+)/))) {
+      out.push({ line: k, start: m[1].length, end: m[1].length + m[2].length, path: m[2], kind: "image" });
+    }
+    const code = [...l.matchAll(/`[^`\n]*`/g)].map((c) => [c.index, c.index + c[0].length]);
+    for (const im of l.matchAll(/(?<!\\)!\[[^\]]*\]\(([^)\s]+)\)/g)) {
+      if (/^[a-z]+:\/\//.test(im[1]) || code.some(([a, b]) => im.index >= a && im.index < b)) continue;
+      const start = im.index + im[0].length - 1 - im[1].length;
+      out.push({ line: k, start, end: start + im[1].length, path: im[1], kind: "image" });
+    }
+    if ((m = l.match(INCLUDE_LINE))) {
+      const start = l.indexOf("![[") + 3;
+      out.push({ line: k, start, end: start + m[2].length, path: m[2].trim(), kind: "fragment", section: m[3] || null });
+    }
+  }
+  return out;
+}
+
+/** The image path under the cursor, if any: { path, start, end }. */
+function imagePathAt(text, line, column) {
+  const hit = pathLinks(text).find((p) => p.line === line && p.kind === "image" && column >= p.start && column <= p.end);
+  return hit && IMAGE_PATH.test(hit.path) ? hit : null;
+}
+
+/** "{2p: 7, 3p: 6, *: 5}" -> "2p 7 · 3p 6 · * 5"; "100" -> "100". */
+function valueLabel(raw) {
+  const v = raw.trim();
+  const m = v.match(/^\{(.*)\}$/);
+  if (!m) return v.replace(/^["']|["']$/g, "");
+  return m[1].split(",").map((part) => part.split(":").map((s) => s.trim().replace(/^["']|["']$/g, "")).join(" ")).join(" · ");
+}
+
+/**
+ * Inline hints: what each {=value} stands for, and the total of a component's parts when it differs from
+ * the component's own count. [{ line, character, label, tooltip }]
+ */
+function inlineHints(text, values) {
+  const lines = text.replace(/\r\n?/g, "\n").split("\n");
+  const skip = skippedLines(lines);
+  const byName = new Map(values.map((v) => [v.name, v]));
+  const out = [];
+  for (let k = 0; k < lines.length; k++) {
+    if (skip[k]) continue;
+    for (const m of lines[k].matchAll(/(?<!\\)\{=\s*([\w-]+)\s*\}/g)) {
+      const v = byName.get(m[1]);
+      if (v) out.push({ line: k, character: m.index + m[0].length, label: `= ${valueLabel(v.value)}`, tooltip: `from ${v.from}` });
+    }
+  }
+  // components: "- 125x [[carte]]" whose indented parts add up to something else
+  const comp = /^(\s*)[-*+]\s+(?:\{[^{}]*\}\s*)?(\d+)\s*[x×X]\s/;
+  for (let k = 0; k < lines.length; k++) {
+    const m = !skip[k] && lines[k].match(comp);
+    if (!m) continue;
+    const indent = m[1].length;
+    let sum = 0, parts = 0, childIndent = null;
+    for (let j = k + 1; j < lines.length; j++) {
+      const c = lines[j].match(/^(\s*)[-*+]\s/);
+      if (!lines[j].trim()) break;
+      if (!c || c[1].length <= indent) break;
+      if (childIndent === null) childIndent = c[1].length;
+      if (c[1].length !== childIndent) continue;
+      const n = lines[j].match(comp);
+      if (!n) { parts = -1; break; }
+      sum += +n[2];
+      parts++;
+    }
+    if (parts > 1 && sum !== +m[2]) {
+      out.push({ line: k, character: lines[k].length, label: `parts: ${sum} ≠ ${m[2]}`, tooltip: "the indented parts don't add up to this count" });
+    }
+  }
+  return out.sort((a, b) => a.line - b.line || a.character - b.character);
+}
+
 module.exports = {
   severity, checkArgs, fmtArgs, previewArgs, expand, parseCheckOutput, issueColumns, fold, outline, refAt, findTargets,
   plainRefs, definitionBody, definitionMarkdown, completionContext, completions, hoverText,
   includeAt, includeContext, includeHover,
   fragmentSection, expandIncludes, previewHtml, previewLink,
   yamlEntries, valuesOf, valueContext, valueAt, symbolParts, symbolsOf, symbolContext, symbolAt,
+  allRefs, occurrences, useCounts, pathLinks, imagePathAt, valueLabel, inlineHints,
   skippedLines, renameTarget, renameEdits, quickFixes, closest, glossaryInsertLine,
 };

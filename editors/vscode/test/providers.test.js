@@ -9,19 +9,22 @@ class Range { constructor(a, b, c, d) { Object.assign(this, { start: { line: a, 
 class CompletionItem { constructor(label, kind) { this.label = label; this.kind = kind; } }
 class MarkdownString { constructor(v) { this.value = v; } }
 class Hover { constructor(contents, range) { this.contents = contents; this.range = range; } }
-class Location { constructor(uri, pos) { this.uri = uri; this.range = { start: pos }; } }
+class Location { constructor(uri, pos) { this.uri = uri; this.range = pos && pos.start ? pos : { start: pos }; } }
 class Position { constructor(line, character) { this.line = line; this.character = character; } }
 class WorkspaceEdit {
   constructor() { this.ops = []; }
   replace(uri, range, text) { this.ops.push({ uri, range, text }); }
   insert(uri, pos, text) { this.ops.push({ uri, range: { start: pos, end: pos }, text }); }
 }
+class CodeLens { constructor(range, command) { this.range = range; this.command = command; } }
+class DocumentLink { constructor(range, target) { this.range = range; this.target = target; } }
+class InlayHint { constructor(position, label) { this.position = position; this.label = label; } }
 class Selection { constructor(a, b) { this.anchor = a; this.active = b; } }
 class TextEdit { static replace(range, text) { return { range, text }; } }
 class CodeAction { constructor(title, kind) { this.title = title; this.kind = kind; } }
 const disposable = { dispose() {} };
 const vscode = {
-  Range, CompletionItem, MarkdownString, Hover, Location, Position, WorkspaceEdit, CodeAction, TextEdit, Selection,
+  Range, CompletionItem, MarkdownString, Hover, Location, Position, WorkspaceEdit, CodeAction, TextEdit, Selection, CodeLens, DocumentLink, InlayHint,
   TextEditorRevealType: { InCenterIfOutsideViewport: 2 },
   CodeActionKind: { QuickFix: "quickfix" },
   Uri: { file: (f) => ({ fsPath: f, toString: () => "file://" + f }), parse: (u) => ({ toString: () => u }) },
@@ -36,6 +39,10 @@ const vscode = {
     registerCodeActionsProvider: (sel, p) => { registered.actions = p; return disposable; },
     registerRenameProvider: (sel, p) => { registered.rename = p; return disposable; },
     registerDocumentFormattingEditProvider: (sel, p) => { registered.formatter = p; return disposable; },
+    registerReferenceProvider: (sel, p) => { registered.references = p; return disposable; },
+    registerCodeLensProvider: (sel, p) => { registered.lenses = p; return disposable; },
+    registerDocumentLinkProvider: (sel, p) => { registered.links = p; return disposable; },
+    registerInlayHintsProvider: (sel, p) => { registered.hints = p; return disposable; },
   },
   window: {
     createOutputChannel: () => ({ appendLine() {}, dispose() {} }),
@@ -272,4 +279,29 @@ test("symbols: completion after :x and hover, from the game and vault.yaml", () 
   assert.equal(h.contents.value, "⭐  `:star:`\n\nfrom this game");
   const g = registered.hover.provideHover(doc("Pay :gold:\n", file), { line: 0, character: 6 });
   assert.match(g.contents.value, /^!\[gold\]\(file:.*media\/gold\.png\|height=32\)/);
+});
+
+test("references, use counts, links, image hover and inline values", () => {
+  const root = fs.mkdtempSync(path.join(require("os").tmpdir(), "tabula-nav-"));
+  fs.mkdirSync(path.join(root, "_shared"));
+  fs.writeFileSync(path.join(root, "_shared", "deck.game"), "# Deck\n");
+  fs.mkdirSync(path.join(root, "g", "media"), { recursive: true });
+  fs.writeFileSync(path.join(root, "g", "media", "gift.png"), "x");
+  const file = path.join(root, "g", "g.game");
+  const text = "---\ntitle: G\nvalues:\n  hand: {2p: 7, \"*\": 5}\n---\n# Play\n\nDeal {=hand}. Play a [[Gift]], then [[gifts]].\n" +
+    "See [[#Cards]].\n\n![[deck]]\n\n# Cards\n\nGift\n: image:: media/gift.png\n  Give.\n\nLost\n: image:: media/none.png\n  X.\n";
+  const d = doc(text, file);
+  const refs = registered.references.provideReferences(d, { line: 7, character: 25 }, { includeDeclaration: true });
+  assert.deepEqual(refs.map((r) => r.range.start.line), [14, 7, 7]);            // the definition, then 2 references
+  const lenses = registered.lenses.provideCodeLenses(d);
+  assert.deepEqual(lenses.map((l) => [l.range.start.line, l.command.title]), [[12, "used once"], [14, "used 2 times"], [18, "not used"]]);
+  assert.equal(lenses[1].command.command, "editor.action.showReferences");
+  assert.equal(lenses[1].command.arguments[2].length, 2);
+  const links = registered.links.provideDocumentLinks(d);
+  assert.deepEqual(links.map((l) => [l.range.start.line, path.basename(l.target.fsPath)]), [[10, "deck.game"], [15, "gift.png"]]);
+  const h = registered.hover.provideHover(d, { line: 15, character: 15 });
+  assert.match(h.contents.value, /^!\[\]\(file:.*gift\.png\|height=220\)/);
+  assert.match(registered.hover.provideHover(d, { line: 19, character: 15 }).contents.value, /Image not found: `media\/none\.png`/);
+  const hints = registered.hints.provideInlayHints(d, new Range(0, 0, 30, 0));
+  assert.deepEqual(hints.map((x) => [x.position.line, x.label]), [[7, "= 2p 7 · * 5"]]);
 });
