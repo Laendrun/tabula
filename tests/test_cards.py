@@ -54,7 +54,7 @@ def test_sort_and_json(cli):
     _, out, _ = cli("cards", "-e", "expo", "--json")
     rows = {r["card"]: r for r in json.loads(out)}
     assert rows["Rocket"] == {"card": "Rocket", "count": "4", "points": "5", "timing": "1st",
-                              "ext": "+expo", "group": "Expo cards"}
+                              "ext": "+expo", "group": "Expo cards", "kind": "card"}
     code, _, err = cli("cards", "-e", "expo", "--sort", "nope")
     assert code == 2 and "columns" in err
 
