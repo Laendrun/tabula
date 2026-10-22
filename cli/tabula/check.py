@@ -281,7 +281,7 @@ def check_game(game: Game, vault: Vault, require_defs: bool = False,
     for gname, cards in groups.items():
         if len(cards) < 3:
             continue
-        keys = {k for d in cards for k in d.fields}
+        keys = {k for d in cards for k in d.fields} - {"image"}     # pictures are optional
         for k in sorted(keys):
             have = sum(1 for d in cards if k in d.fields)
             if have * 2 > len(cards):

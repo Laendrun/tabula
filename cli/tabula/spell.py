@@ -27,6 +27,8 @@ REF_RE = re.compile(r"(?<!\\)\[\[([^\[\]|\n]+?)(?:\|([^\[\]\n]+?))?\]\]")
 CODE_RE = re.compile(r"`[^`\n]*`")
 URL_RE = re.compile(r"\b(?:https?://|www\.)\S+")
 TAG_RE = re.compile(r"</?[A-Za-z][^<>\n]*>")
+PATH_RE = re.compile(r"(?<!\w)[\w.-]+(?:/[\w.-]+)+|\b[\w-]+\.(?:png|jpe?g|gif|svg|webp|pdf|game|sheet|ya?ml)\b", re.I)
+IMAGE_FIELD_RE = re.compile(r"\bimage::\s*\S+")
 LINK_TARGET_RE = re.compile(r"\]\([^)\s]*\)")
 FIELD_ANYWHERE_RE = re.compile(r"[^\W\d][\w -]*?::")
 ALSO = {"en": "en-gb"}          # plain "en": British spellings are right too (the "en" dictionary is US)
@@ -143,7 +145,7 @@ def prose(line: str) -> str:
         return " " * len(m.group(0))
     t = line.replace("’", "'")
     t = re.sub(r"^(\s*>\s*)\[![^\]\s]*\]", lambda m: " " * len(m.group(0)), t)       # > [!exemple]
-    for rx in (CODE_RE, URL_RE, TAG_RE, INCLUDE_RE, LINK_TARGET_RE, SYMBOL_RE):
+    for rx in (CODE_RE, URL_RE, TAG_RE, INCLUDE_RE, LINK_TARGET_RE, SYMBOL_RE, IMAGE_FIELD_RE, PATH_RE):
         t = rx.sub(blank, t)
     t = REF_RE.sub(lambda m: " " * (m.start(2) - m.start()) + m.group(2) + "  " if m.group(2) else blank(m), t)
 

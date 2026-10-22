@@ -53,3 +53,9 @@ def test_check(tmp_path, capsys):
     body = BODY.replace("media/gift.png", "media/missing.png")
     code, out = run(capsys, vault(tmp_path, body), "check", "--no-color")
     assert code == 1 and "g.game:11  picture of 'Gift' not found: media/missing.png" in out
+
+
+def test_a_card_without_picture_is_fine(tmp_path, capsys):
+    body = BODY + "\nThird\n: points:: 1\n  image:: media/gift.png\n  X.\n"      # 2 of 3 cards have one: no warning
+    code, out = run(capsys, vault(tmp_path, body), "check", "--no-color")
+    assert code == 0 and "image" not in out
