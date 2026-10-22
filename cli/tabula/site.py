@@ -336,8 +336,8 @@ def cmd_site(args) -> int:
     wishes, _ = load_wishes(vault)
     wished = {}                                       # game slug -> how many of its extensions are wished for
     for w in wishes:
-        if w.get("for"):
-            wished[str(w["for"])] = wished.get(str(w["for"]), 0) + 1
+        if w.get("game"):
+            wished[w["game"]] = wished.get(w["game"], 0) + 1
     entries = [write_game(vault, p, out, wished) for p in paths]
     (out / "index.html").write_text(index_page(vault, entries, ui, lang, len(wishes)), encoding="utf-8")
     if wishes:

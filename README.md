@@ -58,7 +58,7 @@ A card in a catalog can have a picture: `image:: media/cartes/phare.png` among i
 
 ## Wishlist
 
-Games and extensions you'd like go in `wishlist.yaml` at the root of the vault (name, `for:` an extension's game, `priority`, `price`, `link`, `note`). `tabula wish` lists it, `tabula wish add "Pandora" --for frantic --priority 1` and `tabula wish remove "Pandora"` change it, and `tabula site` writes a wishlist page to share. See the spec, section 12.
+Games and extensions you'd like go in `wishlist.yaml` at the root of the vault (name, `for:` an extension's game, `in:` a pack that also contains it, `priority`, `price`, `link`, `note`). `tabula wish` lists it, `tabula wish add "Pandora" --for frantic --priority 1` and `tabula wish remove "Pandora"` change it, and `tabula site` writes a wishlist page to share. See the spec, section 12.
 
 ## Score sheets
 

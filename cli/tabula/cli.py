@@ -173,6 +173,7 @@ def main(argv=None) -> int:
     p.add_argument("action", nargs="?", choices=["list", "add", "remove"], default="list")
     p.add_argument("name", nargs="?", help="the game or extension (for add and remove)")
     p.add_argument("--for", dest="for_game", metavar="GAME", help="an extension of this game (or: only its wishes)")
+    p.add_argument("--in", dest="in_pack", metavar="PACK", help="also in this pack (another wish): either one or the other")
     p.add_argument("--priority", type=int, help="1 for the most wanted")
     p.add_argument("--price", help="e.g. '35 CHF'")
     p.add_argument("--link", help="where to buy it")

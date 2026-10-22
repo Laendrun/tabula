@@ -360,7 +360,9 @@ test("the Tabula panel: games with their status, translations and sheets; the wi
       location: "armoire", language: "fr", translations: { en: g.replace(".game", ".en.game") }, sheets: [g.replace(".game", ".sheet")], cover: null },
     { slug: "solo", title: "Solo", path: path.join(root, "solo.game"), players: "1", players_note: "", duration: null,
       location: null, language: "fr", translations: {}, sheets: [], cover: null }] };
-  const wish = [{ name: "Pandora", for: "frantic", priority: 1, price: "15 CHF" }, { name: "Cascadia" }];
+  const wish = [{ name: "Pandora", for: "frantic", game: "frantic", priority: 1, price: "15 CHF" }, { name: "Cascadia" },
+                { name: "All of Frantic", for: "Frantic", game: "frantic", priority: 2 },
+                { name: "Troublemaker", for: "frantic", game: "frantic", in: "All of Frantic" }];
   const fake = path.join(root, "fake-list.js");
   fs.writeFileSync(fake, `const a=process.argv.slice(2);
     if(a.includes('list')) process.stdout.write(${JSON.stringify(JSON.stringify(list))});
@@ -380,7 +382,11 @@ test("the Tabula panel: games with their status, translations and sheets; the wi
   assert.deepEqual(kids.map((k) => [k.label, k.iconPath.id]), [["Frantic (en)", "globe"], ["frantic.sheet", "table"]]);
   const wl = registered.trees["tabula.wishlist"];
   const w = (await wl.getChildren()).map((x) => wl.getTreeItem(x));
-  assert.deepEqual(w.map((i) => [i.label, i.description, i.iconPath.id]), [["Pandora", "for Frantic · 15 CHF", "star-full"], ["Cascadia", "", "star-empty"]]);
+  assert.deepEqual(w.map((i) => [i.label, i.description, i.iconPath.id]),
+    [["Pandora", "for Frantic · 15 CHF", "star-full"], ["All of Frantic", "for Frantic · or separately ↓", "star-half"], ["Cascadia", "", "star-empty"]]);
+  const pack = (await wl.getChildren())[1];
+  const inPack = (await wl.getChildren(pack)).map((x) => wl.getTreeItem(x));
+  assert.deepEqual(inPack.map((i) => [i.label, i.description]), [["Troublemaker", ""]]);
   for (const c of ["tabula.refreshPanel", "tabula.buildSite", "tabula.buildBook", "tabula.printSheet", "tabula.addWish", "tabula.previewGame"]) {
     assert.ok(registered.commands[c], c);
   }

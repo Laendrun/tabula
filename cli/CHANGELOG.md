@@ -6,6 +6,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/): Added, Chang
 
 ## Unreleased
 
+## 0.24.0 — 2026-10-22
+
+### Added
+- Wishlist packs: `in: "Pack name"` on a wish that is also in another one; the pack is listed with its parts ("or separately") in `tabula wish`, on the site and in VS Code, and removing it removes its parts. `tabula wish add --in PACK`.
+
+### Changed
+- A wish's `for:` can be the game's title as well as its slug (case and accents ignored).
+- A YAML error about `: ` in a value says to add quotes.
+
 ## 0.23.0 — 2026-10-22
 
 ### Added
