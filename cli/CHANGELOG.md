@@ -6,6 +6,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/): Added, Chang
 
 ## Unreleased
 
+## 0.29.0 — 2026-10-22
+
+### Added
+- `tabula check` warns when a group's count in the components (`- 10x [[Attaque]]`) differs from the counts of the cards it lists added up, in the base game, with every extension and variant, or with one of them.
+
 ## 0.28.0 — 2026-10-22
 
 ### Added
