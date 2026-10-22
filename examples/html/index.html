@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Family game vault</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Literata:opsz,wght@7..72,400;7..72,600;7..72,700&display=swap">
+<style>
+:root{
+  --paper:#fbfcfd; --ink:#1d2433; --muted:#5b6475; --rule:#d8dde5; --card:#ffffff; --desk:#eef1f5;
+  --term:#0f6e74; --ext:#6b3fa0; --ext-bg:#f4effa; --open:#9a5b00; --open-bg:#fff5e3; --key:#1d2433;
+  --serif:"Literata",Georgia,"Iowan Old Style","Palatino Linotype",serif;
+  --sans:"Atkinson Hyperlegible",system-ui,"Segoe UI",Roboto,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root{
+  --paper:#15181e; --ink:#e4e7ec; --muted:#9aa3b2; --rule:#2c323d; --card:#1c2028; --desk:#101318;
+  --term:#5cc4c9; --ext:#c3a1f0; --ext-bg:#241c33; --open:#f0b55a; --open-bg:#2c2214; --key:#f4f5f7;}}
+*{box-sizing:border-box}
+html{background:var(--desk)}
+body{margin:0;color:var(--ink);background:var(--paper);font:17px/1.62 var(--serif);
+  font-feature-settings:"onum","kern";-webkit-text-size-adjust:100%}
+.page{display:grid;grid-template-columns:minmax(0,15rem) minmax(0,46rem);gap:3.5rem;justify-content:center;
+  max-width:70rem;margin:0 auto;padding:3rem 2rem 5rem}
+header.game{grid-column:1/-1;display:grid;grid-template-columns:1fr auto;gap:2rem;align-items:end;
+  padding-bottom:1.6rem;border-bottom:2px solid var(--ink)}
+header.game h1{font:600 clamp(2.4rem,6vw,3.6rem)/1.02 var(--serif);letter-spacing:-.015em;margin:0 0 .9rem}
+.facts{display:flex;flex-wrap:wrap;gap:.45rem;margin:0;padding:0;list-style:none;font:500 .86rem/1 var(--sans)}
+.facts li{border:1px solid var(--rule);border-radius:999px;padding:.38rem .7rem;background:var(--card)}
+.credits{margin:.9rem 0 0;color:var(--muted);font:.88rem/1.5 var(--sans)}
+.credits b{font-weight:600;color:var(--ink)}
+.credits.details{margin-top:.3rem}
+details.options-info{margin:.7rem 0 0;font:.88rem/1.5 var(--sans);color:var(--muted)}
+details.options-info summary{cursor:pointer;color:var(--ink);font-weight:600}
+.options-info ul,ul.options-info{margin:.35rem 0 0;padding-left:1.1rem}
+.options-info b{color:var(--ink);font-weight:600}
+.options-info code{font-size:.8em}
+.options-info .more::before{content:"— "}
+.cover{max-width:11rem;max-height:11rem;border-radius:6px;box-shadow:0 1px 0 var(--rule)}
+.selection{grid-column:1/-1;margin:-1.5rem 0 0;padding:.75rem 0 0;font:.9rem/1.5 var(--sans);color:var(--muted)}
+.selection strong{color:var(--ink);font-weight:600}
+nav.toc{position:sticky;top:2rem;align-self:start;font:.92rem/1.45 var(--sans);max-height:calc(100vh - 4rem);overflow:auto}
+nav.toc h2{font:600 .95rem/1 var(--sans);margin:0 0 .8rem;color:var(--muted)}
+nav.toc ol{list-style:none;margin:0;padding:0}
+nav.toc ol ol{padding-left:.9rem;margin:.2rem 0 .4rem;font-size:.88rem}
+nav.toc li{margin:.28rem 0}
+nav.toc a{color:var(--ink);text-decoration:none;border-left:2px solid transparent;padding-left:.55rem;margin-left:-.6rem;display:block}
+nav.toc a:hover,nav.toc a:focus-visible{border-left-color:var(--term);color:var(--term)}
+main{min-width:0}
+main>*:first-child{margin-top:0}
+h2,h3,h4,h5{font-family:var(--serif);line-height:1.2;scroll-margin-top:1.5rem}
+main h2{font-size:1.75rem;font-weight:600;margin:3rem 0 1rem;padding-top:.6rem;border-top:1px solid var(--rule)}
+main h3{font-size:1.25rem;font-weight:600;margin:2rem 0 .6rem}
+main h4,main h5,main h6{font-size:1.05rem;font-weight:600;margin:1.4rem 0 .4rem}
+p{margin:0 0 .9rem}
+ul,ol{margin:0 0 1rem;padding-left:1.4rem}
+li{margin:.25rem 0}
+li>ul,li>ol{margin:.25rem 0 .2rem}
+ol>li::marker{font:600 .95em var(--sans);color:var(--muted)}
+p.key{font-weight:600;padding:.55rem .8rem;border-left:4px solid var(--key);background:var(--card);margin:1rem 0}
+p.key::before,li.key::before{content:"★ ";color:var(--open)}
+li.key{font-weight:600}
+.key-section{border-left:4px solid var(--key);background:var(--card);padding:.2rem 1rem .4rem;margin:1.4rem 0}
+.key-section>h2:first-child,.key-section>h3:first-child,.key-section>h4:first-child{margin-top:.6rem}
+h2.key::before,h3.key::before,h4.key::before,h5.key::before{content:"★ ";color:var(--open)}
+a.ref.section::before{content:"→ ";color:var(--muted)}
+aside.note{display:flow-root;margin:.8rem 0 1rem;padding:.5rem .9rem;border-left:2px solid var(--rule);color:var(--muted);font-size:.95rem}
+aside.note p{margin:0}
+aside.note p+p,aside.callout p+p{margin-top:.5rem}
+aside.note ul,aside.note ol,aside.callout ul,aside.callout ol{margin:.35rem 0 0;padding-left:1.3rem}
+aside.callout{display:flow-root;margin:1rem 0 1.1rem;padding:.55rem .95rem .65rem;border-left:4px solid var(--c);background:var(--cbg);border-radius:0 6px 6px 0;font-size:.97rem}
+aside.callout p{margin:.15rem 0 0}
+aside.callout p.callout-title{margin:0;font:600 .88rem/1.35 var(--sans);color:var(--c);letter-spacing:.01em}
+aside.callout .icon{font-family:var(--sans)}
+.callout-example{--c:#1f6fb2;--cbg:#eef5fc}.callout-warning{--c:#b42318;--cbg:#fdf0ef}.callout-tip{--c:#2e7d32;--cbg:#eff7ef}
+.callout-info{--c:#3d5a80;--cbg:#f0f3f8}.callout-question{--c:#a0522d;--cbg:#fbf2ec}.callout-note{--c:var(--muted);--cbg:var(--card)}
+@media (prefers-color-scheme:dark){.callout-example{--c:#7cb4f0;--cbg:#16212e}.callout-warning{--c:#f28b82;--cbg:#2e1a19}
+.callout-tip{--c:#81c995;--cbg:#172619}.callout-info{--c:#9fb6d6;--cbg:#1b2230}.callout-question{--c:#e3a27a;--cbg:#2c1f17}}
+a{color:var(--term)}
+a.ref{color:var(--term);text-decoration:underline dotted 1.5px;text-underline-offset:.18em}
+a.ref:hover{text-decoration-style:solid}
+span.ref{border-bottom:1px dotted var(--muted)}
+code{font-size:.9em}
+pre{background:var(--card);border:1px solid var(--rule);padding:.8rem 1rem;overflow:auto;border-radius:4px}
+figure{margin:1.2rem 0}
+figure img{max-width:100%;border-radius:4px}
+img.sym{height:1.15em;width:auto;vertical-align:-.22em;display:inline;margin:0 .05em}
+figcaption{font:.85rem var(--sans);color:var(--muted);margin-top:.35rem}
+table{border-collapse:collapse;margin:.6rem 0 1.2rem;font:.92rem/1.4 var(--sans)}
+th,td{padding:.4rem .8rem .4rem 0;text-align:left;border-bottom:1px solid var(--rule);vertical-align:top}
+th{font-weight:600;border-bottom:2px solid var(--ink)}
+td:not(:first-child),th:not(:first-child){font-variant-numeric:tabular-nums}
+.badge{display:inline-block;font:600 .74rem/1 var(--sans);padding:.22rem .42rem;border-radius:4px;
+  vertical-align:.12em;margin-right:.35rem;white-space:nowrap}
+.badge.open{color:var(--open);background:var(--open-bg);border:1px solid currentColor}
+.badge.ext{color:#fff;background:var(--ext)}
+.badge.opt{color:var(--ext);background:var(--ext-bg);border:1px solid currentColor}
+@media (prefers-color-scheme:dark){.badge.ext{color:#15181e}}
+.from-ext{color:var(--ext)}
+p.from-ext,aside.from-ext,table.from-ext{border-left:3px solid var(--ext);padding-left:.8rem}
+li.from-ext::marker{color:var(--ext)}
+mark.chosen{background:var(--ext-bg);color:var(--ext);padding:0 .15em;border-radius:3px}
+.choice{font-family:var(--sans);font-size:.92em;white-space:nowrap}
+.choice .alt{border:1px solid var(--open);border-radius:4px;padding:0 .3em;margin:0 .1em;color:var(--ink)}
+.choice .alt b{color:var(--open);font-weight:600;margin-right:.25em}
+.choice .alt b.opt{color:var(--ext)}
+/* glossary entries as playing cards */
+nav.site{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:.4rem 1.2rem;margin:-1.5rem 0 -1.5rem;
+  font:.9rem/1.4 var(--sans)}
+nav.site a{color:var(--term);text-decoration:none}
+nav.site a:hover{text-decoration:underline}
+nav.site .here{color:var(--muted)}
+.cards{columns:2 17rem;column-gap:.9rem;margin:1rem 0 1.6rem}
+hr.end{border:0;border-top:1px solid var(--rule);width:4rem;margin:1.6rem auto}
+.card{position:relative;display:inline-block;width:100%;margin:0 0 .9rem;background:var(--card);
+  border:1px solid var(--rule);border-radius:11px;padding:.95rem 1.05rem .9rem;font-size:.93rem;line-height:1.5;
+  break-inside:avoid;scroll-margin-top:1.5rem}
+.card>h3{font:700 1rem/1.25 var(--sans);margin:0 0 .55rem;padding-right:1.6rem}
+.card>h3 .badge{float:right;margin:0 -0.3rem 0 .4rem}
+.card p:last-child,.card ul:last-child,.card ol:last-child,.card>:last-child{margin-bottom:0}
+.card ul,.card ol{padding-left:1.1rem}
+.card h4,.card h5{font:600 .93rem/1.3 var(--sans);margin:.9rem 0 .3rem}
+.card.ext{border-color:color-mix(in srgb,var(--ext) 45%,var(--rule))}
+.card.ext::after{content:"";position:absolute;top:0;right:0;width:1.7rem;height:1.7rem;
+  background:linear-gradient(225deg,var(--ext) 50%,transparent 50%);border-top-right-radius:10px}
+.card.wide{column-span:all}
+table.catalog{width:100%}
+table.catalog td:first-child{font-weight:700}
+table.catalog tr.group td{border-top:1px solid var(--rule)}
+table.catalog .sigma{color:var(--muted);font-weight:400}
+.card-img{float:right;width:34%;max-width:9.5rem;max-height:13rem;object-fit:contain;margin:0 0 .5rem .8rem;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.card.has-img::after{content:"";display:block;clear:both}
+table.catalog img.thumb{height:2.2em;width:auto;max-width:3em;object-fit:contain;vertical-align:middle;margin-right:.45em;border-radius:3px}
+.fields{display:flex;flex-wrap:wrap;gap:.3rem;list-style:none;margin:-.15rem 0 .6rem;padding:0;font:.78rem/1.2 var(--sans)}
+.fields li{margin:0;padding:.2rem .45rem;border-radius:4px;background:var(--desk);font-weight:700}
+.fields li span{font-weight:400;color:var(--muted)}
+.fields li i.total{font-style:normal}
+.card:target{outline:3px solid var(--term);outline-offset:2px}
+.card .from-ext{color:inherit}
+footer{grid-column:1/-1;border-top:1px solid var(--rule);padding-top:1rem;color:var(--muted);font:.82rem var(--sans)}
+:focus-visible{outline:2px solid var(--term);outline-offset:2px}
+@media (max-width:60rem){
+  .page{grid-template-columns:minmax(0,1fr);gap:2rem;padding:1.6rem 1.1rem 4rem}
+  header.game{grid-template-columns:1fr}
+  .cover{max-width:7rem}
+  nav.toc{position:static;max-height:none;border:1px solid var(--rule);border-radius:8px;padding:.9rem 1rem;background:var(--card)}
+  .selection{margin-top:-1rem}
+}
+@media print{
+  html,body{background:#fff;color:#000}
+  :root{--ink:#000;--muted:#444;--rule:#bbb;--card:#fff;--term:#000;--paper:#fff}
+  aside.callout{--cbg:#fff;break-inside:avoid}
+  body{font-size:10.5pt}
+  .page{display:block;padding:0;max-width:none}
+  nav.toc{display:none}
+  a.ref{text-decoration:none;border-bottom:.5pt dotted #777}
+  main h2{break-after:avoid;margin-top:1.6rem}
+  .cards{columns:2;column-gap:6pt}
+  .card{border-color:#999;padding:6pt 8pt}
+  table,figure,p.key{break-inside:avoid}
+}
+@media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
+
+body{min-height:100vh}
+.vault{max-width:72rem;margin:0 auto;padding:3rem 2rem 5rem}
+.vault-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:.5rem 2rem;
+  border-bottom:2px solid var(--ink);padding-bottom:1.2rem}
+.vault-head h1{font:600 clamp(2.2rem,5vw,3.2rem)/1.05 var(--serif);margin:0;letter-spacing:-.015em}
+.vault-head .count{margin:0;color:var(--muted);font:.95rem var(--sans)}
+.vault-head .wishlist-link{font:.95rem var(--sans);color:var(--term);text-decoration:none;margin-left:auto}
+.filters{display:flex;flex-wrap:wrap;gap:.7rem 1.2rem;align-items:center;margin:1.4rem 0 1.8rem;font:.95rem var(--sans)}
+.filters input[type=search]{flex:1 1 16rem;min-width:0;font:inherit;padding:.55rem .8rem;border:1px solid var(--rule);
+  border-radius:8px;background:var(--card);color:var(--ink)}
+.filters label{display:flex;align-items:center;gap:.45rem;color:var(--muted)}
+.filters select,.filters button{font:inherit;padding:.45rem .6rem;border:1px solid var(--rule);border-radius:8px;
+  background:var(--card);color:var(--ink)}
+.filters button{cursor:pointer}
+.tag-list{flex-basis:100%;display:flex;flex-wrap:wrap;gap:.4rem}
+.tag-list .tag{border-radius:999px;padding:.3rem .75rem;font-size:.85rem}
+.tag-list .tag[aria-pressed=true]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.games{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(19rem,1fr));gap:1rem}
+.game-card{display:grid;grid-template-columns:5.5rem 1fr;gap:1rem;padding:1rem;background:var(--card);
+  border:1px solid var(--rule);border-radius:10px}
+.game-card[hidden]{display:none}
+.game-card .cover{display:block;text-decoration:none;width:5.5rem;height:5.5rem;border-radius:6px;overflow:hidden;background:var(--desk)}
+.game-card .cover img{width:100%;height:100%;object-fit:cover;display:block}
+.game-card .initial{display:flex;width:100%;height:100%;align-items:center;justify-content:center;
+  font:600 2.2rem var(--serif);color:var(--muted)}
+.game-card h2{font:600 1.25rem/1.2 var(--serif);margin:0 0 .3rem}
+.game-card h2 a{color:var(--ink);text-decoration:none}
+.game-card h2 a:hover{color:var(--term)}
+.game-card p{margin:.2rem 0;font:.88rem/1.45 var(--sans)}
+.game-card .facts{color:var(--ink)}
+.game-card .people,.game-card .location{color:var(--muted)}
+.game-card .tags span{display:inline-block;margin:0 .3rem .25rem 0;padding:.05rem .5rem;border:1px solid var(--rule);
+  border-radius:999px;font-size:.78rem;color:var(--muted)}
+.game-card .links{margin-top:.5rem}
+.game-card .links a{color:var(--term);margin-right:.8rem;text-decoration:none;font-weight:600}
+.game-card .links a:hover{text-decoration:underline}
+.empty{color:var(--muted);font:1rem var(--sans);text-align:center;padding:3rem 0}
+@media (max-width:40rem){.vault{padding:2rem 1rem 4rem}.game-card{grid-template-columns:4rem 1fr}
+  .game-card .cover{width:4rem;height:4rem}}
+</style>
+</head>
+<body>
+<div class="vault">
+<header class="vault-head">
+  <h1>Family game vault</h1>
+  <a class="wishlist-link" href="wishlist.html">♡ Souhaits (3)</a>
+  <p class="count" id="count">5 jeux sur 5</p>
+</header>
+<form class="filters" id="filters" role="search" onsubmit="return false">
+  <input type="search" id="q" placeholder="Chercher un jeu, un auteur…" aria-label="Chercher un jeu, un auteur…">
+  <label>Joueurs <select id="players"><option value="">tous</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option></select></label>
+  <label>Durée <select id="duration"><option value="">tous</option><option value="15">jusqu&#x27;à 15 min</option><option value="30">jusqu&#x27;à 30 min</option><option value="45">jusqu&#x27;à 45 min</option><option value="60">jusqu&#x27;à 60 min</option><option value="90">jusqu&#x27;à 90 min</option><option value="120">jusqu&#x27;à 120 min</option><option value="180">jusqu&#x27;à 180 min</option></select></label>
+  <button type="reset" id="reset">Réinitialiser</button>
+  <div class="tag-list" role="group" aria-label="Étiquettes"><button type="button" class="tag" aria-pressed="false" data-tag="card">card</button><button type="button" class="tag" aria-pressed="false" data-tag="classic">classic</button><button type="button" class="tag" aria-pressed="false" data-tag="classique">classique</button><button type="button" class="tag" aria-pressed="false" data-tag="dextérité">dextérité</button><button type="button" class="tag" aria-pressed="false" data-tag="domaine public">domaine public</button><button type="button" class="tag" aria-pressed="false" data-tag="extérieur">extérieur</button><button type="button" class="tag" aria-pressed="false" data-tag="fait maison">fait maison</button><button type="button" class="tag" aria-pressed="false" data-tag="famille">famille</button><button type="button" class="tag" aria-pressed="false" data-tag="family">family</button><button type="button" class="tag" aria-pressed="false" data-tag="homemade">homemade</button><button type="button" class="tag" aria-pressed="false" data-tag="paquet classique">paquet classique</button><button type="button" class="tag" aria-pressed="false" data-tag="public-domain">public-domain</button><button type="button" class="tag" aria-pressed="false" data-tag="quick">quick</button><button type="button" class="tag" aria-pressed="false" data-tag="set-collection">set-collection</button><button type="button" class="tag" aria-pressed="false" data-tag="shedding">shedding</button></div>
+</form>
+<ul class="games" id="games">
+<li class="game-card" data-players="2 3 4" data-dmax="15"
+  data-tags="dextérité|extérieur|fait maison" data-text="cercle de pierre cercle de pierre stone-circle la famille dexterite exterieur fait maison abri de jardin sceau bleu">
+  <a class="cover" href="stone-circle/index.html" tabindex="-1"><img src="stone-circle/cover.jpg" alt="" loading="lazy"></a>
+  <div class="body">
+    <h2><a href="stone-circle/index.html">Cercle de pierres</a></h2>
+    <p class="facts">2–4 joueurs · 15 min · 6 ans et +</p>
+    <p class="people">la famille</p>
+    <p class="tags"><span>dextérité</span><span>extérieur</span><span>fait maison</span></p>
+    <p class="location">abri de jardin, sceau bleu</p>
+    <p class="links"><a href="stone-circle/index.html">Règles</a> <a href="stone-circle/key.html">Règles clés</a> <a href="stone-circle/index.en.html" hreflang="en">EN</a></p>
+  </div>
+</li><li class="game-card" data-players="2 3 4 5" data-dmax="20"
+  data-tags="card|classic|shedding|quick|public-domain" data-text="crazy eight crazy eight crazy-eight card classic shedding quick public-domain">
+  <a class="cover" href="crazy-eights/index.html" tabindex="-1"><span class="initial" aria-hidden="true">C</span></a>
+  <div class="body">
+    <h2><a href="crazy-eights/index.html">Crazy Eights</a></h2>
+    <p class="facts">2–5 joueurs · 10–20 min · 6 ans et +</p>
+    
+    <p class="tags"><span>card</span><span>classic</span><span>shedding</span><span>quick</span><span>public-domain</span></p>
+    
+    <p class="links"><a href="crazy-eights/index.html">Règles</a> <a href="crazy-eights/key.html">Règles clés</a></p>
+  </div>
+</li><li class="game-card" data-players="3 4 5" data-dmax="60"
+  data-tags="card|classique|domaine public" data-text="dame de pique dame de pique heart card classique domaine public tiroir carte">
+  <a class="cover" href="hearts/index.html" tabindex="-1"><span class="initial" aria-hidden="true">D</span></a>
+  <div class="body">
+    <h2><a href="hearts/index.html">Dame de pique</a></h2>
+    <p class="facts">3–5 joueurs · 30–60 min · 10 ans et +</p>
+    
+    <p class="tags"><span>card</span><span>classique</span><span>domaine public</span></p>
+    <p class="location">tiroir cartes</p>
+    <p class="links"><a href="hearts/index.html">Règles</a> <a href="hearts/key.html">Règles clés</a> <a href="hearts/index.en.html" hreflang="en">EN</a></p>
+  </div>
+</li><li class="game-card" data-players="2 3 4 5" data-dmax="30"
+  data-tags="card|homemade|famille|fait maison|paquet classique" data-text="maree haute maree haute maree-haute l&#x27;equipe tabula card homemade famille fait maison paquet classique tiroir du buffet boite en fer bleue">
+  <a class="cover" href="maree-haute/index.html" tabindex="-1"><img src="maree-haute/cover.png" alt="" loading="lazy"></a>
+  <div class="body">
+    <h2><a href="maree-haute/index.html">Marée haute</a></h2>
+    <p class="facts">2–5 joueurs · 20–30 min · 8 ans et + · 2026</p>
+    <p class="people">l&#x27;équipe Tabula</p>
+    <p class="tags"><span>card</span><span>homemade</span><span>famille</span><span>fait maison</span><span>paquet classique</span></p>
+    <p class="location">tiroir du buffet, boîte en fer bleue</p>
+    <p class="links"><a href="maree-haute/index.html">Règles</a> <a href="maree-haute/key.html">Règles clés</a> <a href="maree-haute/index.en.html" hreflang="en">EN</a></p>
+  </div>
+</li><li class="game-card" data-players="2 3 4 5" data-dmax="15"
+  data-tags="card|family|quick|set-collection" data-text="oh my sock oh my sock oh-my-sock antoine bauza theo riviere card family quick set-collection armoire de l&#x27;entree">
+  <a class="cover" href="oh-my-socks/index.html" tabindex="-1"><span class="initial" aria-hidden="true">O</span></a>
+  <div class="body">
+    <h2><a href="oh-my-socks/index.html">Oh My Socks!</a></h2>
+    <p class="facts">2–5 joueurs · 15 min · 6 ans et +</p>
+    <p class="people">Antoine Bauza, Théo Rivière</p>
+    <p class="tags"><span>card</span><span>family</span><span>quick</span><span>set-collection</span></p>
+    <p class="location">Armoire de l&#x27;entrée</p>
+    <p class="links"><a href="oh-my-socks/index.html">Règles</a> <a href="oh-my-socks/key.html">Règles clés</a></p>
+  </div>
+</li>
+</ul>
+<p class="empty" id="empty" hidden>Aucun jeu ne correspond.</p>
+</div>
+<script>
+(function () {
+  var S = {"count": "{} jeux sur {}"};
+  var cards = Array.prototype.slice.call(document.querySelectorAll('.game-card'));
+  var q = document.getElementById('q'), players = document.getElementById('players'),
+      duration = document.getElementById('duration'), count = document.getElementById('count'),
+      empty = document.getElementById('empty');
+  var tagButtons = Array.prototype.slice.call(document.querySelectorAll('.tag'));
+  function fold(s) { return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
+  function apply() {
+    var p = players.value, d = parseInt(duration.value, 10) || 0, text = fold(q.value.trim());
+    var tags = tagButtons.filter(function (b) { return b.getAttribute('aria-pressed') === 'true'; })
+                         .map(function (b) { return b.dataset.tag; });
+    var shown = 0;
+    cards.forEach(function (c) {
+      var ok = true;
+      if (p && c.dataset.players !== '*' && c.dataset.players.split(' ').indexOf(p) < 0) ok = false;
+      if (d && parseInt(c.dataset.dmax, 10) > d) ok = false;
+      var own = c.dataset.tags ? c.dataset.tags.split('|') : [];
+      if (tags.some(function (t) { return own.indexOf(t) < 0; })) ok = false;
+      if (text && text.split(/\s+/).some(function (w) { return c.dataset.text.indexOf(w) < 0; })) ok = false;
+      c.hidden = !ok;
+      if (ok) shown++;
+    });
+    count.textContent = S.count.replace('{}', shown).replace('{}', cards.length);
+    empty.hidden = shown > 0;
+  }
+  q.addEventListener('input', apply);
+  players.addEventListener('change', apply);
+  duration.addEventListener('change', apply);
+  tagButtons.forEach(function (b) {
+    b.addEventListener('click', function () {
+      b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') === 'true' ? 'false' : 'true');
+      apply();
+    });
+  });
+  document.getElementById('filters').addEventListener('reset', function () {
+    tagButtons.forEach(function (b) { b.setAttribute('aria-pressed', 'false'); });
+    setTimeout(apply, 0);
+  });
+})();
+</script>
+</body>
+</html>
