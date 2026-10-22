@@ -35,7 +35,8 @@ def members(d: Block) -> list[tuple[list[Cond], str]]:
 
 
 def is_group(d: Block) -> bool:
-    return d.kind == "def" and any(v == "" for v in d.fields.values()) and bool(members(d))
+    """A definition with fields to add up from the cards it lists (before or after they are filled in)."""
+    return d.kind == "def" and (bool(d.totals) or any(v == "" for v in d.fields.values())) and bool(members(d))
 
 
 def definitions(blocks: list[Block]) -> dict[str, tuple[Block, list[Cond]]]:
@@ -102,7 +103,7 @@ def total(values: list[str]) -> str:
 def fill_totals(shown: list[Block], source: list[Block], ctx: Ctx) -> list[Block]:
     """The shown blocks with the empty fields of groups filled in. `source`: the game's blocks, to find the
     listed cards even when they are not shown (`lookup`). Each filled def gets `totals`: {key: [[tokens,
-    number]]} for the interactive page (numbers only)."""
+    number]]} for the interactive page (None when the values aren't numbers)."""
     if not any(is_group(b) for b in walk(shown)):
         return shown
     defs = definitions(source)
@@ -110,13 +111,14 @@ def fill_totals(shown: list[Block], source: list[Block], ctx: Ctx) -> list[Block
     def fill(blocks):
         out = []
         for b in blocks:
-            if is_group(b):
+            if is_group(b) and not b.totals:
                 fields, totals = dict(b.fields), {}
                 for k, v in b.fields.items():
                     if v != "":
                         continue
                     ps = parts(b, k, defs, frozenset({norm(b.term)}))
                     fields[k] = total([x for conds, x in ps if all(cond_ok(c, ctx) for c in conds)])
+                    totals[k] = None                 # filled in, but not numbers: the page can't add it up
                     if ps and all(number(x) is not None for _, x in ps):
                         totals[k] = [[unique(t for c in conds for t in cond_tokens(c)), tidy(number(x))]
                                      for conds, x in ps]

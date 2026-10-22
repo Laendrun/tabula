@@ -10,6 +10,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/): Added, Chang
 
 ### Added
 - Totals: a field left empty in a definition that lists cards (`avec::` above `- [[Attaque 2x]]`, `- {+barking} [[…]]`) is the sum of that field on those cards, for the chosen extensions and player count. It updates on the interactive page, and works in `show`, `lookup`, `cards`, the exports and JSON.
+- `tabula cards` and the catalog table list a group's cards under it, indented, and mark the group with Σ; groups aren't counted as cards. `cards --json` adds `kind` (card or group) and a group's `cards`.
 
 ### Changed
 - `tabula check` no longer warns about an empty field that is a total; it says so when nothing listed has that field.
