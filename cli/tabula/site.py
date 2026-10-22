@@ -150,7 +150,7 @@ def index_page(vault: Vault, entries: list[dict], ui: dict, lang: str, wishes: i
     name = str(vault.config.get("name") or vault.root.name)
     finite = [hi for e in entries for _, hi in (players_range(e["game"], everything=True) or []) if hi != math.inf]
     los = [lo for e in entries for lo, _ in (players_range(e["game"], everything=True) or [])]
-    cap = max([*finite, *los, 6])
+    cap = min(max([*finite, *los, 6]), 100)          # players: 2-99999999 is a typo: no endless menu
     tags = sorted({t for e in entries for t in as_list(e["game"].meta.get("type")) + as_list(e["game"].meta.get("tags"))},
                   key=fold)
     cards = []

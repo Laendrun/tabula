@@ -205,7 +205,7 @@ def cmd_fmt(args) -> int:
             if args.check:
                 print(f"would format: {rel}")
             else:
-                p.write_text(new, encoding="utf-8", newline="\n")
+                p.write_bytes(new.encode("utf-8"))           # as is: its own line endings (no newline= before 3.10)
                 print(f"formatted: {rel}")
     verb = "would be formatted" if args.check else "formatted"
     print(f"{len(set(paths))} file(s), {changed} {verb}" + (f", {unsafe} left as they are" if unsafe else ""))

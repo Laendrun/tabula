@@ -79,7 +79,7 @@ def resolve_choices(text: str, ctx: Ctx, st: Style) -> str:
 def find_section(blocks: list[Block], name: str) -> Block | None:
     """The heading a [[#Section]] link points to: by title (like any reference), else by role."""
     want = name.lstrip("#").strip()
-    heads = [b for b in blocks if b.kind == "heading" and not b.reopens]
+    heads = [b for b in blocks if b.kind == "heading" and not b.reopens and not b.hidden]
     return (next((b for b in heads if fold(b.text) == fold(want)), None)
             or next((b for b in heads if want.lower() in b.roles), None))
 
@@ -135,6 +135,10 @@ def render_blocks(blocks: list[Block], ctx: Ctx, st: Style, width: int) -> list[
             counters.clear()
         txt = render_inline(b.text, ctx, st) if b.kind not in ("table", "code", "def") else ""
         if b.kind == "heading" and b.reopens and b.quiet:
+            continue
+        if b.kind == "heading" and b.hidden:          # an included section's condition: only its badge
+            if (mark := badge(b).strip()):
+                out.append(mark)
             continue
         if b.kind == "heading" and b.reopens:
             if out and out[-1] != "":

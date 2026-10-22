@@ -7,7 +7,7 @@ import re
 import shutil
 import sys
 
-from .syntax import Ctx, fold, norm
+from .syntax import Ctx, fold
 from .totals import is_group, members
 from .blocks import Block, components_of
 from .filtering import filter_blocks
@@ -72,7 +72,7 @@ def nest_groups(rows: list[dict]) -> list[dict]:
     same sub-section, one level deeper (`depth`); a card in several groups goes under the first one."""
     if not any(r["kind"] == "group" for r in rows):
         return rows
-    by_key = {(r["group"], norm(r["card"])): r for r in rows}
+    by_key = {(r["group"], fold(r["card"])): r for r in rows}
     claimed = set()
     for r in rows:                                # cards claimed by a group (they leave their own place)
         if r["kind"] == "group":

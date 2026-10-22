@@ -102,6 +102,9 @@ class Vault:
                 self.config = yaml.safe_load(cfg.read_text(encoding="utf-8")) or {}
             except yaml.YAMLError as e:
                 self.issues.error(cfg, 1, f"invalid YAML: {e}")
+            if not isinstance(self.config, dict):          # a list or a word: nothing tabula can use
+                self.issues.error(cfg, 1, "vault.yaml must be settings written as 'key: value' (name:, language:…)")
+                self.config = {}
             for msg in value_problems(self.config.get("values")) + symbol_problems(self.config.get("symbols"), self.root):
                 self.issues.error(cfg, 1, msg)
         self.language = str(self.config.get("language") or "en")
@@ -129,7 +132,17 @@ class Vault:
                 found.append(expected)
             else:
                 self.issues.error(d, 0, f"missing default-language file '{expected.name}'")
-        return found
+        seen: dict[str, Path] = {}
+        unique = []
+        for g in found:                     # x.game and x/x.game: two games with one name
+            if g.stem in seen:
+                if not any(i.msg.startswith(f"two games named '{g.stem}'") for i in self.issues):
+                    self.issues.error(g, 0, f"two games named '{g.stem}': {seen[g.stem].relative_to(self.root)} and "
+                                            f"{g.relative_to(self.root)}; rename or remove one (this one is ignored)")
+                continue
+            seen[g.stem] = g
+            unique.append(g)
+        return unique
 
     def find(self, ref: str) -> Path:
         p = Path(ref)

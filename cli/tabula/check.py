@@ -10,7 +10,7 @@ from pathlib import Path
 
 from .syntax import (
     BLOCK_COND_RE, BRACES_RE, CHOICE_RE, CONDISH_RE, Cond, FENCE_RE, FIELD_RE, HEADING_COND_RE,
-    IMAGE_RE, KNOWN_ROLES, P_TOKEN, REF_RE, bounds, in_range, norm, parse_attrs, parse_choice, parse_cond,
+    IMAGE_RE, KNOWN_ROLES, P_TOKEN, REF_RE, bounds, fold, in_range, parse_attrs, parse_choice, parse_cond,
     parse_range, split_lang,
 )
 from .fragments import SHARED_DIR, fragment_files
@@ -64,6 +64,8 @@ def check_game(game: Game, vault: Vault, require_defs: bool = False,
         iss.error(path, 1, "missing required 'players' in frontmatter (e.g. players: 2-4)")
     elif parse_range(meta["players"]) is None:
         iss.error(path, 1, f"invalid players '{meta['players']}' (use N, N-M, N+ or N,M)")
+    elif any(hi != float("inf") and hi > 100 for _, hi in parse_range(meta["players"])):
+        iss.warn(path, 1, f"players '{meta['players']}': more than 100 players, is it a typo? (N+ means 'or more')")
     if meta.get("best_players") is not None and parse_range(meta["best_players"]) is None:
         iss.warn(path, 1, f"invalid best_players '{meta['best_players']}'")
     if meta.get("duration") is not None and parse_range(meta["duration"]) is None:
@@ -236,8 +238,8 @@ def check_game(game: Game, vault: Vault, require_defs: bool = False,
                 if (rm := REF_RE.fullmatch(b.term)):
                     iss.error(path, b.line, f"term '{b.term}' is written as a reference; "
                                             f"write it without brackets: '{rm.group(1).strip()}'")
-                    bracketed.add(norm(rm.group(1)))
-                k = norm(b.term)
+                    bracketed.add(fold(rm.group(1)))
+                k = fold(b.term)
                 if k in terms:
                     iss.warn(path, b.line, f"'{b.term}' is defined twice (also line {terms[k][0]})")
                 else:
@@ -306,17 +308,17 @@ def check_game(game: Game, vault: Vault, require_defs: bool = False,
                                                f"in '{gname or 'cards'}' have one)")
 
     # ---- references
-    known = {norm(c["name"]) for c in components_of(game.blocks)} | set(terms) | bracketed
+    known = {fold(c["name"]) for c in components_of(game.blocks)} | set(terms) | bracketed
     if require_defs:      # every component must also be described in the glossary
         reported_defs = set()
         for c in components_of(game.blocks):
-            k = norm(c["name"])
+            k = fold(c["name"])
             if k not in terms and k not in bracketed and k not in reported_defs:
                 reported_defs.add(k)
                 iss.warn(path, c["line"], f"component '{c['name']}' has no definition; add '{c['name']}' "
                                           f"then ': …' to the glossary")
     for name, ln in singles:
-        if norm(name) in known:
+        if fold(name) in known:
             iss.warn(path, ln, f"'[{name}]' has single brackets; write [[{name}]] to make it a reference")
     seen = set()
     if fragment:          # references and unused terms depend on the game that includes it
@@ -326,7 +328,7 @@ def check_game(game: Game, vault: Vault, require_defs: bool = False,
 
     # ---- definitions nothing refers to (cards in a catalog are listed there, so they don't count)
     if unused:
-        referenced = {norm(name) for name, _, _ in refs if not name.startswith("#")}
+        referenced = {fold(name) for name, _, _ in refs if not name.startswith("#")}
         cards = {id(c["def"]) for c in card_catalog(game.blocks)}
 
         def defs(blocks):
@@ -336,7 +338,7 @@ def check_game(game: Game, vault: Vault, require_defs: bool = False,
                     yield from defs(b.children)
         reported = set()
         for d in defs(game.blocks):
-            k = norm(d.term)
+            k = fold(d.term)
             if id(d) in cards or k in referenced or k in reported or REF_RE.fullmatch(d.term):
                 continue
             reported.add(k)
@@ -353,7 +355,7 @@ def check_game(game: Game, vault: Vault, require_defs: bool = False,
                 iss.warn(path, ln, f"{raw} matches no section (a heading titled '{name[1:].strip()}', "
                                    f"or a role like #setup)")
             continue
-        k = norm(name)
+        k = fold(name)
         if k not in known and k not in seen:
             seen.add(k)
             iss.warn(path, ln, f"{raw} matches no component ('- 1x [[{name}]]' in a list) and no definition "
@@ -453,7 +455,8 @@ def check_setting(vault: Vault, game: Game, key: str, default: bool) -> bool:
     """A check option from the game's frontmatter, else vault.yaml's `check:`, else the default."""
     if key in game.meta:
         return bool(game.meta[key])
-    return bool((vault.config.get("check") or {}).get(key, default))
+    cfg = vault.config.get("check")
+    return bool(cfg.get(key, default) if isinstance(cfg, dict) else default)
 
 
 def shared_fragments(vault: Vault) -> list[Path]:
@@ -481,7 +484,8 @@ def spelling(game: Game, vault: Vault, lang: str | None = None) -> Issues:
 def check_fragment(vault: Vault, p: Path, spell: bool = False) -> tuple[Game, list[Issue]]:
     """A shared fragment and its translations, each checked on its own."""
     game = vault.load(p)
-    spell = spell or bool((vault.config.get("check") or {}).get("spelling", False))
+    cfg = vault.config.get("check")
+    spell = spell or bool(isinstance(cfg, dict) and cfg.get("spelling", False))
     iss = list(check_game(game, vault, fragment=True))
     if spell:
         iss += spelling(game, vault, str(game.meta.get("language") or vault.language))
@@ -521,6 +525,8 @@ def check_sheets(vault: Vault, paths: list[Path], args) -> int:
     """tabula check x.sheet: only those sheets (text, or --json for editors)."""
     found = []
     for p in paths:
+        if not p.is_file():
+            raise SystemExit(f"tabula: no score sheet {p}")
         found += check_sheet(load_sheet(p, vault), vault)
     errors = sum(i.level == "error" for i in found)
     warnings = sum(i.level == "warning" for i in found)

@@ -90,6 +90,43 @@ def find_todos(path: Path) -> list[tuple[int, str]]:
             for m in TODO_RE.finditer(text)]
 
 
+FENCE_START_RE = re.compile(r"^\s*(```|~~~)")
+
+
+def strip_comments(text: str) -> tuple[str, int | None, int | None]:
+    """The text without its <!-- comments --> (their line breaks kept), except in code blocks and `code`.
+    Also returns the line of a comment that is never closed and of a code block that is never closed."""
+    out: list[str] = []
+    fence, fence_line, in_comment, comment_line = None, 0, False, 0
+    for k, line in enumerate(text.split("\n"), 1):
+        if in_comment:
+            j = line.find("-->")
+            if j < 0:
+                out.append("")
+                continue
+            line, in_comment = line[j + 3:], False
+        elif fence:
+            out.append(line)
+            if line.strip().startswith(fence):
+                fence = None
+            continue
+        elif m := FENCE_START_RE.match(line):
+            fence, fence_line = m.group(1), k
+            out.append(line)
+            continue
+        kept = []
+        for part in re.split(r"(`[^`\n]*`)", line):          # `<!--` in inline code is text
+            if in_comment:
+                break
+            if not part.startswith("`"):
+                part = re.sub(r"<!--.*?-->", "", part)
+                if (j := part.find("<!--")) >= 0:
+                    part, in_comment, comment_line = part[:j], True, k
+            kept.append(part)
+        out.append("".join(kept))
+    return "\n".join(out), (comment_line if in_comment else None), (fence_line if fence else None)
+
+
 def read_source(path: Path, issues: Issues) -> tuple[dict, list[tuple[int, str]]]:
     text = raw_text(path)
     text = text.lstrip("\ufeff").replace("\r\n", "\n")
@@ -104,15 +141,16 @@ def read_source(path: Path, issues: Issues) -> tuple[dict, list[tuple[int, str]]
             issues.warn(path, text.count("\n", 0, text.index("\x00")) + 1,
                         "a NUL character (\\0) in the file: it is ignored")
         text = text.replace("\x00", "")
-    text = re.sub(r"<!--.*?-->", lambda m: "\n" * m.group(0).count("\n"), text, flags=re.S)
-    if (i := text.find("<!--")) >= 0:
-        issues.error(path, text.count("\n", 0, i) + 1, "unclosed comment '<!--' (missing '-->')")
-        text = text[:i]
+    text, open_comment, open_fence = strip_comments(text)
+    if open_comment and issues is not None:
+        issues.error(path, open_comment, "unclosed comment '<!--' (missing '-->'): the rest of the file is hidden")
+    if open_fence and issues is not None:
+        issues.warn(path, open_fence, "code block opened here is never closed: the rest of the file is shown as code")
     lines = text.split("\n")
     meta: dict = {}
     start = 0
     if lines and lines[0].strip() == "---":
-        end = next((k for k in range(1, len(lines)) if lines[k].strip() == "---"), None)
+        end = next((k for k in range(1, len(lines)) if lines[k].strip() in ("---", "...")), None)
         if end is None:
             issues.error(path, 1, "frontmatter starts with '---' but is never closed")
         else:

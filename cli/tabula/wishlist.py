@@ -185,8 +185,11 @@ def remove_wish(vault, wish: dict, wishes: list[dict]) -> None:
     """Delete a wish's lines from the file, keeping everything else (comments included) as written."""
     path = wishlist_path(vault)
     lines = path.read_text(encoding="utf-8").split("\n")
-    starts = sorted(w["line"] for w in wishes)
-    start = wish["line"]
+    def item_start(n: int) -> int:
+        """The line of the item's '-': its mapping may start on the line after a lone '-'."""
+        return n - 1 if 2 <= n <= len(lines) + 1 and lines[n - 2].strip() == "-" else n
+    starts = sorted(item_start(w["line"]) for w in wishes)
+    start = item_start(wish["line"])
     after = [s for s in starts if s > start]
     end = after[0] - 1 if after else len(lines)
     while end > start and (not lines[end - 1].strip() or lines[end - 1].lstrip().startswith("#")):

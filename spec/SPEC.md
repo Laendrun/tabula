@@ -237,7 +237,7 @@ Mélangez la [[carte Machine à laver]] avec 10 [[cartes Chaussettes]].
 Une [[Super-Chaussette]] compte comme n'importe quelle [[série]].
 ```
 
-- **Matching** ignores case and plural endings (`s`, `x`) on every word, so `[[cartes Chaussettes]]` matches the component `carte Chaussette`.
+- **Matching** ignores case, accents and plural endings (`s`, `x`) on every word of three letters or more, so `[[cartes Chaussettes]]` matches the component `carte Chaussette`, `[[dés]]` matches `dé` and `[[evenement]]` matches `Évènement`.
 - **An alias** shows different text but points to the given name: `[[série|séries complètes]]`.
 - `tabula check` warns about references that match nothing. A component counts as known even without a glossary entry, since simple pieces like "deck" or "string" rarely need one. To require a definition for every component, use `tabula check --definitions`, or turn it on for the whole vault in `vault.yaml`:
 
@@ -616,7 +616,7 @@ Bloc de score
 ```
 
 - **A fragment** is written like a game, with the same syntax: sections, components, definitions, conditions. Frontmatter is optional and not used by the game (a `title:` is a good reminder of what it is).
-- **`![[deck-52]]`**, alone on its line, inserts the whole of `_shared/deck-52.game`. **`![[deck-52#Glossaire]]`** inserts only the content of one section, found by its title (matched like references) or its role (`![[deck-52#glossary]]`), with its sub-sections but without its heading.
+- **`![[deck-52]]`**, alone on its line, inserts the whole of `_shared/deck-52.game`. **`![[deck-52#Glossaire]]`** inserts only the content of one section, found by its title (matched like references) or its role (`![[deck-52#glossary]]`), with its sub-sections but without its heading. A condition on that heading (`## Jokers {+jokers}`) still applies to what is included.
 - **Headings nest where they land:** a fragment's `#` sections become sub-sections of the section the include is in, and a selected section's sub-sections become sub-sections there. After the included lines, the game's next lines are back in the game's section, as if the fragment's sections had been closed with `---`.
 - **Indentation is kept:** an indented include puts the fragment's lines at that indentation, so components can become parts of a game's component (`- 1x [[boîte]]` then `  ![[deck-52#Matériel]]` on the next line).
 - **Translations:** a French game (`slug.fr.game`, or a game whose language is `fr`) includes `_shared/deck-52.fr.game` when it exists, else `_shared/deck-52.game`.

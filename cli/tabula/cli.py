@@ -207,7 +207,14 @@ def main(argv=None) -> int:
     p.add_argument("--vault", default=argparse.SUPPRESS)
     p.set_defaults(func=cmd_check)
 
-    args = ap.parse_args(argv)
+    args, extra = ap.parse_known_args(argv)
+    # Python < 3.12 stops filling a "*"/"+" positional at the first option: "lookup g -e x card" leaves
+    # "card" over. Give such words to the command's list of names, as newer Pythons do.
+    lists = [k for k in ("term", "games", "what", "name") if isinstance(getattr(args, k, None), list)]
+    if extra and lists and not any(e.startswith("-") for e in extra):
+        getattr(args, lists[0]).extend(extra)
+    elif extra:
+        ap.error("unrecognized arguments: " + " ".join(extra))
     if not hasattr(args, "vault"):
         args.vault = None
     try:

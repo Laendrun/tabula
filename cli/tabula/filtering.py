@@ -80,7 +80,7 @@ def _filter(blocks: list[Block], ctx: Ctx) -> list[Block]:
 def section_names(blocks: list[Block]) -> list[str]:
     out = []
     for b in blocks:
-        if b.kind == "heading" and not b.reopens:
+        if b.kind == "heading" and not b.reopens and not b.hidden:
             out += [f"#{r}" for r in b.roles] or [CHOICE_RE.sub("", b.text).strip()]
     return out
 

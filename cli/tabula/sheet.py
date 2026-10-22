@@ -48,6 +48,7 @@ class Sheet:
     game_meta: dict = field(default_factory=dict)
     lines: list = field(default_factory=list)
     root: Path | None = None          # the vault: pictures must be inside it
+    vault_language: str = "en"
 
     @property
     def title(self) -> str:
@@ -162,7 +163,8 @@ def load_sheet(path: Path, vault) -> Sheet:
     base = path.parent
     lines = expand_values(lines, merged_values(vault.config, game_meta, meta), issues, path)
     lines = expand_symbols(lines, merged_symbols(vault.root, base, vault.config, game_meta, meta))
-    return Sheet(path, meta, parse_blocks(lines), issues, game_meta, lines, root=vault.root)
+    return Sheet(path, meta, parse_blocks(lines), issues, game_meta, lines, root=vault.root,
+                 vault_language=vault.language)
 
 
 # ------------------------------------------------------------------ check
@@ -370,7 +372,7 @@ def render_sheet(sheet: Sheet, players: int | None = None) -> str:
         elif b.kind in ("para", "note", "key"):
             pages[-1].append(f"<p>{inline(b.text, base, sheet.root)}</p>")
     pages = [p for p in pages if p] or [[]]
-    lang = esc(str(sheet.meta.get("language") or sheet.game_meta.get("language") or "fr"))
+    lang = esc(str(sheet.meta.get("language") or sheet.game_meta.get("language") or sheet.vault_language))
     css = SHEET_CSS % {"w": w, "h": h, "m": sheet.margin, "f": font}
     body = "".join(f'<section class="page">{"".join(p)}</section>' for p in pages)
     return (f'<!doctype html><html lang="{lang}"><head><meta charset="utf-8">'

@@ -87,7 +87,7 @@ function fold(text) {
     .replace(/[^\p{L}\p{N}_\s'-]/gu, " ")
     .split(/\s+/)
     .filter(Boolean)
-    .map((w) => (w.length > 3 && /[sx]$/.test(w) && !w.endsWith("ss") ? w.slice(0, -1) : w))
+    .map((w) => (w.length > 2 && /[sx]$/.test(w) && !w.endsWith("ss") ? w.slice(0, -1) : w))
     .join(" ");
 }
 

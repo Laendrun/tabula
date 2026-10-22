@@ -11,6 +11,7 @@ from .syntax import (
 )
 
 QUIET_END = "---\x00quiet"     # see fragments.expand_includes
+SCOPE_MARK = "\x00scope "      # "## \x00scope Title {+x}": an invisible heading carrying an included section's condition
 
 
 @dataclass
@@ -38,6 +39,7 @@ class Block:
     reopens: int = 0          # heading made by "---": back in the section whose heading is on this line
     quiet: bool = False       # an end added after an included fragment: closes its sections, shows nothing
     callout: str = ""         # note: "> [!exemple] Title": its type as written (the title goes in `term`)
+    hidden: bool = False      # heading: invisible, only scopes a condition (![[frag#Section {+x}]])
     totals: dict = field(default_factory=dict)  # filtered view, def: key -> [[tokens, number]] (totals.py)
 
 
@@ -138,13 +140,16 @@ def parse_blocks(lines: list[tuple[int, str]]) -> list[Block]:
             continue
         if m := HEADING_RE.match(t):
             title, cond, roles = m.group(2), None, []
+            hidden = title.startswith(SCOPE_MARK)
+            if hidden:
+                title = title[len(SCOPE_MARK):]
             key = title.startswith("!") and not title.startswith("![")       # "## ! Title": a key section
             if key:
                 title = title[1:].lstrip()
             if (cm := HEADING_COND_RE.search(title)) and (attrs := parse_attrs(cm.group(1))):
                 (cond, roles), title = attrs, title[: cm.start()]
-            blocks.append(Block("heading", title.strip(), ln, level=len(m.group(1)), cond=cond, roles=roles,
-                                key=key))
+            blocks.append(Block("heading", title.strip(), ln, level=len(m.group(1)), cond=cond,
+                                roles=[] if hidden else roles, key=key and not hidden, hidden=hidden))
             while heads and heads[-1].level >= blocks[-1].level:
                 heads.pop()
             heads.append(blocks[-1])
