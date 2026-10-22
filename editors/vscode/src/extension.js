@@ -29,6 +29,7 @@ function settings(uri) {
     delay: c.get("delay") ?? 500,
     definitions: !!c.get("requireDefinitions"),
     spell: !!c.get("spellCheck"),
+    followCursor: c.get("previewFollowsCursor") !== false,
     cwd: ws || (uri ? path.dirname(uri.fsPath) : os.homedir()),
   };
 }
@@ -561,6 +562,15 @@ function openPreview() {
     preview = null;
   });
   panel.webview.onDidReceiveMessage((msg) => {
+    if (msg && typeof msg.line === "number" && preview && preview.doc) {   // double-click in the preview
+      const line = Math.max(0, Math.min(msg.line - 1, preview.doc.lineCount - 1));
+      vscode.window.showTextDocument(preview.doc, { viewColumn: vscode.ViewColumn.One, preserveFocus: false }).then((ed) => {
+        const pos = new vscode.Position(line, 0);
+        ed.selection = new vscode.Selection(pos, pos);
+        ed.revealRange(new vscode.Range(pos, pos), vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+      });
+      return;
+    }
     const target = msg && msg.open ? core.previewLink(msg.open) : null;
     if (!target) return;
     if (target.url) vscode.env.openExternal(vscode.Uri.parse(target.url));
@@ -707,6 +717,12 @@ function activate(context) {
     vscode.commands.registerCommand("tabula.checkVault", checkVault),
     vscode.commands.registerCommand("tabula.openPreview", openPreview),
     vscode.window.onDidChangeActiveTextEditor((ed) => { if (ed && preview && isGame(ed.document)) previewDocument(ed.document); }),
+    vscode.window.onDidChangeTextEditorSelection((e) => {          // the preview follows the cursor
+      if (!preview || e.textEditor.document !== preview.doc || !settings(preview.doc.uri).followCursor) return;
+      clearTimeout(preview.cursorTimer);
+      const line = e.selections[0].active.line + 1;
+      preview.cursorTimer = setTimeout(() => preview && preview.panel.webview.postMessage({ line }), 120);
+    }),
     vscode.commands.registerCommand("tabula.checkFile", () => {
       const ed = vscode.window.activeTextEditor;
       if (ed) checkDocument(ed.document);

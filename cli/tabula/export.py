@@ -357,6 +357,7 @@ class HtmlRenderer:
         self.esc = _html.escape
         self.game, self.blocks, self.ctx, self.key_only = game, blocks, ctx, key_only
         self.sel_label = ""                  # what the page shows, when it's a selection (turn summary)
+        self.source_lines = False            # --lines: data-line="N" on each block (the editor's preview)
         self.paper = ""                      # --paper a5: the printed page size
         self.interactive = interactive
         self.game_href = "{}.html"             # where [text](game:slug) links point; `tabula site` changes it
@@ -433,6 +434,15 @@ class HtmlRenderer:
         counts = [t for t in toks if t not in opts]
         out = f'<span class="badge open">{self.esc(" ".join(counts))}</span>' if counts else ""
         return out + (f'<span class="badge opt">{self.esc(" ".join(opts))}</span>' if opts else "")
+
+    def ln(self, b) -> str:
+        """data-line attribute: where the block is in the file (--lines, for the editor's preview)."""
+        return f' data-line="{b.line}"' if self.source_lines and getattr(b, "line", 0) else ""
+
+    def with_line(self, html_text: str, b) -> str:
+        """The block's HTML with data-line on its first tag."""
+        attr = self.ln(b)
+        return re.sub(r"^(<[a-zA-Z][\w-]*)", lambda m: m.group(1) + attr, html_text, count=1) if attr else html_text
 
     def dc(self, cond: Cond | None, extra: list | None = None) -> str:
         """data-c attribute with a condition's tokens, for the page's filter (interactive mode only)."""
@@ -560,7 +570,7 @@ class HtmlRenderer:
                         attrs += f' id="{self.uid(a)}"'
                 if cls:
                     attrs += f' class="{" ".join(cls)}"'
-                out.append(f"<li{attrs}{self.dc(b.cond)}>{self.badges(b)}{self.inline(b.text)}")
+                out.append(f"<li{attrs}{self.dc(b.cond)}{self.ln(b)}>{self.badges(b)}{self.inline(b.text)}")
                 k += 1
                 continue
             if not nested:
@@ -571,7 +581,7 @@ class HtmlRenderer:
                 # wrapped, so that its condition (and an empty section) can hide it whole
                 end = section_end(blocks, k)
                 cls = " ".join(x for x in ("sec" if self.interactive else "", "key-section" if b.key else "") if x)
-                out.append(f'<section class="{cls}"{self.dc(b.cond)}>' + self.block(b, in_card)
+                out.append(f'<section class="{cls}"{self.dc(b.cond)}>' + self.with_line(self.block(b, in_card), b)
                            + self.render(blocks[k + 1:end], in_card) + "</section>")
                 k = end
                 continue
@@ -582,7 +592,7 @@ class HtmlRenderer:
                     k += 1
                 out.append('<div class="cards">' + "".join(self.card(d) for d in group) + "</div>")
                 continue
-            out.append(self.block(b, in_card))
+            out.append(self.with_line(self.block(b, in_card), b))
             k += 1
         close_lists()
         return "\n".join(out)
@@ -606,7 +616,7 @@ class HtmlRenderer:
         if shown:
             chips = '<ul class="fields">' + "".join(
                 f'<li><span>{self.esc(k)}</span> {v}</li>' for k, v in shown.items()) + "</ul>"
-        return (f'<article class="{cls}" id="{cid}"{self.dc(d.cond)}>{img}<h3>{self.badges(d)}{self.inline(d.term)}</h3>'
+        return (f'<article class="{cls}" id="{cid}"{self.dc(d.cond)}{self.ln(d)}>{img}<h3>{self.badges(d)}{self.inline(d.term)}</h3>'
                 f'{chips}{self.render(d.children, in_card=True)}</article>')
 
     def block(self, b: Block, in_card: bool) -> str:
@@ -930,6 +940,7 @@ def cmd_export(args) -> int:
         renderer.sel_label = renderer.t["turn"]
     if args.paper:
         renderer.paper = args.paper
+    renderer.source_lines = args.lines
     html_text = renderer.page(f" — {renderer.t['turn']}" if args.turn else f" — {renderer.t['key']}" if args.key else "")
     if args.output == "-":
         out = getattr(sys.stdout, "buffer", None)       # bytes: no \r\r\n on Windows

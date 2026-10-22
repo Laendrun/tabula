@@ -5,6 +5,14 @@ Newest first. VS Code shows this file in the extension's "Changelog" tab. Add yo
 
 ## Unreleased
 
+## 0.17.0 — 2026-10-22
+
+### Added
+- The preview follows the cursor: it scrolls to the part of the rules you're editing (setting `tabula.previewFollowsCursor`).
+- Double-click in the preview to put the cursor on that line.
+
+Needs tabula 0.22.
+
 ## 0.16.0 — 2026-10-21
 
 ### Added

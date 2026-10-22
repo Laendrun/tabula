@@ -19,7 +19,7 @@ function previewArgs({ file, vault, extraArgs = [] }) {
   const args = [...extraArgs];
   if (vault) args.push("--vault", vault);
   if (/\.sheet$/i.test(file)) args.push("sheet", file, "--stdin", "-o", "-");
-  else args.push("export", file, "--interactive", "--stdin", "-o", "-");
+  else args.push("export", file, "--interactive", "--lines", "--stdin", "-o", "-");
   return args;
 }
 
@@ -434,6 +434,27 @@ function previewHtml(html, nonce, cspSource) {
   window.addEventListener('scroll', function () {
     clearTimeout(t);
     t = setTimeout(function () { save('scroll', window.scrollY); }, 100);
+  });
+  // the editor's cursor: scroll to the block it is in (the last one starting at or before its line)
+  function toLine(line) {
+    var best = null, at = -1;
+    var els = document.querySelectorAll('[data-line]');
+    for (var i = 0; i < els.length; i++) {
+      var l = +els[i].getAttribute('data-line');
+      if (l <= line && l >= at && els[i].getClientRects().length) { best = els[i]; at = l; }
+    }
+    if (!best) return;
+    var r = best.getBoundingClientRect();
+    if (r.top > 60 && r.bottom < window.innerHeight - 60) return;      // already in view
+    window.scrollTo({ top: window.scrollY + r.top - window.innerHeight * 0.25, behavior: 'smooth' });
+  }
+  window.addEventListener('message', function (e) {
+    if (e.data && typeof e.data.line === 'number') toLine(e.data.line);
+  });
+  // double-click in the preview: put the editor's cursor there
+  document.addEventListener('dblclick', function (e) {
+    var el = e.target.closest && e.target.closest('[data-line]');
+    if (el) api.postMessage({ line: +el.getAttribute('data-line') });
   });
   document.addEventListener('click', function (e) {
     var a = e.target.closest && e.target.closest('a[href]');

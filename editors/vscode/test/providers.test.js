@@ -16,11 +16,13 @@ class WorkspaceEdit {
   replace(uri, range, text) { this.ops.push({ uri, range, text }); }
   insert(uri, pos, text) { this.ops.push({ uri, range: { start: pos, end: pos }, text }); }
 }
+class Selection { constructor(a, b) { this.anchor = a; this.active = b; } }
 class TextEdit { static replace(range, text) { return { range, text }; } }
 class CodeAction { constructor(title, kind) { this.title = title; this.kind = kind; } }
 const disposable = { dispose() {} };
 const vscode = {
-  Range, CompletionItem, MarkdownString, Hover, Location, Position, WorkspaceEdit, CodeAction, TextEdit,
+  Range, CompletionItem, MarkdownString, Hover, Location, Position, WorkspaceEdit, CodeAction, TextEdit, Selection,
+  TextEditorRevealType: { InCenterIfOutsideViewport: 2 },
   CodeActionKind: { QuickFix: "quickfix" },
   Uri: { file: (f) => ({ fsPath: f, toString: () => "file://" + f }), parse: (u) => ({ toString: () => u }) },
   CompletionItemKind: { Reference: 17, Constant: 20, Module: 8, Keyword: 13, File: 16 },
@@ -38,13 +40,15 @@ const vscode = {
   window: {
     createOutputChannel: () => ({ appendLine() {}, dispose() {} }),
     onDidChangeActiveTextEditor: () => disposable,
+    onDidChangeTextEditorSelection: (f) => { registered.onSelection = f; return disposable; },
+    showTextDocument: (doc) => { const ed = { document: doc, revealRange(r) { ed.revealed = r; } }; registered.shown = ed; return Promise.resolve(ed); },
     activeTextEditor: null,
     setStatusBarMessage() {},
     showInformationMessage() {},
     createWebviewPanel: (id, title) => {
       const panel = {
         title, html: "", messages: [],
-        webview: { cspSource: "vscode-test:", set html(v) { panel.html = v; panel.onHtml && panel.onHtml(v); },
+        webview: { cspSource: "vscode-test:", postMessage: (m) => { (panel.posted = panel.posted || []).push(m); return Promise.resolve(true); }, set html(v) { panel.html = v; panel.onHtml && panel.onHtml(v); },
                    get html() { return panel.html; }, onDidReceiveMessage: (f) => { panel.receive = f; return disposable; } },
         reveal() {}, onDidDispose: () => disposable,
       };
@@ -179,6 +183,14 @@ test("preview: renders the open file with tabula and handles links", async () =>
   assert.equal(panel.title, "Preview: g.game");
   panel.receive({ open: "https://example.com/x" });
   assert.equal(String(registered.opened), "https://example.com/x");
+  // the preview follows the cursor, and a double-click in it moves the cursor
+  registered.onSelection({ textEditor: { document: d }, selections: [{ active: { line: 2 } }] });
+  await new Promise((r) => setTimeout(r, 200));
+  assert.deepEqual(panel.posted.pop(), { line: 3 });
+  panel.receive({ line: 3 });
+  await new Promise((r) => setTimeout(r, 10));
+  assert.equal(registered.shown.selection.active.line, 2);
+  assert.match(html, /addEventListener\('dblclick'/);
   void shown;
 });
 

@@ -6,6 +6,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/): Added, Chang
 
 ## Unreleased
 
+## 0.22.0 — 2026-10-22
+
+### Added
+- `tabula export --lines` marks each block with its line in the file (used by the VS Code preview to follow the cursor).
+
 ## 0.21.1 — 2026-10-22
 
 ### Fixed
