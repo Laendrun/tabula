@@ -15,7 +15,8 @@ from .blocks import callout_family, callout_title, card_image, shown_fields, Blo
 from .filtering import filter_blocks, section_end, section_names, select_key, select_sections, select_turn
 from .source import UNSAVED
 from .vault import Game, open_vault
-from .options import apply_options, players_note, players_range
+from .fields import GAME_KEYS, extra_fields, year as year_of
+from .options import OPTION_KEYS, apply_options, names, option_info, players_note, players_range
 from .terminal import find_section, plain
 from .lookup import Entry, lookup_entries
 from .cards import card_catalog, card_rows
@@ -27,7 +28,8 @@ UI = {
            "only_with": "only with {}", "by": "Design", "art": "Art", "publisher": "Publisher",
            "exported": "Exported with tabula {} on {}.", "players_n": "{} players",
            "card": "card", "count": "count", "ext": "extension", "key": "key rules", "turn": "turn summary",
-           "for": "Players", "any": "any", "everything": "Everything", "options": "Extensions and variants"},
+           "for": "Players", "any": "any", "everything": "Everything", "options": "Extensions and variants",
+           "year": "Year", "needs": "needs {}", "excludes": "not with {}"},
     "fr": {"players": "joueurs", "best": "idéal à {}", "min": "min", "age": "{} ans et +", "toc": "Sommaire",
            "showing": "Affichage", "base": "jeu de base", "no_variants": "sans variante",
            "all": "toutes les extensions et variantes",
@@ -35,7 +37,8 @@ UI = {
            "only_with": "seulement avec {}", "by": "Auteurs", "art": "Illustrations", "publisher": "Éditeur",
            "exported": "Exporté avec tabula {} le {}.", "players_n": "{} joueurs",
            "card": "carte", "count": "nombre", "ext": "extension", "key": "règles clés", "turn": "résumé du tour",
-           "for": "Joueurs", "any": "tous", "everything": "Tout", "options": "Extensions et variantes"},
+           "for": "Joueurs", "any": "tous", "everything": "Tout", "options": "Extensions et variantes",
+           "year": "Année", "needs": "nécessite {}", "excludes": "pas avec {}"},
     "de": {"players": "Spieler", "best": "am besten zu {}", "min": "Min.", "age": "ab {}", "toc": "Inhalt",
            "showing": "Ansicht", "base": "Grundspiel", "no_variants": "ohne Varianten",
            "all": "alle Erweiterungen und Varianten",
@@ -43,7 +46,8 @@ UI = {
            "only_with": "nur mit {}", "by": "Autoren", "art": "Illustration", "publisher": "Verlag",
            "exported": "Exportiert mit tabula {} am {}.", "players_n": "{} Spieler",
            "card": "Karte", "count": "Anzahl", "ext": "Erweiterung", "key": "Kernregeln", "turn": "Spielzug",
-           "for": "Spieler", "any": "alle", "everything": "Alles", "options": "Erweiterungen und Varianten"},
+           "for": "Spieler", "any": "alle", "everything": "Alles", "options": "Erweiterungen und Varianten",
+           "year": "Jahr", "needs": "braucht {}", "excludes": "nicht mit {}"},
 }
 
 
@@ -70,6 +74,13 @@ header.game h1{font:600 clamp(2.4rem,6vw,3.6rem)/1.02 var(--serif);letter-spacin
 .facts li{border:1px solid var(--rule);border-radius:999px;padding:.38rem .7rem;background:var(--card)}
 .credits{margin:.9rem 0 0;color:var(--muted);font:.88rem/1.5 var(--sans)}
 .credits b{font-weight:600;color:var(--ink)}
+.credits.details{margin-top:.3rem}
+details.options-info{margin:.7rem 0 0;font:.88rem/1.5 var(--sans);color:var(--muted)}
+details.options-info summary{cursor:pointer;color:var(--ink);font-weight:600}
+.options-info ul,ul.options-info{margin:.35rem 0 0;padding-left:1.1rem}
+.options-info b{color:var(--ink);font-weight:600}
+.options-info code{font-size:.8em}
+.options-info .more::before{content:"— "}
 .cover{max-width:11rem;max-height:11rem;border-radius:6px;box-shadow:0 1px 0 var(--rule)}
 .selection{grid-column:1/-1;margin:-1.5rem 0 0;padding:.75rem 0 0;font:.9rem/1.5 var(--sans);color:var(--muted)}
 .selection strong{color:var(--ink);font-weight:600}
@@ -686,7 +697,41 @@ class HtmlRenderer:
             if v:
                 names = ", ".join(map(str, v)) if isinstance(v, list) else str(v)
                 out.append(f"<b>{self.t[label]}</b> {self.esc(names)}")
+        if y := year_of(self.game.meta):
+            out.append(f"<b>{self.t['year']}</b> {self.esc(y)}")
         return out
+
+    def details(self) -> list[str]:
+        """Your own frontmatter keys: '<b>Series</b> Rulefactory'."""
+        return [f"<b>{self.esc(k)}</b> {self.esc(v)}"
+                for k, v in extra_fields(self.game.meta, GAME_KEYS, self.lang)]
+
+    def option_facts(self, name: str) -> list[str]:
+        """'2019', '2–10 players', '10–50 min', 'needs x', 'Label: value' for one extension or variant (text)."""
+        d, t = option_info(self.game, name), self.t
+        out = [year_of(d)] if year_of(d) else []
+        if d.get("players") is not None:
+            out.append(t["players_n"].format(str(d["players"]).replace("-", "–")))
+        if d.get("duration") is not None:
+            out.append(f"{str(d['duration']).replace('-', '–')} {t['min']}")
+        for k in ("needs", "excludes"):
+            if names(d.get(k)):
+                out.append(t[k].format(", ".join(names(d[k]))))
+        out += [f"{k}: {v}" for k, v in extra_fields(d, OPTION_KEYS, self.lang)]
+        return out
+
+    def options_info(self) -> str:
+        """The extensions and variants with their details, as a list ('' when there is nothing to tell)."""
+        items = []
+        for name, desc in self.game.options.items():
+            more = self.option_facts(name)
+            if not desc and not more:
+                continue
+            head = (f"<b>{self.esc(desc)}</b> <code>+{self.esc(name)}</code>" if desc
+                    else f"<b>{self.esc(name)}</b>")
+            items.append(f"<li>{head}" + (f' <span class="more">{self.esc(" · ".join(more))}</span>' if more else "")
+                         + "</li>")
+        return f'<ul class="options-info">{"".join(items)}</ul>' if items else ""
 
     def filter_bar(self) -> str:
         """The page's controls: player count, and every extension and variant (or everything)."""
@@ -706,7 +751,8 @@ class HtmlRenderer:
                          f'{opts}</select></label>')
         if g.options:
             boxes = "".join(
-                f'<label title="{esc(desc)}"><input type="checkbox" value="{esc(name.lower())}"> {esc(name)}</label>'
+                f'<label title="{esc(" · ".join(x for x in [desc, *self.option_facts(name)] if x))}">'
+                f'<input type="checkbox" value="{esc(name.lower())}"> {esc(name)}</label>'
                 for name, desc in g.options.items())
             parts.append(f'<label class="all"><input type="checkbox" id="f-all" checked> {esc(t["everything"])}</label>'
                          f'<span class="opts" role="group" aria-label="{esc(t["options"])}">{boxes}</span>')
@@ -796,7 +842,10 @@ class HtmlRenderer:
         """The full HTML document. `nav`: links shown above the title (used by `tabula site`)."""
         g, t, esc, ctx = self.game, self.t, self.esc, self.ctx
         body = self.render(self.blocks)          # fills self.toc
-        facts, credits = self.facts(), self.credits()
+        facts, credits, details = self.facts(), self.credits(), self.details()
+        opts = self.options_info()
+        if opts:
+            opts = f'<details class="options-info"{"" if self.interactive else " open"}><summary>{esc(t["options"])}</summary>{opts}</details>'
         cover = ""
         if g.cover and g.cover.is_file():
             src = str(g.cover.relative_to(g.base_dir)) if g.cover.is_relative_to(g.base_dir) else str(g.cover)
@@ -864,7 +913,8 @@ class HtmlRenderer:
 {f'<nav class="site">{nav}</nav>' if nav else ""}
 <header class="game"><div><h1>{esc(g.title)}</h1>
 <ul class="facts">{"".join(f"<li>{f}</li>" for f in facts)}</ul>
-{f'<p class="credits">{" &nbsp; ".join(credits)}</p>' if credits else ""}</div>{cover}</header>
+{f'<p class="credits">{" &nbsp; ".join(credits)}</p>' if credits else ""}
+{f'<p class="credits details">{" &nbsp; ".join(details)}</p>' if details else ""}{opts}</div>{cover}</header>
 {selection}
 {toc}
 <main>

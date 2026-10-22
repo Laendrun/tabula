@@ -52,6 +52,8 @@ Symbols too: `symbols: {gold: media/gold.png, star: ⭐}` in `vault.yaml` (share
 
 Numbers that depend on the player count can be written once: `values: {main: {2p: 7, "*": 5}}` in the frontmatter (or in `vault.yaml` for every game), then `{=main}` in the text. See the spec, section 8.6.
 
+The frontmatter can hold your own keys too (`series: Rulefactory`, `bought_at: Spiel 2019`): only the keys of the spec do something, the others are shown as they are ("Series: Rulefactory") on the game's page and in `tabula show`. The same goes for an extension's details, next to `description`, `players`, `year`, `needs`…
+
 ## Card pictures
 
 A card in a catalog can have a picture: `image:: media/cartes/phare.png` among its fields. The site, the HTML export and the book draw it on the card and in the catalog table; VS Code shows it when you hover a reference to the card.
@@ -150,6 +152,7 @@ What changed in each version: [cli/CHANGELOG.md](cli/CHANGELOG.md) for `tabula`,
 | `wishlist.py` | the wishlist: `wishlist.yaml`, `tabula wish`, its check and site page |
 | `sheet.py` | score sheets: `.sheet` files, their check and `tabula sheet` |
 | `spell.py` | spelling for `check --spell`: dictionaries (downloaded once) and the words to skip |
+| `fields.py` | your own frontmatter keys and extension details, shown as "Label: value"; `year` |
 | `cli.py` | the command line (`tabula …`) |
 
 Without installing: `python cli/tabula show hearts`.

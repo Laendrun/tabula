@@ -6,6 +6,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/): Added, Chang
 
 ## Unreleased
 
+## 0.26.0 — 2026-10-22
+
+### Added
+- Your own frontmatter keys (`series:`, `bought_at:`…) are shown as "Label: value" on the exported page, in the book and in `tabula show`.
+- `year:` is shown: on the game's page (next to the credits), in `tabula show`, on the site's game cards and in `list --json`.
+- Extensions and variants can have a `year` and your own details; they are listed with their details in the page's header ("Extensions and variants"), in the checkbox tooltips and in `tabula show`.
+- `tabula check` warns about a `year` that isn't a year.
+
+### Changed
+- An unknown extension or variant detail is no longer an error: it is your own. Only one that looks like a typo of a known detail gets a warning.
+
 ## 0.25.0 — 2026-10-22
 
 ### Added

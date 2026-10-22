@@ -10,7 +10,8 @@ from .syntax import Ctx, in_range, parse_range
 from .blocks import components_of
 from .filtering import filter_blocks, section_names, select_key, select_sections, select_turn
 from .vault import open_vault
-from .options import apply_options, names, option_info, players_note, players_range
+from .fields import GAME_KEYS, extra_fields, year
+from .options import OPTION_KEYS, apply_options, names, option_info, players_note, players_range
 from .terminal import Style, block_json, plain, render_blocks
 
 def meta_line(meta: dict) -> str:
@@ -26,15 +27,18 @@ def meta_line(meta: dict) -> str:
     t = meta.get("type")
     if t:
         bits.append(", ".join(map(str, t)) if isinstance(t, list) else str(t))
+    if year(meta):
+        bits.append(year(meta))
     return " · ".join(bits)
 
 
 def option_label(game, name: str) -> str:
-    """'pandora (2-10p, needs troublemaker)' for the terminal."""
+    """'pandora (2019, 2-10p, needs troublemaker, Box: blue)' for the terminal."""
     d = option_info(game, name)
-    bits = ([f"{d['players']}p"] if d.get("players") else []) + \
+    bits = ([year(d)] if year(d) else []) + ([f"{d['players']}p"] if d.get("players") else []) + \
            ([f"needs {', '.join(names(d['needs']))}"] if d.get("needs") else []) + \
            ([f"not with {', '.join(names(d['excludes']))}"] if d.get("excludes") else [])
+    bits += [f"{k}: {v}" for k, v in extra_fields(d, OPTION_KEYS)]
     return f"{name} ({', '.join(bits)})" if bits else name
 
 
@@ -98,6 +102,8 @@ def cmd_show(args) -> int:
     out = [st.bold(game.title)]
     if ml := meta_line(game.meta):
         out.append(st.dim(ml))
+    if own := extra_fields(game.meta, GAME_KEYS, game.language):
+        out.append(st.dim(" · ".join(f"{k}: {v}" for k, v in own)))
     f = ["turn summary"] if args.turn else ["key rules"] if args.key else []
     f += [f"{ctx.players} players"] if ctx.players is not None else []
     if ctx.everything:
@@ -143,6 +149,7 @@ def cmd_list(args) -> int:
                 continue
             out.append({"slug": g.slug, "title": g.title, "path": str(p), "players": g.meta.get("players"),
                         "players_note": players_note(g), "duration": g.meta.get("duration"),
+                        "year": g.meta.get("year"),
                         "location": g.meta.get("location"), "language": g.default_language,
                         "translations": {l: str(p.parent / f"{g.slug}.{l}.game") for l in g.languages
                                          if l != g.default_language},

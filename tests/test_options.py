@@ -67,7 +67,7 @@ def test_descriptions_and_terminal(tmp_path, capsys):
     _, out, _ = run(capsys, v, "show", "f", "--no-color")
     assert "extensions: troublemaker, pandora (2-10p, needs troublemaker), solo (1p, not with pandora)" in out
     _, out, _ = run(capsys, v, "export", "f", "--interactive", "-o", "-")
-    assert 'title="La boîte de Pandore"' in out                               # the description, not the dict
+    assert 'title="La boîte de Pandore · 2–10 players · 10–50 min · needs troublemaker"' in out    # the description, not the dict
     assert '<option value="10">10</option>' in out and '<option value="1">1</option>' in out
     assert "2–10 +pandora" in out                                            # the facts
 
@@ -96,7 +96,8 @@ def test_check(tmp_path, capsys):
               .replace("    excludes: [pandora]", "    excludes: [solo]")
     code, out, _ = run(capsys, vault(tmp_path, bad), "check", "--no-color")
     assert code == 1
-    for msg in ("'pandora': unknown detail 'playres' (did you mean 'players'?)", "'pandora': invalid duration 'soon'",
+    for msg in ("warning  f/f.game:1  'pandora': 'playres' looks like a typo of 'players'",
+                "'pandora': invalid duration 'soon'",
                 "'pandora' needs 'ghost', which is not declared", "'solo' excludes itself"):
         assert msg in out, msg
     code, out, _ = run(capsys, vault(tmp_path), "check", "--no-color")

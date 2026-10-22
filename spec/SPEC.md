@@ -110,7 +110,7 @@ Série
 | `designer` | text or list | `[Antoine Bauza]` | |
 | `artist` | text or list | `[Camille Chaussy]` | |
 | `publisher` | text | | |
-| `year` | number | `2019` | |
+| `year` | number | `2019` | the year the game came out; shown on its page, in `tabula show` and on the site |
 | `language` | code | `fr` | default language of this game (overrides the vault) |
 | `variants` | map name → description, or list | `{omnibus: "…"}` | declares variants (other ways to play the same box), usable in `{+name}` conditions |
 | `extensions` | map name → description (or details), or list | `[supercharge, pandora]` | declares extensions/expansions (extra boxes), usable in `{+name}` conditions; details like `players`, `needs`, `excludes`: see 8.5 |
@@ -125,7 +125,17 @@ Série
 | `symbols` | map name → text or image | `{key: media/key.png}` | symbols written `:key:` in the text (see 4) |
 | `values` | map name → value | `{main: {2p: 7, "*": 5}}` | values written `{=main}` in the text (see 8.6) |
 
-Count ranges: `4`, `2-5`, `3+`, `2,4`. Unknown keys are allowed and kept, so add your own. `tabula check` only warns about a key that is one or two letters away from a known one (`durantion:`).
+Count ranges: `4`, `2-5`, `3+`, `2,4`.
+
+**Your own keys.** Only the keys above do something. Any other key is allowed, kept, and shown as it is, as "Label: value", under the credits of the exported page and the book, and under the title in `tabula show` (and in `show --json`'s `meta`):
+
+```yaml
+series: Rulefactory          # shown as "Series: Rulefactory"
+bought_at: Spiel 2019        # "Bought at: Spiel 2019" (underscores become spaces)
+sleeved: true                # "Sleeved: yes"
+```
+
+A list is shown with commas, a mapping as "Key: value; …"; empty keys are left out. `tabula check` only warns about a key that is one or two letters away from a known one (`durantion:`).
 
 ---
 
@@ -437,14 +447,17 @@ extensions:
     description: "La boîte de Pandore"
     players: 2-10            # the player counts the game gets with it (added to the base game's)
     duration: 10-50
+    year: 2016               # when it came out
     needs: [troublemaker]    # turned on with it
     excludes: [points]       # can't be used together
+    box: blue                # your own: shown as "Box: blue"
 ```
 
 - `players`: `tabula show frantic -p 10` is refused, but `-p 10 -e pandora` works, and `{9-10p}` conditions don't count as "never applies". `tabula list -p 10` lists the game with "(+pandora)", the site's player filter finds it, and its page shows "2–10 +pandora" and offers 9 and 10 players.
 - `needs`: `-e pandora` also turns on troublemaker (and says so). `excludes`: asking for both is refused.
 - A translation can give just a translated description (`pandora: "Pandora's box"`): the details come from the default-language file.
-- `tabula check` reports unknown details (with a "did you mean"), invalid ranges, and names in `needs`/`excludes` that aren't declared.
+- `year`, your own details and the other details are listed with each extension and variant in the header of the exported page ("Extensions and variants") and the book, in the tooltip of its checkbox on an interactive page, and after its name in `tabula show`: "pandora (2016, 2-10p, needs troublemaker, Box: blue)".
+- Other keys are your own, as in the frontmatter. `tabula check` warns about one that looks like a typo of a known detail (`playres:`), and reports invalid ranges, a `year` that isn't a year, and names in `needs`/`excludes` that aren't declared.
 
 **Additions** (more cards, new rules, new events):
 
