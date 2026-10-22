@@ -212,6 +212,8 @@ def check_game(game: Game, vault: Vault, require_defs: bool = False,
                         iss.warn(path, b.line, f"role '#{role}': did you mean '#{close[0]}'? Tools only know "
                                                f"'#{close[0]}' (your own role names are fine otherwise)")
                 check_text(b.text, b.line)
+            elif b.kind == "note" and b.children:      # paragraphs or a list inside a quote
+                walk(b.children)
             elif b.kind in ("para", "item", "note", "key"):
                 src = b.src or [(b.line, b.text)]
                 for k, (ln, raw) in enumerate(src):
