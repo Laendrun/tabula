@@ -75,6 +75,10 @@ npm run package
 
 If nothing happens, open *View → Output* and pick **Tabula** in the list: it shows the command that was run and its error.
 
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) (also in the extension's *Changelog* tab in VS Code).
+
 ## Development
 
 ```
