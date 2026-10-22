@@ -1,0 +1,479 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/Laendrun/tabula/blob/main/spec/schemas/game.schema.json",
+  "title": "Tabula game frontmatter",
+  "description": "The frontmatter of a .game file (SPEC 3.1). Only these keys do something; any other key is yours, kept and shown as \"Label: value\".",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "The game's name. Required."
+    },
+    "players": {
+      "description": "Player counts. Required: 4, 2-5, 3+ or 2,4.",
+      "oneOf": [
+        {
+          "type": "integer",
+          "minimum": 0
+        },
+        {
+          "type": "string",
+          "pattern": "^\\s*\\d+\\s*(\\+|-\\s*\\d+)?\\s*(,\\s*\\d+\\s*(\\+|-\\s*\\d+)?\\s*)*$"
+        }
+      ]
+    },
+    "best_players": {
+      "description": "The best player counts.",
+      "oneOf": [
+        {
+          "type": "integer",
+          "minimum": 0
+        },
+        {
+          "type": "string",
+          "pattern": "^\\s*\\d+\\s*(\\+|-\\s*\\d+)?\\s*(,\\s*\\d+\\s*(\\+|-\\s*\\d+)?\\s*)*$"
+        }
+      ]
+    },
+    "duration": {
+      "description": "Minutes: 15 or 30-60.",
+      "oneOf": [
+        {
+          "type": "integer",
+          "minimum": 0
+        },
+        {
+          "type": "string",
+          "pattern": "^\\s*\\d+\\s*(\\+|-\\s*\\d+)?\\s*(,\\s*\\d+\\s*(\\+|-\\s*\\d+)?\\s*)*$"
+        }
+      ]
+    },
+    "age": {
+      "oneOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "string",
+          "pattern": "^\\d+\\+?$"
+        }
+      ],
+      "description": "Minimum age: 8 means 8 and up."
+    },
+    "type": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "number"
+            ]
+          }
+        }
+      ],
+      "description": "Kinds of game: board, card, dice, dexterity, party, word, outdoor, homemade…"
+    },
+    "tags": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "number"
+            ]
+          }
+        }
+      ],
+      "description": "Free tags, shown on the site and used by its filters."
+    },
+    "designer": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "number"
+            ]
+          }
+        }
+      ],
+      "description": "Designer(s)."
+    },
+    "artist": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "number"
+            ]
+          }
+        }
+      ],
+      "description": "Artist(s)."
+    },
+    "publisher": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "number"
+            ]
+          }
+        }
+      ],
+      "description": "Publisher."
+    },
+    "year": {
+      "description": "The year the game came out.",
+      "oneOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "string",
+          "pattern": "^-?\\d+$"
+        }
+      ]
+    },
+    "language": {
+      "type": "string",
+      "description": "The language of this file (a code: fr, en, de…), overriding the vault's."
+    },
+    "variants": {
+      "description": "Declares the variants (other ways to play the same box), usable in {+name} conditions: a list of names, or a map name → description or details (SPEC 8.5).",
+      "oneOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "description": "The details of an extension or variant. Other keys are your own, shown as they are.",
+                "properties": {
+                  "description": {
+                    "type": "string",
+                    "description": "What it is, shown next to its name."
+                  },
+                  "players": {
+                    "description": "The player counts the game gets with it (added to the base game's).",
+                    "oneOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^\\s*\\d+\\s*(\\+|-\\s*\\d+)?\\s*(,\\s*\\d+\\s*(\\+|-\\s*\\d+)?\\s*)*$"
+                      }
+                    ]
+                  },
+                  "duration": {
+                    "description": "Minutes: 30 or 30-60.",
+                    "oneOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^\\s*\\d+\\s*(\\+|-\\s*\\d+)?\\s*(,\\s*\\d+\\s*(\\+|-\\s*\\d+)?\\s*)*$"
+                      }
+                    ]
+                  },
+                  "year": {
+                    "description": "The year it came out.",
+                    "oneOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^-?\\d+$"
+                      }
+                    ]
+                  },
+                  "needs": {
+                    "description": "Extensions or variants turned on with it.",
+                    "oneOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    ]
+                  },
+                  "excludes": {
+                    "description": "Extensions or variants it can't be used with.",
+                    "oneOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": true
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "extensions": {
+      "description": "Declares the extensions (extra boxes), usable in {+name} conditions: a list of names, or a map name → description or details (SPEC 8.5).",
+      "oneOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "description": "The details of an extension or variant. Other keys are your own, shown as they are.",
+                "properties": {
+                  "description": {
+                    "type": "string",
+                    "description": "What it is, shown next to its name."
+                  },
+                  "players": {
+                    "description": "The player counts the game gets with it (added to the base game's).",
+                    "oneOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^\\s*\\d+\\s*(\\+|-\\s*\\d+)?\\s*(,\\s*\\d+\\s*(\\+|-\\s*\\d+)?\\s*)*$"
+                      }
+                    ]
+                  },
+                  "duration": {
+                    "description": "Minutes: 30 or 30-60.",
+                    "oneOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^\\s*\\d+\\s*(\\+|-\\s*\\d+)?\\s*(,\\s*\\d+\\s*(\\+|-\\s*\\d+)?\\s*)*$"
+                      }
+                    ]
+                  },
+                  "year": {
+                    "description": "The year it came out.",
+                    "oneOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^-?\\d+$"
+                      }
+                    ]
+                  },
+                  "needs": {
+                    "description": "Extensions or variants turned on with it.",
+                    "oneOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    ]
+                  },
+                  "excludes": {
+                    "description": "Extensions or variants it can't be used with.",
+                    "oneOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": true
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "location": {
+      "type": "string",
+      "description": "Where the game is stored."
+    },
+    "cover": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "boolean",
+          "const": false
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The box image, relative to the game folder (default: media/cover.* or <slug>_cover.*); false for none."
+    },
+    "links": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Links: {bgg: https://…}."
+    },
+    "source": {
+      "type": "string",
+      "description": "Where the rules come from (Rulebook 2nd ed.)."
+    },
+    "require_definitions": {
+      "type": "boolean",
+      "description": "tabula check: every component needs a glossary definition."
+    },
+    "unused_definitions": {
+      "type": "boolean",
+      "description": "tabula check: warn about definitions nothing refers to (default true)."
+    },
+    "spelling": {
+      "type": "boolean",
+      "description": "tabula check: check spelling in this game (false turns it off even with --spell)."
+    },
+    "words": {
+      "type": "array",
+      "items": {
+        "type": [
+          "string",
+          "number"
+        ]
+      },
+      "description": "Words the spell check accepts in this game."
+    },
+    "values": {
+      "type": "object",
+      "description": "Values written {=name} in the text: a value, or one per player count ({2p: 7, \"*\": 5}). See SPEC 8.6.",
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "type": [
+              "string",
+              "number",
+              "boolean"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": {
+              "type": [
+                "string",
+                "number",
+                "boolean"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "symbols": {
+      "type": "object",
+      "description": "Symbols written :name: in the text: text (an emoji…), an image path, ![sym:TEXT](path), or {image, text}. See SPEC 4.",
+      "propertyNames": {
+        "pattern": "^[A-Za-z][\\w-]*$"
+      },
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "type": [
+              "string",
+              "number"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "image": {
+                "type": "string",
+                "description": "An image path (next to vault.yaml, or in the game's folder)."
+              },
+              "text": {
+                "type": [
+                  "string",
+                  "number"
+                ],
+                "description": "The text shown where images can't be (the terminal)."
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      }
+    }
+  },
+  "additionalProperties": true
+}

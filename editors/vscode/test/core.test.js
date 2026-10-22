@@ -301,3 +301,20 @@ test("totals of a group: hover and inline hints", () => {
   assert.match(core.hoverText(text, "Attaque"), /\*\*avec:\*\* Σ 3\.5 \(base game: 2\)  \n\*\*sans:\*\* Σ 3/);
   assert.match(core.hoverText(text, "Attaque 2x"), /\*\*avec:\*\* 2/);
 });
+
+test("the schemas in the extension are those of the spec", () => {
+  const fs = require("fs");
+  const path = require("path");
+  for (const name of ["game", "sheet", "vault", "wishlist"]) {
+    const here = fs.readFileSync(path.join(__dirname, "..", "schemas", `${name}.schema.json`), "utf8");
+    const spec = fs.readFileSync(path.join(__dirname, "..", "..", "..", "spec", "schemas", `${name}.schema.json`), "utf8");
+    assert.equal(here, spec, `${name}.schema.json: copy spec/schemas/*.json into editors/vscode/schemas/`);
+  }
+});
+
+test("frontmatter levels", () => {
+  const text = "---\ntitle: F\nvalues:\n  main: 3\nextensions:\n  pandora:\n    players: 2-10\n    \n---\n";
+  assert.equal(core.frontmatterContext(text, 3, 2), null);                  // under values: not a key of ours
+  assert.deepEqual(core.frontmatterContext(text, 7, 4), { level: "option", typed: "", start: 4, present: ["players"] });
+  assert.equal(core.frontmatterContext(text, 9, 0), null);                  // after the frontmatter
+});

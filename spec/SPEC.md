@@ -57,6 +57,10 @@ symbols:            # symbols every game can use (:gold:, see 4)
   star: ⭐
 ```
 
+### 2.2.1 JSON Schemas
+
+The keys of the frontmatter, of `vault.yaml`, of `wishlist.yaml` and of a `.sheet` file's frontmatter are also described as JSON Schemas (draft-07), in `spec/schemas/`: `game.schema.json`, `vault.schema.json`, `wishlist.schema.json` and `sheet.schema.json`. Editors use them for completion and checks (the VS Code extension does). They allow your own keys, like the format does; `tabula check` remains the reference.
+
 ### 2.3 Languages
 
 - **Default language.** A game's default language is the `language` key in its frontmatter. If that's missing, it's the vault's `language`, and if that's missing too, it's `en`.

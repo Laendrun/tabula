@@ -5,6 +5,12 @@ Newest first. VS Code shows this file in the extension's "Changelog" tab. Add yo
 
 ## Unreleased
 
+## 0.23.0 — 2026-10-22
+
+### Added
+- Frontmatter keys: completion of the spec's keys (and of an extension's details, and a `.sheet`'s settings) with what they do, and a hover on each key (or "your own key").
+- `vault.yaml` and `wishlist.yaml` are checked and completed by the Red Hat YAML extension, if installed, from the JSON Schemas of `spec/schemas`.
+
 ## 0.22.0 — 2026-10-22
 
 ### Added
