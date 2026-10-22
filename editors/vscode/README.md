@@ -10,6 +10,9 @@ Highlighting, live checks and a live preview for Tabula `.game` files.
 - **Autocomplete inside `[[ ]]`.** Type `[[` to pick a glossary term or component, including those of the shared fragments the game includes with `![[…]]` (definitions first, with their text as a preview). Type `[[#` to pick a section title or a role like `setup`. The closing `]]` is added when it's missing.
 - **Card pictures:** hovering a reference to a card with an `image::` field shows the picture.
 - **Hover a `[[reference]]`** (also one defined in an included fragment) to see its definition (fields included), its component lines, or the start of the section it links to. In a translation, terms missing from the file are looked up in the default-language file.
+- **Find all references** (Shift+F12) to a term, component or section, and **use counts** above definitions ("used 3 times", "not used") and above sections that are linked to. Click a count to see the places.
+- **Clickable paths:** `image::`, `cover:` and `![…](media/…)` paths and `![[fragments]]` open with Ctrl+click; hovering an image path shows the picture.
+- **Inline hints:** what each `{=value}` stands for (`= 2p 7 · 3p 6 · * 5`), and `parts: 121 ≠ 125` after a component whose indented parts don't add up to its count. Turn them off with VS Code's `editor.inlayHints.enabled`.
 - **Outline** (Explorer → Outline, or Ctrl+Shift+O): headings, glossary terms and components.
 - **Ctrl+click / F12 on a `[[reference]]`** jumps to its definition, or to its component line, in the fragment file if that's where it comes from. On a `[[#section link]]`, it jumps to the heading. In a translation, it also looks in the default-language file.
 - **Shared fragments:** `![[` offers the fragments in the vault's `_shared/` folder, and `![[deck-52#` their sections. Ctrl+click opens the fragment at that section (the translated one in a translation), and hovering previews what is included.

@@ -266,3 +266,13 @@ test("card pictures: hover shows the image:: field as a picture", () => {
   assert.equal(md, "**Gift**\n\n![](file:///v/g/media/gift.png|height=160)\n\n**points:** 7\n\nGive two cards.");
   assert.match(core.hoverText(text, "Gift"), /\*picture: media\/gift\.png\*/);
 });
+
+test("paths, value labels, parts that don't add up", () => {
+  const t = "---\ncover: media/box.jpg\n---\n![a](media/x.png) ![b](https://e.com/y.png)\n`![c](media/code.png)`\n";
+  assert.deepEqual(core.pathLinks(t).map((p) => [p.line, p.path]), [[1, "media/box.jpg"], [3, "media/x.png"]]);
+  assert.deepEqual(core.pathLinks("---\ncover: false\n---\n"), []);
+  assert.equal(core.valueLabel('{2p: 7, 3p: 6, "*": 5}'), "2p 7 · 3p 6 · * 5");
+  assert.equal(core.valueLabel("100"), "100");
+  const comps = "- 10x [[a]]\n  - 6x [[b]]\n  - 4x [[c]]\n- 5x [[d]]\n  - 2x [[e]]\n  - 2x [[f]]\n    - 1x [[g]]\n";
+  assert.deepEqual(core.inlineHints(comps, []).map((h) => [h.line, h.label]), [[3, "parts: 4 ≠ 5"]]);
+});

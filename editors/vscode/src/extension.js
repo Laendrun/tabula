@@ -478,6 +478,13 @@ const hoverProvider = {
     if (known) {
       return new vscode.Hover(new vscode.MarkdownString(symbolMarkdown(known)), new vscode.Range(pos.line, sym.start, pos.line, sym.end));
     }
+    const img = core.imagePathAt(doc.getText(), pos.line, pos.character);
+    if (img) {
+      const file = path.resolve(path.dirname(doc.uri.fsPath), img.path);
+      const md = fs.existsSync(file) ? `![](${vscode.Uri.file(file).toString()}|height=220)\n\n\`${img.path}\``
+        : `Image not found: \`${img.path}\``;
+      return new vscode.Hover(new vscode.MarkdownString(md), new vscode.Range(pos.line, img.start, pos.line, img.end));
+    }
     const val = core.valueAt(doc.lineAt(pos.line).text, pos.character);
     if (val) {
       const v = valuesFor(doc).find((x) => x.name === val.name);
@@ -583,6 +590,67 @@ function openPreview() {
   });
   previewDocument(ed.document);
 }
+
+// ------------------------------------------------------------------ references, use counts, links, inline hints
+
+const loc = (doc, r) => new vscode.Location(doc.uri, new vscode.Range(r.line, r.start, r.line, r.end));
+
+const referenceProvider = {
+  provideReferences(doc, pos, context) {
+    const o = core.occurrences(doc.getText(), pos.line, pos.character);
+    if (!o) return [];
+    return [...(context && context.includeDeclaration === false ? [] : o.definitions), ...o.references].map((r) => loc(doc, r));
+  },
+};
+
+const codeLensProvider = {
+  provideCodeLenses(doc) {
+    const text = doc.getText();
+    const refs = core.allRefs(text);
+    const byKey = new Map();
+    for (const r of refs) {
+      const k = (r.section ? "#" : "") + core.fold(r.name);
+      if (!byKey.has(k)) byKey.set(k, []);
+      byKey.get(k).push(r);
+    }
+    return core.useCounts(text).map((u) => {
+      const where = byKey.get((u.kind === "section" ? "#" : "") + core.fold(u.name)) || [];
+      const range = new vscode.Range(u.line, 0, u.line, 0);
+      const title = u.count === 0 ? "not used" : u.count === 1 ? "used once" : `used ${u.count} times`;
+      return new vscode.CodeLens(range, u.count
+        ? { title, command: "editor.action.showReferences", arguments: [doc.uri, new vscode.Position(u.line, 0), where.map((r) => loc(doc, r))] }
+        : { title, command: "" });
+    });
+  },
+};
+
+const linkProvider = {
+  provideDocumentLinks(doc) {
+    const dir = path.dirname(doc.uri.fsPath);
+    const out = [];
+    for (const p of core.pathLinks(doc.getText())) {
+      const file = p.kind === "fragment" ? fragmentFile(doc.uri.fsPath, p.path) : path.resolve(dir, p.path);
+      if (!file || !fs.existsSync(file)) continue;
+      const link = new vscode.DocumentLink(new vscode.Range(p.line, p.start, p.line, p.end), vscode.Uri.file(file));
+      link.tooltip = p.kind === "fragment" ? "Open the shared fragment" : "Open the image";
+      out.push(link);
+    }
+    return out;
+  },
+};
+
+const inlayHintsProvider = {
+  provideInlayHints(doc, range) {
+    return core.inlineHints(doc.getText(), valuesFor(doc))
+      .filter((h) => h.line >= range.start.line && h.line <= range.end.line)
+      .map((h) => {
+        const hint = new vscode.InlayHint(new vscode.Position(h.line, h.character), h.label);
+        hint.paddingLeft = true;
+        hint.tooltip = h.tooltip;
+        return hint;
+      });
+  },
+};
 
 // ------------------------------------------------------------------ quick fixes and rename
 
@@ -710,6 +778,10 @@ function activate(context) {
     vscode.languages.registerHoverProvider(sel, hoverProvider),
     vscode.languages.registerCodeActionsProvider(sel, codeActionProvider, { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] }),
     vscode.languages.registerRenameProvider(sel, renameProvider),
+    vscode.languages.registerReferenceProvider(sel, referenceProvider),
+    vscode.languages.registerCodeLensProvider(sel, codeLensProvider),
+    vscode.languages.registerDocumentLinkProvider(sel, linkProvider),
+    vscode.languages.registerInlayHintsProvider(sel, inlayHintsProvider),
     vscode.commands.registerCommand("tabula.addWord", addWord),
     vscode.languages.registerDocumentFormattingEditProvider(sel, formatter),
     vscode.commands.registerCommand("tabula.formatFile", () => vscode.commands.executeCommand("editor.action.formatDocument")),

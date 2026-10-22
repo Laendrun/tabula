@@ -5,6 +5,14 @@ Newest first. VS Code shows this file in the extension's "Changelog" tab. Add yo
 
 ## Unreleased
 
+## 0.18.0 — 2026-10-22
+
+### Added
+- Find all references (Shift+F12) to a term, component or section.
+- "used N times" / "not used" above each definition, and above sections something links to (click to see where).
+- Image paths (`image::`, `cover:`, `![…](…)`) and `![[fragments]]` are links (Ctrl+click); hovering an image path shows the picture.
+- Inline hints: what each `{=value}` stands for, and "parts: 121 ≠ 125" when a component's parts don't add up.
+
 ## 0.17.0 — 2026-10-22
 
 ### Added
