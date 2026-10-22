@@ -38,6 +38,7 @@ class Block:
     reopens: int = 0          # heading made by "---": back in the section whose heading is on this line
     quiet: bool = False       # an end added after an included fragment: closes its sections, shows nothing
     callout: str = ""         # note: "> [!exemple] Title": its type as written (the title goes in `term`)
+    totals: dict = field(default_factory=dict)  # filtered view, def: key -> [[tokens, number]] (totals.py)
 
 
 def is_block_start(t: str) -> bool:

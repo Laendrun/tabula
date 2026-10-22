@@ -245,3 +245,19 @@ def fold(text: str) -> str:
     text = unicodedata.normalize("NFKD", text)
     text = "".join(c for c in text if not unicodedata.combining(c))
     return norm(re.sub(r"[^\w\s'-]", " ", text))
+
+
+def json_range(rng) -> list:
+    """[(2, 4), (6, inf)] -> [[2, 4], [6, null]] for the page's script."""
+    return [[lo, None if hi == float("inf") else hi] for lo, hi in rng]
+
+
+def cond_tokens(cond: Cond | None) -> list:
+    """A condition as JSON-ready tokens: ["p", negated, ranges] and ["v", negated, name] ("*" is left out)."""
+    out = []
+    for kind, neg, val in (cond.tokens if cond else []):
+        if kind == "p":
+            out.append(["p", neg, json_range(val)])
+        elif kind == "v":
+            out.append(["v", neg, val])
+    return out

@@ -10,7 +10,14 @@ from .syntax import (
 from .blocks import Block, player_columns, player_rows
 from .terminal import plain
 
-def filter_blocks(blocks: list[Block], ctx: Ctx) -> list[Block]:
+def filter_blocks(blocks: list[Block], ctx: Ctx, source: list[Block] | None = None) -> list[Block]:
+    """What applies with the chosen player count and options. Empty fields of groups are filled in from the
+    cards they list (found in `source`, the whole game, when `blocks` is only part of it)."""
+    from .totals import fill_totals
+    return fill_totals(_filter(blocks, ctx), source if source is not None else blocks, ctx)
+
+
+def _filter(blocks: list[Block], ctx: Ctx) -> list[Block]:
     out, stack, items = [], [], []      # stack: headings (level, ok); items: list nesting (indent, ok)
     for b in blocks:
         if b.kind == "heading":
@@ -47,9 +54,9 @@ def filter_blocks(blocks: list[Block], ctx: Ctx) -> list[Block]:
             if not b.rows:
                 continue
         if b.kind == "def" and b.children:
-            b = dataclasses.replace(b, children=filter_blocks(b.children, ctx))
+            b = dataclasses.replace(b, children=_filter(b.children, ctx))
         if b.kind == "note" and b.children:              # a callout with paragraphs or a list
-            b = dataclasses.replace(b, children=filter_blocks(b.children, ctx))
+            b = dataclasses.replace(b, children=_filter(b.children, ctx))
             if not b.children:
                 continue
         out.append(b)
