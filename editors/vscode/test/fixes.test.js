@@ -94,3 +94,18 @@ test("quick fixes: a reference that matches nothing", () => {
     { start: 4, end: 14 }, [], ["Setup", "Play"]);
   assert.deepEqual(s.map((x) => x.title), ["Change to [[#Setup]]"]);
 });
+
+test("images dropped or pasted: on a card, its picture; elsewhere, an inline image", () => {
+  const t = "# Rules\n\nText.\n\n# Cards {#cards}\n\nGift\n: points:: 7\n  Give.\n\nSkip\n: Skip a turn.\n  More.\n\nOld\n: image:: media/old.png\n  X.\n\nEmpty\n:\n  - a list\n";
+  assert.deepEqual(core.imagePlacement(t, 2, "media/x.png", "x"), { kind: "inline", text: "![x](media/x.png)" });
+  let p = core.imagePlacement(t, 8, "media/cards/gift.png");
+  assert.equal(p.term, "Gift");
+  assert.match(apply(t, p.edits), /Gift\n: points:: 7\n  image:: media\/cards\/gift\.png\n  Give\./);
+  p = core.imagePlacement(t, 11, "media/cards/skip.png");
+  assert.match(apply(t, p.edits), /Skip\n: image:: media\/cards\/skip\.png\n  Skip a turn\.\n  More\./);
+  p = core.imagePlacement(t, 15, "media/cards/new.png");
+  assert.match(apply(t, p.edits), /Old\n: image:: media\/cards\/new\.png\n  X\./);
+  p = core.imagePlacement(t, 19, "media/cards/e.png");
+  assert.match(apply(t, p.edits), /Empty\n: image:: media\/cards\/e\.png\n  - a list/);
+  assert.equal(core.imageFileName("Grande marée", ".png", ["grande-maree.png", "Grande-Maree-2.png"]), "grande-maree-3.png");
+});

@@ -932,12 +932,53 @@ function inlineHints(text, values) {
   return out.sort((a, b) => a.line - b.line || a.character - b.character);
 }
 
+// ------------------------------------------------------------------ images pasted or dropped
+
+/** "Grande marée" -> "grande-maree" (for file names). */
+function slug(text) {
+  return text.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "image";
+}
+
+/**
+ * Where an image dropped or pasted at `line` goes: on a card (a definition), its picture (image:: field,
+ * added or replaced); elsewhere, an inline image. Returns
+ *   { kind: "card", term, edits: [{ line, start, end, text }] }  (with `rel` as the path)  or
+ *   { kind: "inline", text }                                     (to insert at the cursor).
+ */
+function imagePlacement(text, line, rel, caption = "") {
+  const lines = text.replace(/\r\n?/g, "\n").split("\n");
+  const d = outline(text).definitions.find((x) => x.line <= line && line <= x.end);
+  if (!d) return { kind: "inline", text: `![${caption}](${rel})` };
+  for (let k = d.line + 1; k <= d.end; k++) {                 // already has a picture: replace its path
+    const m = lines[k].match(/^(\s*(?::\s*)?image::\s*)(\S*)/);
+    if (m) return { kind: "card", term: d.term, edits: [{ line: k, start: m[1].length, end: m[1].length + m[2].length, text: rel }] };
+  }
+  const first = lines[d.line + 1] || "";
+  const rest = first.replace(/^:\s?/, "");
+  if (/^[^\W\d][\w -]*?::/u.test(rest) || !rest.trim()) {     // fields first: add it among them
+    if (!rest.trim()) return { kind: "card", term: d.term, edits: [{ line: d.line + 1, start: 0, end: first.length, text: `: image:: ${rel}` }] };
+    return { kind: "card", term: d.term, edits: [{ line: d.line + 2, start: 0, end: 0, text: `  image:: ${rel}\n` }] };
+  }
+  // text right after ":": the picture becomes the first field, the text moves to the next line
+  return { kind: "card", term: d.term, edits: [{ line: d.line + 1, start: 0, end: first.length, text: `: image:: ${rel}\n  ${rest}` }] };
+}
+
+/** A file name for the image that doesn't clash: "gift.png", "gift-2.png"… */
+function imageFileName(base, ext, existing) {
+  const taken = new Set(existing.map((e) => e.toLowerCase()));
+  let name = `${slug(base)}${ext}`;
+  for (let i = 2; taken.has(name.toLowerCase()); i++) name = `${slug(base)}-${i}${ext}`;
+  return name;
+}
+
 module.exports = {
   severity, checkArgs, fmtArgs, previewArgs, expand, parseCheckOutput, issueColumns, fold, outline, refAt, findTargets,
   plainRefs, definitionBody, definitionMarkdown, completionContext, completions, hoverText,
   includeAt, includeContext, includeHover,
   fragmentSection, expandIncludes, previewHtml, previewLink,
   yamlEntries, valuesOf, valueContext, valueAt, symbolParts, symbolsOf, symbolContext, symbolAt,
+  slug, imagePlacement, imageFileName,
   allRefs, occurrences, useCounts, pathLinks, imagePathAt, valueLabel, inlineHints,
   skippedLines, renameTarget, renameEdits, quickFixes, closest, glossaryInsertLine,
 };

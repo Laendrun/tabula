@@ -2,7 +2,7 @@
   "name": "tabula-syntax",
   "displayName": "Tabula Game Files",
   "description": "Highlighting and live checks for Tabula .game files (board and card game rules).",
-  "version": "0.18.0",
+  "version": "0.19.0",
   "publisher": "Laendrun",
   "license": "MIT",
   "repository": {
@@ -15,7 +15,7 @@
     "url": "https://github.com/Laendrun/tabula/issues"
   },
   "engines": {
-    "vscode": "^1.75.0"
+    "vscode": "^1.97.0"
   },
   "categories": [
     "Programming Languages",
