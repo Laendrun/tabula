@@ -620,15 +620,22 @@ Games and extensions you'd like go in `wishlist.yaml`, at the root of the vault:
   price: 35 CHF
   link: https://…             # where to buy it
 - name: Pandora's Box
-  for: frantic                # an extension of a game in the vault (its slug)
+  for: frantic                # an extension of a game in the vault (its slug or its title)
   priority: 2
   note: the purple box
+- name: "Frantic: all the extensions"      # quotes: the name contains ": "
+  for: Frantic
+- name: Troublemaker
+  for: frantic
+  in: "Frantic: all the extensions"        # also in that pack: either the pack, or the single ones
 - name: Jeu de tarot          # only a name is fine too (or just "- Jeu de tarot")
 ```
 
-- `tabula wish` lists it, by priority, games first, then extensions with their game. `tabula wish add "Name" --for frantic --priority 1 --price "15 CHF" --link …` adds a wish at the end of the file, and `tabula wish remove "Name"` takes one out (when it has arrived), leaving the rest of the file and its comments as they are. `--for GAME` also shows only a game's wishes, and `--json` prints them.
+- **Packs:** `in:` names another wish that contains this one (a box with several extensions). The pack is shown with its parts under it ("or separately:"), and gets the best priority among them. Removing the pack (`tabula wish remove`) removes its parts too.
+- A value containing `: ` needs quotes in YAML (`name: "A: B"`); `tabula wish add` adds them.
+- `tabula wish` lists it, by priority, games first, then extensions with their game. `tabula wish add "Name" --for frantic --in "Pack" --priority 1 --price "15 CHF" --link …` adds a wish at the end of the file, and `tabula wish remove "Name"` takes one out (when it has arrived), leaving the rest of the file and its comments as they are. `--for GAME` also shows only a game's wishes, and `--json` prints them.
 - `tabula site` writes a wishlist page, linked from the index ("Souhaits"), and the page of a game links to the extensions wished for it.
-- `tabula check` checks the file: a name for each wish, `for:` naming a game of the vault, a whole-number priority, links starting with `https://`, and misspelt keys.
+- `tabula check` checks the file: a name for each wish, `for:` naming a game of the vault, `in:` naming another wish, a whole-number priority, links starting with `https://`, and misspelt keys.
 
 ## 13. Ideas for later (not part of v0.9)
 

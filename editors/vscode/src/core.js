@@ -984,13 +984,36 @@ function playerCounts(players) {
   return [...out].sort((a, b) => a - b);
 }
 
+/**
+ * The wishlist grouped by packs: [[wish, the wishes that are also in it]], for the wishes not inside another
+ * one, sorted by priority (a pack takes the best priority of its parts), then name.
+ */
+function wishTree(wishes) {
+  const key = (s) => fold(String(s || ""));
+  const byName = new Map(wishes.map((w) => [key(w.name), w]));
+  const parts = new Map(), inside = new Set();
+  for (const w of wishes) {
+    for (const pack of [].concat(w.in || [])) {
+      const p = byName.get(key(pack));
+      if (p && p !== w) {
+        if (!parts.has(p)) parts.set(p, []);
+        parts.get(p).push(w);
+        inside.add(w);
+      }
+    }
+  }
+  const prio = (w) => Math.min(...[w, ...(parts.get(w) || [])].map((x) => (Number.isInteger(x.priority) ? x.priority : 99)));
+  const order = (a, b) => prio(a) - prio(b) || key(a.name).localeCompare(key(b.name));
+  return wishes.filter((w) => !inside.has(w)).sort(order).map((w) => [w, (parts.get(w) || []).sort(order)]);
+}
+
 module.exports = {
   severity, checkArgs, fmtArgs, previewArgs, expand, parseCheckOutput, issueColumns, fold, outline, refAt, findTargets,
   plainRefs, definitionBody, definitionMarkdown, completionContext, completions, hoverText,
   includeAt, includeContext, includeHover,
   fragmentSection, expandIncludes, previewHtml, previewLink,
   yamlEntries, valuesOf, valueContext, valueAt, symbolParts, symbolsOf, symbolContext, symbolAt,
-  slug, imagePlacement, imageFileName, playerCounts,
+  slug, imagePlacement, imageFileName, playerCounts, wishTree,
   allRefs, occurrences, useCounts, pathLinks, imagePathAt, valueLabel, inlineHints,
   skippedLines, renameTarget, renameEdits, quickFixes, closest, glossaryInsertLine,
 };

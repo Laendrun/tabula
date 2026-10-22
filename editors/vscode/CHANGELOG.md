@@ -5,6 +5,13 @@ Newest first. VS Code shows this file in the extension's "Changelog" tab. Add yo
 
 ## Unreleased
 
+## 0.21.0 — 2026-10-22
+
+### Added
+- Wishlist panel: a pack shows the wishes it contains under it.
+
+Needs tabula 0.24.
+
 ## 0.20.0 — 2026-10-22
 
 ### Added

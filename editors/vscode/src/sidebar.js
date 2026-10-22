@@ -98,16 +98,17 @@ function register(context, deps) {
   const wishProvider = {
     onDidChangeTreeData: wishesChanged.event,
     async getChildren(el) {
-      if (el) return [];
+      if (el) return (el.parts || []).map((w) => ({ kind: "wish", wish: w, part: true }));
       wishes = wishes || (await load(["wish", "--json"]));
       if (!wishes) return [];
-      return wishes.map((w) => ({ kind: "wish", wish: w }));
+      return core.wishTree(wishes).map(([w, parts]) => ({ kind: "wish", wish: w, parts }));
     },
     getTreeItem(el) {
       const w = el.wish;
-      const item = new vscode.TreeItem(String(w.name));
-      const game = w.for && games ? (games.games.find((g) => g.slug === w.for) || {}).title || w.for : w.for;
-      item.description = [game && `for ${game}`, w.price].filter(Boolean).join(" · ");
+      const item = new vscode.TreeItem(String(w.name), el.parts && el.parts.length
+        ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.None);
+      const game = w.for && !el.part ? ((games && games.games.find((g) => g.slug === w.game)) || {}).title || w.for : null;
+      item.description = [game && `for ${game}`, w.price, el.parts && el.parts.length && "or separately ↓"].filter(Boolean).join(" · ");
       item.tooltip = [w.name, item.description, w.note, w.link].filter(Boolean).join("\n");
       item.iconPath = new vscode.ThemeIcon(w.priority === 1 ? "star-full" : w.priority === 2 ? "star-half" : "star-empty");
       item.contextValue = "wish";
