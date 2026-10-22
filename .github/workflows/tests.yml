@@ -47,3 +47,4 @@ jobs:
           curl -sSL https://github.com/neovim/neovim/releases/download/v0.11.4/nvim-linux-x86_64.tar.gz | tar xz
           echo "$PWD/nvim-linux-x86_64/bin" >> "$GITHUB_PATH"
       - run: nvim --headless -u NONE -l editors/nvim/tests/test.lua
+      - run: nvim --headless -u NONE -l editors/nvim/tests/root.lua    # what lazy.nvim installs

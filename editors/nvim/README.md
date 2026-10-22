@@ -14,19 +14,15 @@ Highlighting, completion, checks and formatting for Tabula `.game` and `.sheet` 
 
 ## Install
 
-The plugin is the `editors/nvim` folder of this repository. With [lazy.nvim](https://github.com/folke/lazy.nvim):
+With [lazy.nvim](https://github.com/folke/lazy.nvim), add the repository like any plugin:
 
 ```lua
-{
-  "Laendrun/tabula",
-  config = function(plugin)
-    vim.opt.rtp:append(plugin.dir .. "/editors/nvim")
-    require("tabula").setup({})          -- see the options below
-  end,
-}
+{ "Laendrun/tabula", opts = {} }       -- opts: see below (optional)
 ```
 
-Without a plugin manager, clone the repository and add `vim.opt.rtp:append("/path/to/tabula/editors/nvim")` to your `init.lua`. Checks, formatting and the preview need the `tabula` command (`pipx install ./cli` from the repository).
+Other plugin managers work the same way (`Plug 'Laendrun/tabula'`, `use "Laendrun/tabula"`…): the repository's root is a plugin. Its `plugin/tabula.lua` adds this folder (`editors/nvim`) to Neovim's runtimepath and registers the `.game` and `.sheet` file types, and `lua/tabula` loads the module from here. Without a plugin manager, add the cloned repository to the runtimepath: `vim.opt.rtp:append("/path/to/tabula")`.
+
+Checks, formatting and the preview need the `tabula` command: `pipx install ./cli` from the repository (or set `cmd`). Without it, the plugin says so once and the rest (highlighting, completion, `K`, `gd`) still works.
 
 ## Options
 
@@ -47,4 +43,4 @@ With a completion plugin (nvim-cmp, blink.cmp…), add its *omni* source for the
 
 ## Tests
 
-From the repository's root: `nvim --headless -u NONE -l editors/nvim/tests/test.lua` (with `tabula` installed, or `TABULA_CMD="python3 -m tabula"` and `PYTHONPATH=cli`).
+From the repository's root: `nvim --headless -u NONE -l editors/nvim/tests/test.lua` and `… tests/root.lua` (with `tabula` installed, or `TABULA_CMD="python3 -m tabula"` and `PYTHONPATH=cli`).

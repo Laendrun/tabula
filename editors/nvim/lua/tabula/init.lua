@@ -468,14 +468,20 @@ end
 
 -- ------------------------------------------------------------------ running tabula
 
+local missing = false        -- the tabula command isn't there: said once, then checks are skipped
+
 local function run(args, input, on_done)
+  if missing then return end
   local cmd = vim.list_extend(vim.deepcopy(M.config.cmd), args)
   local ok, err = pcall(vim.system, cmd, { stdin = input, text = true }, function(res)
     vim.schedule(function() on_done(res) end)
   end)
   if not ok then
+    missing = true
     vim.schedule(function()
-      vim.notify("tabula: can't run " .. table.concat(M.config.cmd, " ") .. " (" .. tostring(err) .. ")", vim.log.levels.WARN)
+      vim.notify("tabula: can't run `" .. table.concat(M.config.cmd, " ") .. "`: install tabula (pipx install ./cli in "
+        .. "the tabula repository), or set `cmd` in require('tabula').setup(). Checks, formatting and the preview "
+        .. "are off until then (" .. tostring(err):gsub("^.-: ", "") .. ")", vim.log.levels.WARN)
     end)
   end
 end
@@ -650,6 +656,7 @@ end
 
 function M.setup(opts)
   M.config = vim.tbl_deep_extend("force", M.config, opts or {})
+  missing = false
 end
 
 return M

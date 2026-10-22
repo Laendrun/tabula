@@ -131,7 +131,7 @@ Open `site/index.html` in a browser; it works offline. You can also put the fold
 
 `editors/vscode/` is a VS Code extension: highlighting, `tabula check` while you type (squiggles and the Problems panel), a live preview with the filters (Ctrl+K V), quick fixes, rename (F2), formatting (Shift+Alt+F), an outline, and Ctrl+click on `[[references]]`. Install it from the `.vsix` that CI builds (Actions tab → a green run → Artifacts → *vscode-extension*). See [its README](editors/vscode/README.md) for the settings.
 
-`editors/nvim/` is a Neovim plugin: highlighting, completion of references, sections, values, symbols and frontmatter keys, `tabula check` as diagnostics, `K` and `gd` on references, `:TabulaFormat` and `:TabulaPreview`. See [its README](editors/nvim/README.md) to install it.
+`editors/nvim/` is a Neovim plugin: highlighting, completion of references, sections, values, symbols and frontmatter keys, `tabula check` as diagnostics, `K` and `gd` on references, `:TabulaFormat` and `:TabulaPreview`. Install it with lazy.nvim as `{ "Laendrun/tabula", opts = {} }` (the repository's root is the plugin); see [its README](editors/nvim/README.md).
 
 ## Changelog
 
