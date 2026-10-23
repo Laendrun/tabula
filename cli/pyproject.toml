@@ -1,6 +1,6 @@
 [project]
 name = "tabula"
-version = "0.31.0"
+version = "0.32.0"
 description = "Board & card game rules in Markdown: show, filter by player count, check."
 requires-python = ">=3.9"
 license = {text = "MIT"}

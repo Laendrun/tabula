@@ -28,6 +28,7 @@ from .site import cmd_site
 from .todo import cmd_todo
 from .fmt import cmd_fmt
 from .sheet import cmd_sheet
+from .outline import cmd_outline
 from .wishlist import cmd_wish
 from .new import cmd_new
 from .book import cmd_book
@@ -190,6 +191,13 @@ def main(argv=None) -> int:
                    help="format the text of the one GAME file given from standard input, to standard output (for editors)")
     p.add_argument("--vault", default=argparse.SUPPRESS)
     p.set_defaults(func=cmd_fmt)
+
+    p = sub.add_parser("outline", help="what a file contains, for editors (--json)")
+    p.add_argument("file", help="a .game or .sheet file")
+    p.add_argument("--json", action="store_true", help="everything, as JSON (what the editors read)")
+    p.add_argument("--stdin", action="store_true", help="read the file's text from stdin (unsaved changes)")
+    p.add_argument("--vault", default=argparse.SUPPRESS)
+    p.set_defaults(func=cmd_outline)
 
     p = sub.add_parser("check", help="find mistakes in game files")
     p.add_argument("games", nargs="*", help="games to check (default: all)")

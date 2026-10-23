@@ -3,7 +3,6 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("fs");
 const path = require("path");
-const core = require("../src/core");
 
 const snippets = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "snippets", "tabula.json"), "utf8"));
 const pkg = require("../package.json");
@@ -33,22 +32,25 @@ test("every snippet has a unique prefix, a description and a body", () => {
   }
 });
 
+// read by the real `tabula outline` (the parser the extension relies on)
+const outline = (text) => require("./outline-helper").outlineOf(text).o;
+
 test("what they insert is valid tabula", () => {
   const by = Object.fromEntries(Object.values(snippets).map((s) => [s.prefix, expand(s.body)]));
   for (const p of ["game", "jeu"]) {
-    const o = core.outline(by[p]);
-    assert.deepEqual(o.headings.map((h) => h.attrs), ["#goal", "#components", "#setup", "#play", "#end", "#glossary"], p);
+    const o = outline(by[p]);
+    assert.deepEqual(o.headings.map((h) => h.roles.map((r) => "#" + r).join(" ")), ["#goal", "#components", "#setup", "#play", "#end", "#glossary"], p);
     assert.equal(o.components.length, 1, p);
     assert.equal(o.definitions[0].term, o.components[0].name[0].toUpperCase() + o.components[0].name.slice(1), p);
   }
-  assert.equal(core.outline(by.card).definitions[0].term, "Name");
+  assert.equal(outline(by.card).definitions[0].term, "Name");
   assert.match(by.card, /^Name\n: points:: 1\n  effect:: What it does\.\n$/);
-  const cat = core.outline(by.cards);
-  assert.equal(cat.headings[0].attrs, "#cards");
+  const cat = outline(by.cards);
+  assert.deepEqual(cat.headings[0].roles, ["cards"]);
   assert.equal(cat.definitions.length, 1);
-  assert.equal(core.outline(by.comp).components[0].name, "name");
-  assert.equal(core.outline(by.term).definitions[0].term, "Term");
-  assert.equal(core.outline(by.keysec).headings[0].key, true);
+  assert.equal(outline(by.comp).components[0].name, "name");
+  assert.equal(outline(by.term).definitions[0].term, "Term");
+  assert.equal(outline(by.keysec).headings[0].key, true);
   assert.equal(by.ptable.split("\n")[0], "| Setup | 2p | 3p | 4p |");
   assert.equal(by.choice, "{2p: this | *: otherwise}");
   assert.equal(by.cond, "{2p} ");

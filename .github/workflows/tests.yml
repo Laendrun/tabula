@@ -24,6 +24,10 @@ jobs:
         working-directory: editors/vscode
     steps:
       - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7          # the extension reads files through `tabula outline`
+        with:
+          python-version: "3.13"
+      - run: pip install -e ../../cli
       - uses: actions/setup-node@v7
         with:
           node-version: "24"

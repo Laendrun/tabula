@@ -93,50 +93,65 @@ const vscode = {
 };
 const load = Module._load;
 Module._load = function (request, ...rest) { return request === "vscode" ? vscode : load.call(this, request, ...rest); };
+// the real tabula (from this repository) answers the extension's `tabula outline` calls
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
+process.env.PYTHONPATH = path.join(__dirname, "..", "..", "..", "cli") + (process.env.PYTHONPATH ? path.delimiter + process.env.PYTHONPATH : "");
+const PYTHON = process.env.PYTHON || (process.platform === "win32" ? "python" : "python3");
+const realTabula = () => { registered.config = { path: PYTHON, extraArgs: ["-m", "tabula"] }; };
+realTabula();
+const baseVault = fs.mkdtempSync(path.join(os.tmpdir(), "tabula-base-"));
+fs.writeFileSync(path.join(baseVault, "vault.yaml"), "name: Base\n");
+fs.mkdirSync(path.join(baseVault, "g"));
+const DEFAULT_FILE = path.join(baseVault, "g", "g.game");
+
 require("../src/extension").activate({ subscriptions: [] });
 
-function doc(text, file = "/vault/g/g.game") {
+function doc(text, file = DEFAULT_FILE) {
   const lines = text.split("\n");
   return { getText: () => text, lineAt: (i) => ({ text: lines[i] }), languageId: "tabula", lineCount: lines.length,
            uri: { fsPath: file, scheme: "file", toString: () => "file://" + file } };
 }
 const TEXT = "# Setup {#setup}\n\n- 1x [[Deck]]\n\nRead [[#\nUse the [[de\nUse the [[de]] now\n\n# Glossary\n\nDeck\n: points:: 2\n  52 cards.\n";
 
-test("completion is triggered by [ and #", () => {
+test("completion is triggered by [ and #", async () => {
+  realTabula();
   assert.deepEqual(registered.completion.triggers, ["[", "#", "="]);
 });
 
-test("completes terms and adds ]] when missing", () => {
-  const items = registered.completion.p.provideCompletionItems(doc(TEXT), { line: 5, character: 12 });
+test("completes terms and adds ]] when missing", async () => {
+  realTabula();
+  const items = await registered.completion.p.provideCompletionItems(doc(TEXT), { line: 5, character: 12 });
   assert.deepEqual(items.map((i) => i.label.label), ["Deck"]);
   assert.equal(items[0].insertText, "Deck]]");
   assert.deepEqual([items[0].range.start.character, items[0].range.end.character], [10, 12]);
   assert.equal(items[0].documentation.value, "**points:** 2\n\n52 cards.");
-  const closed = registered.completion.p.provideCompletionItems(doc(TEXT), { line: 6, character: 12 });
+  const closed = await registered.completion.p.provideCompletionItems(doc(TEXT), { line: 6, character: 12 });
   assert.equal(closed[0].insertText, "Deck");               // "]]" is already there
 });
 
-test("completes sections after [[#", () => {
-  const items = registered.completion.p.provideCompletionItems(doc(TEXT), { line: 4, character: 8 });
+test("completes sections after [[#", async () => {
+  realTabula();
+  const items = await registered.completion.p.provideCompletionItems(doc(TEXT), { line: 4, character: 8 });
   assert.deepEqual(items.map((i) => i.label.label), ["Setup", "setup", "Glossary"]);
   assert.equal(items[1].detail, "role → Setup");
 });
 
-test("no completion outside [[", () => {
-  assert.equal(registered.completion.p.provideCompletionItems(doc(TEXT), { line: 0, character: 3 }), undefined);
+test("no completion outside [[", async () => {
+  realTabula();
+  assert.equal(await registered.completion.p.provideCompletionItems(doc(TEXT), { line: 0, character: 3 }), undefined);
 });
 
-test("hover on a reference", () => {
-  const h = registered.hover.provideHover(doc(TEXT), { line: 2, character: 9 });
+test("hover on a reference", async () => {
+  realTabula();
+  const h = await registered.hover.provideHover(doc(TEXT), { line: 2, character: 9 });
   assert.match(h.contents.value, /^\*\*Deck\*\*\n\n\*\*points:\*\* 2/);
   assert.deepEqual([h.range.start.character, h.range.end.character], [5, 13]);
-  assert.equal(registered.hover.provideHover(doc(TEXT), { line: 0, character: 2 }), null);
+  assert.equal(await registered.hover.provideHover(doc(TEXT), { line: 0, character: 2 }), null);
 });
 
 // ------------------------------------------------------------------ shared fragments (on a real vault on disk)
-const fs = require("fs");
-const os = require("os");
-const path = require("path");
 const vaultDir = fs.mkdtempSync(path.join(os.tmpdir(), "tabula-vault-"));
 fs.mkdirSync(path.join(vaultDir, "_shared"));
 fs.mkdirSync(path.join(vaultDir, "g"));
@@ -147,45 +162,50 @@ fs.writeFileSync(path.join(vaultDir, "_shared", "tarot.game"), "# Tarot\n");
 const GAME_FILE = path.join(vaultDir, "g", "g.game");
 const FR_FILE = path.join(vaultDir, "g", "g.fr.game");
 
-test("completes fragment names after ![[ and their sections after #", () => {
-  const names = registered.completion.p.provideCompletionItems(doc("![[", GAME_FILE), { line: 0, character: 3 });
+test("completes fragment names after ![[ and their sections after #", async () => {
+  realTabula();
+  const names = await registered.completion.p.provideCompletionItems(doc("![[", GAME_FILE), { line: 0, character: 3 });
   assert.deepEqual(names.map((i) => i.label.label), ["deck-52", "tarot"]);        // translations aren't listed
   assert.equal(names[0].insertText, "deck-52]]");
-  const secs = registered.completion.p.provideCompletionItems(doc("![[deck-52#]]", GAME_FILE), { line: 0, character: 11 });
+  const secs = await registered.completion.p.provideCompletionItems(doc("![[deck-52#]]", GAME_FILE), { line: 0, character: 11 });
   assert.deepEqual(secs.map((i) => i.label.label), ["Components", "components", "Glossary"]);
   assert.equal(secs[0].insertText, "Components");                                  // "]]" already there
-  const fr = registered.completion.p.provideCompletionItems(doc("![[deck-52#", FR_FILE), { line: 0, character: 11 });
+  const fr = await registered.completion.p.provideCompletionItems(doc("![[deck-52#", FR_FILE), { line: 0, character: 11 });
   assert.deepEqual(fr.map((i) => i.label.label), ["Matériel", "Lexique"]);         // the translated fragment
 });
 
-test("ctrl+click on an include opens the fragment at its section", () => {
-  const loc = registered.definition.provideDefinition(doc("![[deck-52#glossary]]", GAME_FILE), { line: 0, character: 6 });
+test("ctrl+click on an include opens the fragment at its section", async () => {
+  realTabula();
+  const loc = await registered.definition.provideDefinition(doc("![[deck-52#glossary]]", GAME_FILE), { line: 0, character: 6 });
   assert.equal(loc.uri.fsPath, path.join(vaultDir, "_shared", "deck-52.game"));
   assert.equal(loc.range.start.line, 4);
-  const fr = registered.definition.provideDefinition(doc("![[deck-52]]", FR_FILE), { line: 0, character: 6 });
+  const fr = await registered.definition.provideDefinition(doc("![[deck-52]]", FR_FILE), { line: 0, character: 6 });
   assert.equal(fr.uri.fsPath, path.join(vaultDir, "_shared", "deck-52.fr.game"));
-  assert.equal(registered.definition.provideDefinition(doc("![[nope]]", GAME_FILE), { line: 0, character: 5 }), null);
+  assert.equal(await registered.definition.provideDefinition(doc("![[nope]]", GAME_FILE), { line: 0, character: 5 }), null);
 });
 
-test("hover on an include previews it", () => {
-  const h = registered.hover.provideHover(doc("![[deck-52#components]]", GAME_FILE), { line: 0, character: 5 });
-  assert.match(h.contents.value, /\*\*Components\*\*/);
-  const missing = registered.hover.provideHover(doc("![[nope]]", GAME_FILE), { line: 0, character: 5 });
+test("hover on an include previews it", async () => {
+  realTabula();
+  const h = await registered.hover.provideHover(doc("![[deck-52#components]]", GAME_FILE), { line: 0, character: 5 });
+  assert.match(h.contents.value, /^\*from `_shared\/deck-52` — components\*\n\n- 52x card/);
+  const missing = await registered.hover.provideHover(doc("![[nope]]", GAME_FILE), { line: 0, character: 5 });
   assert.match(missing.contents.value, /No shared fragment `nope`/);
 });
 
-test("terms from included fragments: completion, hover, ctrl+click", () => {
+test("terms from included fragments: completion, hover, ctrl+click", async () => {
+  realTabula();
   const text = "# Kit\n\n![[deck-52#components]]\n\n# Words\n\n![[deck-52#glossary]]\n\nUse a [[ca\nA [[card]] here.\n";
-  const items = registered.completion.p.provideCompletionItems(doc(text, GAME_FILE), { line: 8, character: 10 });
+  const items = await registered.completion.p.provideCompletionItems(doc(text, GAME_FILE), { line: 8, character: 10 });
   assert.deepEqual(items.map((i) => i.label.label), ["Card"]);
-  const h = registered.hover.provideHover(doc(text, GAME_FILE), { line: 9, character: 5 });
+  const h = await registered.hover.provideHover(doc(text, GAME_FILE), { line: 9, character: 5 });
   assert.match(h.contents.value, /^\*\*Card\*\*\n\nOne card\./);
-  const loc = registered.definition.provideDefinition(doc(text, GAME_FILE), { line: 9, character: 5 });
+  const loc = await registered.definition.provideDefinition(doc(text, GAME_FILE), { line: 9, character: 5 });
   assert.equal(loc[0].uri.fsPath, path.join(vaultDir, "_shared", "deck-52.game"));
   assert.equal(loc[0].range.start.line, 6);
 });
 
 test("preview: renders the open file with tabula and handles links", async () => {
+  realTabula();
   // a fake tabula that answers like `tabula export FILE --interactive --stdin -o -`
   const fake = path.join(vaultDir, "fake-tabula.js");
   fs.writeFileSync(fake, `let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{
@@ -217,7 +237,8 @@ test("preview: renders the open file with tabula and handles links", async () =>
 });
 
 
-test("quick fixes and rename, through the VS Code API", () => {
+test("quick fixes and rename, through the VS Code API", async () => {
+  realTabula();
   const fs = require("fs"), os = require("os"), path = require("path");
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "tabula-fix-"));
   fs.writeFileSync(path.join(root, "vault.yaml"), "language: en\n");
@@ -227,7 +248,7 @@ test("quick fixes and rename, through the VS Code API", () => {
   fs.writeFileSync(file, text);
   const d = doc(text, file);
   const diag = (line, a, b, message) => ({ source: "tabula", message, range: new Range(line, a, line, b) });
-  const actions = registered.actions.provideCodeActions(d, null, { diagnostics: [
+  const actions = await registered.actions.provideCodeActions(d, null, { diagnostics: [
     diag(2, 7, 14, "[[Dek]] matches no component ('- 1x [[Dek]]' in a list) and no definition ('Dek' then ': …')"),
     diag(2, 21, 25, "unknown word 'crad'"),
     { source: "other", message: "x", range: new Range(0, 0, 0, 1) },
@@ -241,14 +262,15 @@ test("quick fixes and rename, through the VS Code API", () => {
   registered.commands["tabula.addWord"](...actions[2].command.arguments);   // only once
   assert.equal(fs.readFileSync(path.join(root, "words.txt"), "utf8").split("\n").filter((l) => l === "crad").length, 1);
 
-  const prep = registered.rename.prepareRename(d, { line: 6, character: 1 });
+  const prep = await registered.rename.prepareRename(d, { line: 6, character: 1 });
   assert.equal(prep.placeholder, "Deck");
-  const we = registered.rename.provideRenameEdits(d, { line: 6, character: 1 }, "Pack");
+  const we = await registered.rename.provideRenameEdits(d, { line: 6, character: 1 }, "Pack");
   assert.deepEqual(we.ops.map((o) => o.text), ["Pack"]);             // [[Dek]] isn't a reference to Deck
-  assert.throws(() => registered.rename.prepareRename(d, { line: 1, character: 0 }), /Put the cursor/);
+  await assert.rejects(() => registered.rename.prepareRename(d, { line: 1, character: 0 }), /Put the cursor/);
 });
 
 test("formatting runs tabula fmt FILE --stdin and replaces the text", async () => {
+  realTabula();
   // a fake tabula that answers like `tabula fmt FILE --stdin`: trailing spaces removed, "BAD" refused
   const fake = path.join(vaultDir, "fake-fmt.js");
   fs.writeFileSync(fake, `let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{
@@ -266,37 +288,40 @@ test("formatting runs tabula fmt FILE --stdin and replaces the text", async () =
   assert.ok(registered.commands["tabula.formatFile"] && registered.commands["tabula.formatVault"]);
 });
 
-test("values: completion after {= and hover, from the game and vault.yaml", () => {
+test("values: completion after {= and hover, from the game and vault.yaml", async () => {
+  realTabula();
   const root = fs.mkdtempSync(path.join(require("os").tmpdir(), "tabula-val-"));
   fs.writeFileSync(path.join(root, "vault.yaml"), 'values:\n  target: 100\n  hand: {2p: 9, "*": 5}\n');
   fs.mkdirSync(path.join(root, "g"));
   const file = path.join(root, "g", "g.game");
   const text = '---\ntitle: G\nvalues:\n  hand: {2p: 7, "*": 5}\n---\n# Rules\n\nDeal {=\nPlay to {=target} points.\n';
   const d = doc(text, file);
-  const items = registered.completion.p.provideCompletionItems(d, { line: 7, character: 7 });
+  const items = await registered.completion.p.provideCompletionItems(d, { line: 7, character: 7 });
   assert.deepEqual(items.map((i) => [i.label.label, i.insertText, i.detail]),
-    [["target", "target}", "value from vault.yaml"], ["hand", "hand}", "value from this game"]]);
-  assert.equal(items[1].label.description, '{2p: 7, "*": 5}');
-  const h = registered.hover.provideHover(d, { line: 8, character: 12 });
+    [["hand", "hand}", "value from this file"], ["target", "target}", "value from vault.yaml"]]);
+  assert.equal(items[0].label.description, "2p 7 · * 5");
+  const h = await registered.hover.provideHover(d, { line: 8, character: 12 });
   assert.equal(h.contents.value, "**target** = `100`\n\nfrom vault.yaml");
 });
 
-test("symbols: completion after :x and hover, from the game and vault.yaml", () => {
+test("symbols: completion after :x and hover, from the game and vault.yaml", async () => {
+  realTabula();
   const root = fs.mkdtempSync(path.join(require("os").tmpdir(), "tabula-sym-"));
   fs.writeFileSync(path.join(root, "vault.yaml"), "symbols:\n  gold: media/gold.png\n");
   fs.mkdirSync(path.join(root, "g"));
   const file = path.join(root, "g", "g.game");
   const text = '---\ntitle: G\nsymbols:\n  star: "⭐"\n---\n# Rules\n\nPay 3 :g\nScore :star: now.\n';
   const d = doc(text, file);
-  const items = registered.completion.p.provideCompletionItems(d, { line: 7, character: 8 });
-  assert.deepEqual(items.map((i) => [i.label.label, i.insertText, i.range.start.character]), [[":gold:", ":gold:", 6], [":star:", ":star:", 6]]);
-  const h = registered.hover.provideHover(d, { line: 8, character: 8 });
-  assert.equal(h.contents.value, "⭐  `:star:`\n\nfrom this game");
-  const g = registered.hover.provideHover(doc("Pay :gold:\n", file), { line: 0, character: 6 });
+  const items = await registered.completion.p.provideCompletionItems(d, { line: 7, character: 8 });
+  assert.deepEqual(items.map((i) => [i.label.label, i.insertText, i.range.start.character]), [[":star:", ":star:", 6], [":gold:", ":gold:", 6]]);
+  const h = await registered.hover.provideHover(d, { line: 8, character: 8 });
+  assert.equal(h.contents.value, "⭐  `:star:`\n\nfrom this file");
+  const g = await registered.hover.provideHover(doc("Pay :gold:\n", file), { line: 0, character: 6 });
   assert.match(g.contents.value, /^!\[gold\]\(file:.*media\/gold\.png\|height=32\)/);
 });
 
-test("references, use counts, links, image hover and inline values", () => {
+test("references, use counts, links, image hover and inline values", async () => {
+  realTabula();
   const root = fs.mkdtempSync(path.join(require("os").tmpdir(), "tabula-nav-"));
   fs.mkdirSync(path.join(root, "_shared"));
   fs.writeFileSync(path.join(root, "_shared", "deck.game"), "# Deck\n");
@@ -306,22 +331,23 @@ test("references, use counts, links, image hover and inline values", () => {
   const text = "---\ntitle: G\nvalues:\n  hand: {2p: 7, \"*\": 5}\n---\n# Play\n\nDeal {=hand}. Play a [[Gift]], then [[gifts]].\n" +
     "See [[#Cards]].\n\n![[deck]]\n\n# Cards\n\nGift\n: image:: media/gift.png\n  Give.\n\nLost\n: image:: media/none.png\n  X.\n";
   const d = doc(text, file);
-  const refs = registered.references.provideReferences(d, { line: 7, character: 25 }, { includeDeclaration: true });
+  const refs = await registered.references.provideReferences(d, { line: 7, character: 25 }, { includeDeclaration: true });
   assert.deepEqual(refs.map((r) => r.range.start.line), [14, 7, 7]);            // the definition, then 2 references
-  const lenses = registered.lenses.provideCodeLenses(d);
+  const lenses = await registered.lenses.provideCodeLenses(d);
   assert.deepEqual(lenses.map((l) => [l.range.start.line, l.command.title]), [[12, "used once"], [14, "used 2 times"], [18, "not used"]]);
   assert.equal(lenses[1].command.command, "editor.action.showReferences");
   assert.equal(lenses[1].command.arguments[2].length, 2);
-  const links = registered.links.provideDocumentLinks(d);
+  const links = await registered.links.provideDocumentLinks(d);
   assert.deepEqual(links.map((l) => [l.range.start.line, path.basename(l.target.fsPath)]), [[10, "deck.game"], [15, "gift.png"]]);
-  const h = registered.hover.provideHover(d, { line: 15, character: 15 });
+  const h = await registered.hover.provideHover(d, { line: 15, character: 15 });
   assert.match(h.contents.value, /^!\[\]\(file:.*gift\.png\|height=220\)/);
-  assert.match(registered.hover.provideHover(d, { line: 19, character: 15 }).contents.value, /Image not found: `media\/none\.png`/);
-  const hints = registered.hints.provideInlayHints(d, new Range(0, 0, 30, 0));
+  assert.match((await registered.hover.provideHover(d, { line: 19, character: 15 })).contents.value, /Image not found: `media\/none\.png`/);
+  const hints = await registered.hints.provideInlayHints(d, new Range(0, 0, 30, 0));
   assert.deepEqual(hints.map((x) => [x.position.line, x.label]), [[7, "= 2p 7 · * 5"]]);
 });
 
 test("images pasted or dropped: copied to media/ and referenced", async () => {
+  realTabula();
   const root = fs.mkdtempSync(path.join(require("os").tmpdir(), "tabula-img-"));
   fs.mkdirSync(path.join(root, "g", "media"), { recursive: true });
   fs.writeFileSync(path.join(root, "g", "media", "here.png"), "x");
@@ -353,6 +379,7 @@ test("images pasted or dropped: copied to media/ and referenced", async () => {
 });
 
 test("the Tabula panel: games with their status, translations and sheets; the wishlist", async () => {
+  realTabula();
   const root = fs.mkdtempSync(path.join(require("os").tmpdir(), "tabula-panel-"));
   const g = path.join(root, "frantic", "frantic.game");
   const list = { vault: root, name: "Jeux", games: [
@@ -392,25 +419,27 @@ test("the Tabula panel: games with their status, translations and sheets; the wi
   }
 });
 
-test("frontmatter: completes the spec's keys, and the details of an extension", () => {
+test("frontmatter: completes the spec's keys, and the details of an extension", async () => {
+  realTabula();
   const text = "---\ntitle: F\npla\nextensions:\n  pandora:\n    description: P\n    ye\n---\n# Rules\n";
-  const items = registered.completion.p.provideCompletionItems(doc(text), { line: 2, character: 3 });
+  const items = await registered.completion.p.provideCompletionItems(doc(text), { line: 2, character: 3 });
   const keys = items.map((i) => i.label);
   assert.ok(keys.includes("players") && keys.includes("year") && !keys.includes("title"));   // title is already there
   const players = items.find((i) => i.label === "players");
   assert.equal(players.insertText, "players: ");
   assert.match(players.documentation.value, /Player counts/);
-  const opt = registered.completion.p.provideCompletionItems(doc(text), { line: 6, character: 6 });
+  const opt = await registered.completion.p.provideCompletionItems(doc(text), { line: 6, character: 6 });
   assert.deepEqual(opt.map((i) => i.label), ["players", "duration", "year", "needs", "excludes"]);
   assert.equal(opt[0].detail, "extension/variant detail");
-  const sheet = registered.completion.p.provideCompletionItems(doc("---\nsi\n---\n", "/vault/g/g.sheet"), { line: 1, character: 2 });
+  const sheet = await registered.completion.p.provideCompletionItems(doc("---\nsi\n---\n", path.join(baseVault, "g", "g.sheet")), { line: 1, character: 2 });
   assert.ok(sheet.map((i) => i.label).includes("orientation"));
 });
 
-test("frontmatter: hover on a key", () => {
+test("frontmatter: hover on a key", async () => {
+  realTabula();
   const text = "---\nyear: 2018\nbought_at: Spiel\nextensions:\n  p:\n    box: blue\n---\n";
-  assert.match(registered.hover.provideHover(doc(text), { line: 1, character: 1 }).contents.value, /^\*\*year\*\* — The year the game came out/);
-  assert.equal(registered.hover.provideHover(doc(text), { line: 2, character: 3 }).contents.value,
+  assert.match((await registered.hover.provideHover(doc(text), { line: 1, character: 1 })).contents.value, /^\*\*year\*\* — The year the game came out/);
+  assert.equal((await registered.hover.provideHover(doc(text), { line: 2, character: 3 })).contents.value,
     "**bought_at** — your own key: shown as “Bought at: …” on the game's page and in `tabula show`.");
-  assert.match(registered.hover.provideHover(doc(text), { line: 5, character: 5 }).contents.value, /your own detail/);
+  assert.match((await registered.hover.provideHover(doc(text), { line: 5, character: 5 })).contents.value, /your own detail/);
 });

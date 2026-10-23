@@ -6,6 +6,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/): Added, Chang
 
 ## Unreleased
 
+## 0.32.0 — 2026-10-23
+
+### Added
+- `tabula outline FILE --json [--stdin]`: everything an editor needs about a file (headings, definitions with their fields, totals and hover text, components, references and includes with their columns, values, symbols, inline hints, paths, TODOs, the fragments' and the default-language file's terms). The VS Code extension and the Neovim plugin read it instead of parsing the format themselves; without `--json`, a readable outline.
+
+### Changed
+- A file that isn't saved yet (or isn't in a folder with `vault.yaml`) finds its vault by the folder with `_shared/`, like the editors did.
+
 ## 0.31.0 — 2026-10-22
 
 ### Fixed

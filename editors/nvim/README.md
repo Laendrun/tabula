@@ -22,7 +22,7 @@ With [lazy.nvim](https://github.com/folke/lazy.nvim), add the repository like an
 
 Other plugin managers work the same way (`Plug 'Laendrun/tabula'`, `use "Laendrun/tabula"`…): the repository's root is a plugin. Its `plugin/tabula.lua` adds this folder (`editors/nvim`) to Neovim's runtimepath and registers the `.game` and `.sheet` file types, and `lua/tabula` loads the module from here. Without a plugin manager, add the cloned repository to the runtimepath: `vim.opt.rtp:append("/path/to/tabula")`.
 
-Checks, formatting and the preview need the `tabula` command: `pipx install ./cli` from the repository (or set `cmd`). Without it, the plugin says so once and the rest (highlighting, completion, `K`, `gd`) still works.
+The plugin needs the `tabula` command: `pipx install ./cli` from the repository (or set `cmd`). It doesn't parse .game files itself: completion, `K` and `gd` read `tabula outline --json` (the same parser as `tabula check` and the export), checks run `tabula check`. Without it, the plugin says so once and only the highlighting works.
 
 ## Options
 

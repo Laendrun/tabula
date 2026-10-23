@@ -105,58 +105,81 @@ test("highlighting", function()
   eq(group_at(33, 6), "tabulaTodo")
 end)
 
-test("outline", function()
-  local o = tabula.outline(GAME)
-  eq(o.frontmatter, { 2, 9 })
-  eq(vim.tbl_map(function(c) return c.name end, o.components), { "Jeton", "Pion" })
-  eq(o.definitions[1].term, "Jeton")
-  eq(o.definitions[1].body, { "points:: 3", "Un jeton rond." })
-  eq(o.includes[1].name, "deck")
-  eq(o.headings[3].key, true)
-end)
-
-local function words(row, col)
-  local items = tabula.items(GAME, row, col, file)
-  return vim.tbl_map(function(i) return i.word end, items or {})
+-- a scratch buffer in the vault: its outline comes from `tabula outline --stdin`
+local scratch = vim.api.nvim_create_buf(false, true)
+local scratch_file = tmp .. "/v/g/scratch.game"
+vim.api.nvim_buf_set_name(scratch, scratch_file)
+local function outline_of(lines)
+  vim.api.nvim_buf_set_lines(scratch, 0, -1, false, lines)
+  return tabula.outline(scratch)
+end
+local function items(lines, row, col)
+  local o = outline_of(lines)
+  return (tabula.items(o, lines[row], row, col, scratch_file))
+end
+local function words(lines, row, col)
+  return vim.tbl_map(function(i) return i.word end, items(lines, row, col) or {})
 end
 
+test("outline (from tabula outline --json)", function()
+  local o = outline_of(GAME)
+  eq({ o.frontmatter.start, o.frontmatter["end"] }, { 1, 8 })
+  eq(vim.tbl_map(function(c) return c.name end, o.components), { "Jeton", "Pion" })
+  eq(o.definitions[1].term, "Jeton")
+  eq(o.definitions[1].markdown, "**points:** 3\n\nUn jeton rond.")
+  eq(o.includes[1].name, "deck")
+  eq(o.headings[3].key, true)
+  eq(o.fragments[1].definitions[1].term, "Carte")
+  eq(tabula.outline(scratch) == o, true, "kept until the buffer changes")
+end)
+
 test("completes terms (and the fragment's), sections, values, symbols", function()
-  eq(words(18, #GAME[18]), { "Jeton]]", "Carte]]", "Pion]]" })
-  local sec = words(19, #GAME[19])
+  eq(words(GAME, 18, #GAME[18]), { "Jeton]]", "Carte]]", "Pion]]" })
+  local sec = words(GAME, 19, #GAME[19])
   eq(sec[1], "Matériel]]")
   eq(vim.tbl_contains(sec, "setup]]"), true)
-  local line = "Prenez {=m"
-  eq(vim.tbl_map(function(i) return i.word end, tabula.items({ line }, 1, #line, file)), {})   -- not in this file
   local g = vim.list_extend(vim.deepcopy(GAME), { "Prenez {=" })
-  eq(words, words)
-  eq(vim.tbl_map(function(i) return i.word end, tabula.items(g, #g, #g[#g], file)), { "main}", "target}" })
+  eq(words(g, #g, #g[#g]), { "main}", "target}" })
   g[#g] = "Payez 3 :go"
-  eq(vim.tbl_map(function(i) return i.word end, tabula.items(g, #g, #g[#g], file)), { ":gold:" })
+  eq(words(g, #g, #g[#g]), { ":gold:" })
   g[#g] = "À 10:30 heures"
-  eq(tabula.items(g, #g, 6, file), nil)
+  eq(items(g, #g, 6), nil)
+  g[#g] = "![[de"
+  eq(words(g, #g, #g[#g]), { "deck]]" })
+  g[#g] = "![[deck#Gl"
+  eq(words(g, #g, #g[#g]), { "Glossaire]]", "glossary]]" })          -- its title and its role
 end)
 
 test("completes frontmatter keys and extension details", function()
   local g = vim.deepcopy(GAME)
   g[4] = "pla"
-  local keys = vim.tbl_map(function(i) return i.abbr end, tabula.items(g, 4, 3, file))
+  local keys = vim.tbl_map(function(i) return i.abbr end, items(g, 4, 3))
   eq(vim.tbl_contains(keys, "players"), false, "already there")
   g[3] = "x: 1"
-  keys = vim.tbl_map(function(i) return i.abbr end, tabula.items(g, 4, 3, file))
+  keys = vim.tbl_map(function(i) return i.abbr end, items(g, 4, 3))
   eq(vim.tbl_contains(keys, "players"), true)
-  keys = vim.tbl_map(function(i) return i.abbr end, tabula.items(GAME, 9, 4, file))
+  keys = vim.tbl_map(function(i) return i.abbr end, items(GAME, 9, 4))
   eq(keys, { "duration", "excludes", "needs", "players", "year" })
 end)
 
 test("go to definition and hover", function()
+  vim.api.nvim_set_current_buf(buf)
   vim.api.nvim_win_set_cursor(0, { 13, 20 })
   tabula.goto_definition()
   eq(vim.api.nvim_win_get_cursor(0), { 30, 0 })
-  local t = tabula.find_target(GAME, file, { name = "carte" })
-  eq(t.path, tmp .. "/v/_shared/deck.game")
-  eq(tabula.find_target(GAME, file, { name = "#setup" }).line, 16)
-  eq(tabula.ref_at("- 1x [[Pion|pions]] ici", 8), { name = "Pion" })
-  eq(tabula.ref_at("![[deck#Glossaire]]", 3), { fragment = true, name = "deck", section = "Glossaire" })
+  local o = tabula.outline(buf)
+  local carte = vim.tbl_filter(function(r) return r.name == "Pion" end, o.references)[1]
+  eq(tabula.find_target(o, carte).line, 13)                          -- 0-based: the component line
+  local line = "Voir [[#setup]] et 🎲 [[jetons]]."
+  local o2 = outline_of(vim.list_extend(vim.deepcopy(GAME), { line }))
+  local row = #GAME + 1
+  local setup = tabula.ref_at(o2, line, row, 8)
+  eq(setup.name, "setup")
+  eq(tabula.find_target(o2, setup).line, 15)
+  local jetons = tabula.ref_at(o2, line, row, line:find("jetons", 1, true))      -- after an emoji: bytes vs characters
+  eq(jetons.name, "jetons")
+  eq(tabula.hover_lines(o2, jetons)[1], "**Jeton**")
+  eq(tabula.byte_col(line, jetons.start), line:find("[[jetons", 1, true) - 1)
 end)
 
 test("issue columns", function()
