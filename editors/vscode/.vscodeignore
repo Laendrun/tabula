@@ -1,4 +1,10 @@
+# Only the bundle (dist/extension.js, built by `npm run bundle` before packaging) and the extension's data
+# files go into the .vsix: the sources and node_modules are inside the bundle.
+src/**
+node_modules/**
 test/**
 *.vsix
 .vscode/**
 .gitignore
+**/*.map
+package-lock.json

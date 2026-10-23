@@ -5,6 +5,11 @@ Newest first. VS Code shows this file in the extension's "Changelog" tab. Add yo
 
 ## Unreleased
 
+## 0.27.1 — 2026-10-23
+
+### Changed
+- The extension is one bundled file (esbuild): the .vsix has 15 files instead of about 400, and starts faster.
+
 ## 0.27.0 — 2026-10-23
 
 ### Changed
