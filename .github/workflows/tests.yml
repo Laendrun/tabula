@@ -5,8 +5,8 @@ jobs:
   cli:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
       - run: pip install -e "./cli[test]"     # tabula + pyyaml + pytest, from cli/pyproject.toml
@@ -20,8 +20,8 @@ jobs:
       run:
         working-directory: editors/vscode
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: "24"
           cache: npm
@@ -29,7 +29,7 @@ jobs:
       - run: npm ci
       - run: npm test                          # the extension's logic and its grammar
       - run: npm run package                   # builds <name>-<version>.vsix (tabula-syntax-0.4.0.vsix)
-      - uses: actions/upload-artifact@v4       # downloadable from the run's page, kept 30 days
+      - uses: actions/upload-artifact@v7       # downloadable from the run's page, kept 30 days
         with:
           name: vscode-extension
           path: editors/vscode/*.vsix
@@ -38,8 +38,8 @@ jobs:
   neovim:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
       - run: pip install -e ./cli                # the plugin runs tabula for checks and formatting
