@@ -59,7 +59,7 @@ pipx inject tabula pygls
 
 It starts `tabula lsp`, a language server with the same parser as every tabula command: problems as you type, completion, hovers, go to definition, references, rename, quick fixes, formatting, the outline, inline hints and use counts all come from it. Only highlighting and snippets work without it. *Tabula: Restart the language server* restarts it (after updating tabula, say).
 
-Get the `.vsix` from GitHub: **Actions** tab → a green *tests* run → **Artifacts** → *vscode-extension*. It downloads as a zip; unzip it to get `tabula-syntax-<version>.vsix`, then:
+Get the `.vsix` from GitHub: **Actions** tab → the *vsix* workflow (it runs when a change to the extension is merged into main) → the latest run → **Artifacts** → *vscode-extension* (kept 30 days; *Run workflow* builds a new one). It downloads as a zip; unzip it to get `tabula-syntax-<version>.vsix`, then:
 
 ```
 code --install-extension tabula-syntax-<version>.vsix

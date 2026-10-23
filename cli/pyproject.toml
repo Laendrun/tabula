@@ -2,7 +2,7 @@
 name = "tabula"
 version = "0.33.0"
 description = "Board & card game rules in Markdown: show, filter by player count, check."
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = {text = "MIT"}
 dependencies = ["pyyaml>=6"]
 

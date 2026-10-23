@@ -1,0 +1,29 @@
+name: vsix
+# The VS Code extension, packaged when a pull request is merged into main (its tests ran on the pull request).
+# Download it from the run's page: Actions → vsix → the run → Artifacts → vscode-extension.
+on:
+  push:
+    branches: [main]
+    paths: ["editors/vscode/**", "spec/schemas/**", ".github/workflows/vsix.yml"]
+  workflow_dispatch:                         # or by hand: Actions → vsix → Run workflow
+
+jobs:
+  package:
+    runs-on: ubuntu-26.04
+    defaults:
+      run:
+        working-directory: editors/vscode
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: editors/vscode/package-lock.json
+      - run: npm ci
+      - run: npm run package                   # builds tabula-syntax-<version>.vsix
+      - uses: actions/upload-artifact@v7       # kept 30 days
+        with:
+          name: vscode-extension
+          path: editors/vscode/*.vsix
+          retention-days: 30

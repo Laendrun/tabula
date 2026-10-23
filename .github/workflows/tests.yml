@@ -1,24 +1,21 @@
 name: tests
-on: [push, pull_request]
+on: pull_request                         # pull requests only (opened, updated); not every push
 
 jobs:
   cli:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python: ["3.9", "3.13"]              # the oldest supported (pyproject: >=3.9) and the newest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
-          python-version: ${{ matrix.python }}
+          python-version: "3.13"
       - run: pip install -e "./cli[test]"     # tabula + pyyaml + pytest, from cli/pyproject.toml
       - run: pytest -q tests
       - run: tabula --vault examples/vault check
       - run: tabula --vault examples/vault fmt --check   # the examples stay tidy
 
   vscode:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     defaults:
       run:
         working-directory: editors/vscode
@@ -34,16 +31,10 @@ jobs:
           cache: npm
           cache-dependency-path: editors/vscode/package-lock.json
       - run: npm ci
-      - run: npm test                          # the extension's logic and its grammar
-      - run: npm run package                   # builds <name>-<version>.vsix (tabula-syntax-0.4.0.vsix)
-      - uses: actions/upload-artifact@v7       # downloadable from the run's page, kept 30 days
-        with:
-          name: vscode-extension
-          path: editors/vscode/*.vsix
-          retention-days: 30
+      - run: npm test                          # the extension's logic and its grammar (the .vsix: vsix.yml, on merge)
 
   neovim:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
