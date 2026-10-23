@@ -2,7 +2,7 @@
   "name": "tabula-syntax",
   "displayName": "Tabula Game Files",
   "description": "Highlighting and live checks for Tabula .game files (board and card game rules).",
-  "version": "0.27.1",
+  "version": "0.27.2",
   "publisher": "Laendrun",
   "license": "MIT",
   "repository": {
