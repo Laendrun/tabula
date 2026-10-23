@@ -172,15 +172,16 @@ footer{grid-column:1/-1;border-top:1px solid var(--rule);padding-top:1rem;color:
 </head>
 <body>
 <div class="page">
-<nav class="site"><a href="../index.html">← Tous les jeux</a><span class="here">Règles</span><a href="key.html">Règles clés</a><a href="index.en.html" hreflang="en">EN</a> · <span class="here">FR</span></nav>
+<nav class="site"><a href="../index.html">← Tous les jeux</a><span class="here">Règles</span><a href="summary.html">Règles en bref</a><a href="key.html">Règles clés</a><a href="index.en.html" hreflang="en">EN</a> · <span class="here">FR</span></nav>
 <header class="game"><div><h1>Dame de pique</h1>
 <ul class="facts"><li>3–5 joueurs</li><li>idéal à 4</li><li>30–60 min</li><li>10 ans et +</li></ul>
 
 <details class="options-info"><summary>Extensions et variantes</summary><ul class="options-info"><li><b>Le valet de carreau vaut -10 points</b> <code>+omnibus</code></li></ul></details></div></header>
 <form class="game-filters" id="tabula-filters" onsubmit="return false"><label>Joueurs <select id="f-players"><option value="">tous</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></label><label class="all"><input type="checkbox" id="f-all" checked> Tout</label><span class="opts" role="group" aria-label="Extensions et variantes"><label title="Le valet de carreau vaut -10 points"><input type="checkbox" value="omnibus"> omnibus</label></span></form>
-<nav class="toc" aria-label="Sommaire"><h2>Sommaire</h2><ol><li><a href="#apercu">Aperçu</a></li><li><a href="#materiel">Matériel</a></li><li><a href="#but">But</a></li><li><a href="#mise-en-place">Mise en place</a><ol><li><a href="#passe">Passe</a></li><li><a href="#passe-2">Passe</a></li></ol></li><li><a href="#jeu">Jeu</a></li><li><a href="#score">Score</a></li><li><a href="#lexique">Lexique</a></li></ol></nav>
+<nav class="toc" aria-label="Sommaire"><h2>Sommaire</h2><ol><li><a href="#apercu">Aperçu</a></li><li><a href="#summary">En bref</a></li><li><a href="#materiel">Matériel</a></li><li><a href="#but">But</a></li><li><a href="#mise-en-place">Mise en place</a><ol><li><a href="#passe">Passe</a></li><li><a href="#passe-2">Passe</a></li></ol></li><li><a href="#jeu">Jeu</a></li><li><a href="#score">Score</a></li><li><a href="#lexique">Lexique</a></li></ol></nav>
 <main>
 <section class="sec"><h2 id="apercu">Aperçu</h2><p>Un classique des jeux de levées où l'on cherche à <em>ne pas</em> gagner certaines cartes. Chaque cœur coûte un point et la dame de pique coûte cher, sauf si vous osez tout prendre.</p></section>
+<section class="sec"><h2 id="summary">En bref</h2><p>Distribuez toutes les cartes. À chaque <a class="ref" href="#t-levee" title="Une carte de chaque joueur ; la plus forte de la couleur demandée remporte le tout.">levée</a>, fournissez la couleur demandée si vous pouvez. Évitez de ramasser les cœurs et la dame de pique : la partie s'arrête à 100 points, et le plus petit score gagne.</p></section>
 <section class="sec"><h2 id="materiel">Matériel</h2><ul>
 <li id="c-jeu-de-carte">1x <a class="ref" href="#c-jeu-de-carte" title="1x jeu de cartes — 52 cartes, sans jokers">jeu de cartes</a> — 52 cartes, sans jokers
 </li>
@@ -213,7 +214,7 @@ footer{grid-column:1/-1;border-top:1px solid var(--rule);padding-top:1rem;color:
 <p class="key">La partie s'arrête quand un joueur atteint 100 points. Le plus petit score gagne.</p></section>
 <section class="sec"><h2 id="lexique">Lexique</h2><div class="cards"><article class="card" id="t-levee"><h3>Levée</h3><p>Une carte de chaque joueur ; la plus forte de la couleur demandée remporte le tout.</p></article><article class="card" id="t-cœur-casse"><h3>Cœur cassé</h3><p>Un cœur a déjà été défaussé ; on peut alors entamer à cœur.</p></article><article class="card" id="t-faire-un-grand-chelem"><h3>Faire un grand chelem</h3><p>Prendre tous les cœurs et la dame de pique dans une même donne.</p></article></div></section>
 </main>
-<footer>Exporté avec tabula 0.29.0 le 2026-10-22.</footer>
+<footer>Exporté avec tabula 0.35.0 le 2026-10-23.</footer>
 </div>
 <script>
 (function () {

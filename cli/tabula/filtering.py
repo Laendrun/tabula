@@ -141,10 +141,24 @@ def section_end(blocks: list[Block], i: int) -> int:
 def select_turn(blocks: list[Block]) -> list[Block]:
     """The turn summary: the sections with the #turn role (whole), then the key rules found elsewhere.
     Empty when no section has the role."""
+    return select_roles(blocks, ("turn",))
+
+
+def select_summary(blocks: list[Block], turn: bool = False) -> list[Block]:
+    """The rules summary: the sections with the #summary role (and #turn with `turn`), then the key rules found
+    elsewhere. Empty when no section has the #summary role."""
+    if not select_roles(blocks, ("summary",)):
+        return []
+    return select_roles(blocks, ("summary", "turn") if turn else ("summary",))
+
+
+def select_roles(blocks: list[Block], roles: tuple[str, ...]) -> list[Block]:
+    """The sections with one of `roles` (whole, in the order of the file), then the key rules found elsewhere.
+    Empty when no section has them."""
     turn, rest, i = [], [], 0
     while i < len(blocks):
         b = blocks[i]
-        if b.kind == "heading" and not b.reopens and "turn" in b.roles:
+        if b.kind == "heading" and not b.reopens and any(r in b.roles for r in roles):
             end = section_end(blocks, i)
             shift = b.level - 1                    # the summary starts with it: a top-level heading
             turn += [dataclasses.replace(x, level=x.level - shift) if x.kind == "heading" and shift else x

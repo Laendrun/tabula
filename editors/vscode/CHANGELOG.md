@@ -5,6 +5,11 @@ Newest first. VS Code shows this file in the extension's "Changelog" tab. Add yo
 
 ## Unreleased
 
+## 0.28.0 — 2026-10-23
+
+### Added
+- The role snippet offers `summary` (the rules summary of spec 1.1, `tabula export --summary`).
+
 ## 0.27.2 — 2026-10-23
 
 ### Fixed
