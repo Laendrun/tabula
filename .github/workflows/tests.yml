@@ -3,7 +3,7 @@ on: pull_request                         # pull requests only (opened, updated);
 
 jobs:
   cli:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -15,7 +15,7 @@ jobs:
       - run: tabula --vault examples/vault fmt --check   # the examples stay tidy
 
   vscode:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     defaults:
       run:
         working-directory: editors/vscode
@@ -40,7 +40,7 @@ jobs:
           retention-days: 30
 
   neovim:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
