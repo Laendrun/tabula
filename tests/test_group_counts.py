@@ -69,3 +69,12 @@ def test_in_the_base_game(tmp_path, capsys):
 def test_no_count_no_check(tmp_path, capsys):
     out = check(tmp_path, capsys, GAME.replace("- 10x [[Attaque]]\n", "").replace("  - 5x [[Attaque", "- 5x [[Attaque"))
     assert "in the components" not in out
+
+
+def test_listed_cards_without_a_definition_still_count(tmp_path, capsys):
+    undefined = GAME.replace("Attaque Personnelle 3x\n: avec:: 1\n  Texte.\n\n", "")
+    out = check(tmp_path, capsys, undefined)
+    assert "add up to 13 (Attaque 2x 5 + Attaque Ciblée 2x 5 + Attaque Personnelle 3x 3)" in out
+    good = undefined.replace("- {+barking} 3x [[Attaque Personnelle 3x]]", "  - {+barking} 3x [[Attaque Personnelle 3x]]") \
+                    .replace("- 10x [[Attaque]]", "- {-barking} 10x [[Attaque]]\n- {+barking} 13x [[Attaque]]")
+    assert "in the components" not in check(tmp_path, capsys, good)
