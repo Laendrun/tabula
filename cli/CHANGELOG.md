@@ -6,8 +6,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/): Added, Chang
 
 ## Unreleased
 
+## 0.34.0 — 2026-10-23
+
 ### Changed
 - Python 3.9 is no longer supported: tabula needs Python 3.10 or newer (CI tests 3.13).
+
+### Fixed
+- `tabula check` compared a group's count in the components with only the listed cards that have a definition. A card listed in the group but not yet defined was left out, which reported a wrong mismatch (24 in the components, "13" listed). Listed cards now count whether they are defined or not.
 
 ## 0.33.0 — 2026-10-23
 

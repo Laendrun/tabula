@@ -19,8 +19,9 @@ from .blocks import Block
 from .syntax import REF_RE, Cond, Ctx, cond_ok, cond_tokens, fold
 
 
-def members(d: Block) -> list[tuple[list[Cond], str]]:
-    """The cards a definition's lists name: [(conditions of the item and its parent items, key)]."""
+def members(d: Block, names: bool = False) -> list[tuple]:
+    """The cards a definition's lists name: [(conditions of the item and its parent items, key)], and the name
+    as written with `names`."""
     out, stack = [], []
     for b in d.children:
         if b.kind != "item":
@@ -30,7 +31,9 @@ def members(d: Block) -> list[tuple[list[Cond], str]]:
         stack.append((b.level, b.cond))
         m = REF_RE.search(b.text)
         if m and not m.group(1).startswith("#"):
-            out.append(([c for _, c in stack if c], fold(m.group(1).split("#")[0])))
+            name = m.group(1).split("#")[0].strip()
+            conds = [c for _, c in stack if c]
+            out.append((conds, fold(name), name) if names else (conds, fold(name)))
     return out
 
 
@@ -166,12 +169,10 @@ def count_mismatches(game) -> list[tuple[Block, str]]:
                 continue
             own = counts[fold(g.term)]
             listed = []
-            for conds, target in members(g):
-                if target not in defs:
-                    continue
-                m, m_conds = defs[target]
+            for conds, target, name in members(g, names=True):
+                m, m_conds = defs.get(target, (None, []))   # a card without a definition (yet) counts too
                 if all(cond_ok(c, ctx) for c in conds + m_conds):
-                    listed.append((m.term, counts.get(fold(m.term))))
+                    listed.append((m.term if m else name, counts.get(target)))
             if not listed or not own.isdigit() or any(c is None or not c.isdigit() for _, c in listed):
                 continue                  # a card without a count, or a range: nothing sure to compare
             total = sum(int(c) for _, c in listed)
