@@ -5,6 +5,14 @@ Newest first. VS Code shows this file in the extension's "Changelog" tab. Add yo
 
 ## Unreleased
 
+## 0.26.0 — 2026-10-23
+
+### Changed
+- One parser: the extension no longer reads .game files itself. Completion, hovers, go to definition, references, rename, use counts, the outline, folding, links, inline hints and quick fixes come from `tabula outline --json`, so they always agree with `tabula check` and the export (accents, plurals, comments, code blocks, fragments, translations).
+- Columns are right after emoji and other characters that take two UTF-16 units.
+
+Needs tabula 0.32: without it, only highlighting, snippets and the frontmatter key completion work.
+
 ## 0.25.0 — 2026-10-22
 
 ### Fixed

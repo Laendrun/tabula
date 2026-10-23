@@ -154,6 +154,7 @@ What changed in each version: [cli/CHANGELOG.md](cli/CHANGELOG.md) for `tabula`,
 | `wishlist.py` | the wishlist: `wishlist.yaml`, `tabula wish`, its check and site page |
 | `sheet.py` | score sheets: `.sheet` files, their check and `tabula sheet` |
 | `spell.py` | spelling for `check --spell`: dictionaries (downloaded once) and the words to skip |
+| `outline.py` | `tabula outline --json`: what a file contains, for the editors (they don't parse the format themselves) |
 | `fields.py` | your own frontmatter keys and extension details, shown as "Label: value"; `year` |
 | `totals.py` | totals: empty fields of a definition filled in from the cards it lists |
 | `cli.py` | the command line (`tabula …`) |

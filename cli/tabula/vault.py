@@ -207,7 +207,7 @@ def open_vault(arg: str | None, ref: str | None = None) -> Vault:
         return Vault(Path(arg))
     if os.environ.get("TABULA_VAULT"):
         return Vault(Path(os.environ["TABULA_VAULT"]))
-    if ref and Path(ref).exists():
+    if ref and (Path(ref).exists() or Path(ref).parent.is_dir()):     # an editor's new, unsaved file too
         p = Path(ref).resolve()
         for anc in [p] + list(p.parents):
             if (anc / "vault.yaml").exists():
@@ -215,5 +215,9 @@ def open_vault(arg: str | None, ref: str | None = None) -> Vault:
         d = p if p.is_dir() else p.parent
         if d.name == SHARED_DIR:                     # a shared fragment: the vault is the folder above
             return Vault(d.parent)
-        return Vault(d.parent if (d / f"{d.name}.game").exists() else d)
+        for anc in [d] + list(d.parents)[:3]:        # no vault.yaml: the folder with the shared fragments
+            if (anc / SHARED_DIR).is_dir():
+                return Vault(anc)
+        in_own_folder = (d / f"{d.name}.game").exists() or split_lang(p.stem)[0] == d.name
+        return Vault(d.parent if in_own_folder else d)
     return Vault(Path.cwd())

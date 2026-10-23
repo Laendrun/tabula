@@ -2,6 +2,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const core = require("../src/core");
+const { outlineOf } = require("./outline-helper");
 
 test("check arguments", () => {
   assert.deepEqual(core.checkArgs({ file: "a.game", stdin: true }), ["check", "a.game", "--json", "--stdin"]);
@@ -93,50 +94,49 @@ Text.
 After.
 `;
 
-test("outline: headings, definitions, components", () => {
-  const o = core.outline(GAME);
-  assert.deepEqual(o.headings.map((h) => [h.title, h.level, h.attrs]), [
-    ["Components", 1, "#components"], ["Glossary", 1, "#glossary"], ["Cards", 2, "#cards"],
-    ["Two players", 2, "2p"], ["Extra", 2, ""],
+test("outline: headings, definitions, components (from tabula outline)", () => {
+  const { o, lines } = outlineOf(GAME);
+  assert.deepEqual(o.headings.map((h) => [h.title, h.level, h.cond, h.roles]), [
+    ["Components", 1, "", ["components"]], ["Glossary", 1, "", ["glossary"]], ["Cards", 2, "", ["cards"]],
+    ["Two players", 2, "2p", []], ["Extra", 2, "", []],
   ]);
   assert.deepEqual(o.definitions.map((d) => [d.term, d.cond]), [["Gift", "+expo"], ["Card", ""], ["Effect", "+expo"]]);
   assert.deepEqual(o.components.map((c) => [c.name, c.quantity]), [["card", "60"], ["Gift", "10"]]);
-  const lines = GAME.split("\n");
-  const gift = o.definitions[0];
-  assert.equal(lines[gift.end], "  Give two cards.");
+  assert.equal(lines[o.definitions[0].end], "  Give two cards.");
+  assert.deepEqual(o.references.map((r) => r.name), ["card", "Gift"]);        // not in code or comments
 });
 
 test("outline: '---' ends sections", () => {
-  const o = core.outline(GAME);
-  const lines = GAME.split("\n");
+  const { o, lines } = outlineOf(GAME);
   const byTitle = Object.fromEntries(o.headings.map((h) => [h.title, h]));
   assert.equal(lines[byTitle.Cards.end], "---");                        // closed by the first ---
   assert.equal(lines[byTitle.Extra.end], "---");                        // "Two players" was empty
   assert.equal(byTitle.Glossary.end, byTitle.Extra.end + 2);            // the second --- after Extra closes Glossary
-  assert.equal(lines[byTitle["Two players"].line + 1], "");
   assert.equal(byTitle["Two players"].end, byTitle["Two players"].line);
 });
 
 test("reference under the cursor and its targets", () => {
   const line = "Shuffle the [[cards|deck]] and the [[Gift]].";
   assert.equal(core.refAt(line, 15).name, "cards");
-  assert.equal(core.refAt(line, 38).name, "Gift");
   assert.equal(core.refAt(line, 3), null);
-  const lines = GAME.split("\n");
-  assert.deepEqual(core.findTargets(GAME, "cards").map((l) => lines[l]), ["Card"]);       // the definition wins
-  assert.deepEqual(core.findTargets(GAME, "gifts").map((l) => lines[l]), ["{+expo} Gift"]);
-  assert.deepEqual(core.findTargets(GAME, "nothing"), []);
+  const { o, lines } = outlineOf(GAME + "\nShuffle the [[cards|deck]], the [[gifts]] and [[nothing]].\n");
+  const at = (name) => o.references.find((r) => r.name === name);
+  assert.deepEqual(core.targets(o, at("cards")).map((t) => lines[t.line]), ["Card"]);       // the definition wins
+  assert.deepEqual(core.targets(o, at("gifts")).map((t) => lines[t.line]), ["{+expo} Gift"]);
+  assert.deepEqual(core.targets(o, at("nothing")), []);
+  const r = at("cards");
+  assert.equal(core.refUnder(o, r.line, r.start + 3), r);
 });
 
 test("key sections and section links", () => {
-  const text = "# Play {#play}\n\nSee [[#When it falls|this]] and [[#setup]].\n\n## ! When it falls {2p}\n\nStop.\n\n# Mise en place {#setup}\n\nX.\n";
-  const lines = text.split("\n");
-  const o = core.outline(text);
+  const text = "# Play {#play}\n\nSee [[#When it falls|this]] and [[#setup]], [[#when it FALL]], [[#nowhere]].\n\n## ! When it falls {2p}\n\nStop.\n\n# Mise en place {#setup}\n\nX.\n";
+  const { o, lines } = outlineOf(text);
   assert.deepEqual(o.headings.map((h) => [h.title, h.key]), [["Play", false], ["When it falls", true], ["Mise en place", false]]);
-  assert.equal(core.refAt(lines[2], 8).name, "#When it falls");
-  assert.deepEqual(core.findTargets(text, "#when it FALL").map((l) => lines[l]), ["## ! When it falls {2p}"]);
-  assert.deepEqual(core.findTargets(text, "#setup").map((l) => lines[l]), ["# Mise en place {#setup}"]);
-  assert.deepEqual(core.findTargets(text, "#nowhere"), []);
+  const refs = o.references;
+  assert.deepEqual(refs.map((r) => [r.name, r.section, r.alias]), [["When it falls", true, "this"], ["setup", true, null], ["when it FALL", true, null], ["nowhere", true, null]]);
+  assert.deepEqual(core.targets(o, refs[2]).map((t) => lines[t.line]), ["## ! When it falls {2p}"]);
+  assert.deepEqual(core.targets(o, refs[1]).map((t) => lines[t.line]), ["# Mise en place {#setup}"]);
+  assert.deepEqual(core.targets(o, refs[3]), []);
 });
 
 const SAMPLE = `---
@@ -175,7 +175,7 @@ test("completion context", () => {
 });
 
 test("completions: terms, then components, then sections and roles", () => {
-  const { terms, sections } = core.completions(SAMPLE);
+  const { terms, sections } = core.completionsFor(outlineOf(SAMPLE).o);
   assert.deepEqual(terms.map((t) => [t.label, t.kind, t.detail]), [
     ["Carte", "definition", "{+expo}"],        // the duplicate definition is listed once
     ["Pion", "component", "2x"],               // "carte" already has a definition
@@ -189,16 +189,18 @@ test("completions: terms, then components, then sections and roles", () => {
 });
 
 test("hover: definitions, components and sections", () => {
-  const card = core.hoverText(SAMPLE, "cartes");
-  assert.match(card, /^\*\*Carte\*\* `\{\+expo\}`\n\n\*\*points:\*\* 3/);
-  assert.match(card, /Doublon ignoré/);                   // both definitions are shown
-  assert.match(card, /- 60x carte/);                      // and the component line
-  assert.equal(core.hoverText(SAMPLE, "pion"), "- 2x Pion — rouges");
-  assert.match(core.hoverText(SAMPLE, "#si la tour tombe"), /^\*\*★ Si la tour tombe\*\* `\{2p\}`\n\nArrête la partie, voir Carte\./);
-  assert.match(core.hoverText(SAMPLE, "#glossary"), /^\*\*Glossaire\*\*/);
-  assert.match(core.hoverText(SAMPLE, "#déplacer le pion"), /^\*\*Déplacer le Pion\*\*\n\nTexte\./);
-  assert.equal(core.hoverText(SAMPLE, "nothing"), null);
-  assert.equal(core.hoverText(SAMPLE, "#nothing"), null);
+  const { o } = outlineOf(SAMPLE + "\nSee [[cartes]], [[pion]], [[#si la tour tombe]], [[#glossary]], [[#déplacer le pion]], [[nothing]], [[#nothing]].\n");
+  const [card, pion, tour, glossary, deplacer, nothing, nowhere] = o.references.slice(-7);
+  const h = core.hoverFor(o, card);
+  assert.match(h, /^\*\*Carte\*\* `\{\+expo\}`\n\n\*\*points:\*\* 3/);
+  assert.match(h, /Doublon ignoré/);                   // both definitions are shown
+  assert.match(h, /- 60x carte/);                      // and the component line
+  assert.equal(core.hoverFor(o, pion), "- 2x Pion — rouges");
+  assert.match(core.hoverFor(o, tour), /^\*\*★ Si la tour tombe\*\* `\{2p\}`\n\nArrête la partie, voir Carte\./);
+  assert.match(core.hoverFor(o, glossary), /^\*\*Glossaire\*\*/);
+  assert.match(core.hoverFor(o, deplacer), /^\*\*Déplacer le Pion\*\*\n\nTexte\./);
+  assert.equal(core.hoverFor(o, nothing), null);
+  assert.equal(core.hoverFor(o, nowhere), null);
 });
 
 test("TODO reminders are information, not warnings", () => {
@@ -210,31 +212,34 @@ test("TODO reminders are information, not warnings", () => {
 });
 
 test("include lines: under the cursor, while typing, hover", () => {
-  assert.deepEqual(core.includeAt("![[deck-52#Glossaire]]", 5), { name: "deck-52", section: "Glossaire", start: 0, end: 22 });
-  assert.deepEqual(core.includeAt("  ![[deck-52]]", 4), { name: "deck-52", section: null, start: 2, end: 14 });
-  assert.equal(core.includeAt("See ![[deck-52]] here", 8), null);           // not alone on its line
   assert.deepEqual(core.includeContext("![[de", 5), { name: "de", section: null, start: 3, closed: false });
   assert.deepEqual(core.includeContext("![[deck-52#Glo]]", 14), { name: "deck-52", section: "Glo", start: 11, closed: true });
   assert.equal(core.includeContext("[[de", 4), null);
   const frag = "# Components {#components}\n\n- 52x [[card]]\n\n# Glossary\n\nCard\n: One card.\n";
-  assert.match(core.includeHover(frag, "deck-52", "components"), /^\*from `_shared\/deck-52`\*\n\n\*\*Components\*\*/);
-  assert.equal(core.includeHover(frag, "deck-52", null), "**Fragment `deck-52`**\n\n- Components\n- Glossary");
-  assert.equal(core.includeHover(frag, "deck-52", "nothing"), null);
+  const { o } = outlineOf("# K\n\n![[deck-52#components]]\n\n![[deck-52]]\n\n![[nope]]\n\nSee ![[deck-52]] here.\n",
+    { files: { "_shared/deck-52.game": frag } });
+  assert.deepEqual(o.includes.map((i) => [i.name, i.section, i.line, !!i.file]), [["deck-52", "components", 2, true], ["deck-52", "", 4, true], ["nope", "", 6, false]]);
+  assert.equal(core.includeHover(o.includes[0]), "*from `_shared/deck-52` — components*\n\n- 52x card");
+  assert.match(core.includeHover(o.includes[1]), /^\*from `_shared\/deck-52`\*\n\n# Components/);
+  assert.equal(core.includeHover(o.includes[2]), "No shared fragment `nope` (looked for _shared/nope.game)");
+  assert.deepEqual(o.fragments.map((f) => f.definitions.map((d) => d.term)), [["Card"]]);
 });
 
 test("a field can continue on indented lines", () => {
   const text = "# Cards {#cards}\n\n8\n: effet:: Vous ne pouvez pas\n    vous défausser d'un 8.\n    Terminez la manche.\n  valeur:: 8\n  Texte.\n";
-  assert.equal(core.hoverText(text, "8"),
+  const { o } = outlineOf(text);
+  assert.equal(core.definitionHover(o.definitions[0]),
     "**8**\n\n**effet:** Vous ne pouvez pas vous défausser d'un 8. Terminez la manche.  \n**valeur:** 8\n\nTexte.");
 });
 
-test("values: YAML entries, the vault's and the game's, typing and hovering", () => {
-  const vault = 'language: fr\nvalues:\n  target: 100\n  hand: {2p: 9, "*": 5}\nsymbols:\n  or: 🪙\n';
-  const game = '---\ntitle: G\nvalues:\n  hand:\n    2p: 7\n    "*": 5\n  "max": 3   # comment\nplayers: 2-4\n---\n# Rules\nvalues:\n  not: frontmatter\n';
-  assert.deepEqual(core.yamlEntries(game, "values").map((e) => [e.name, e.value]), [["hand", "2p: 7, *: 5"], ["max", "3"]]);
-  const v = core.valuesOf(game, vault);
-  assert.deepEqual(v.map((x) => [x.name, x.from]), [["target", "vault.yaml"], ["hand", "this game"], ["max", "this game"]]);
-  assert.deepEqual(core.yamlEntries(vault, "symbols"), [{ name: "or", value: "🪙", line: 5 }]);
+test("values: the game's, the default-language file's, the vault's; typing and hovering", () => {
+  const vault = 'language: fr\nvalues:\n  target: 100\n  hand: {2p: 9, "*": 5}\n';
+  const game = '---\ntitle: G\nplayers: 2-4\nvalues:\n  hand:\n    2p: 7\n    "*": 5\n  "max": 3   # comment\n---\n# Rules\n\nvalues:\n  not: frontmatter\n\nDeal {=hand} cards.\n';
+  const { o } = outlineOf(game, { files: { "vault.yaml": vault } });
+  assert.deepEqual(o.values.map((x) => [x.name, x.value, x.from]), [["hand", "2p 7 · * 5", "this file"], ["max", "3", "this file"], ["target", "100", "vault.yaml"]]);
+  assert.deepEqual(o.hints.map((h) => [h.line, h.label]), [[14, "= 2p 7 · * 5"]]);
+  const tr = outlineOf("---\ntitle: G (en)\n---\n# Rules\n\nDeal {=hand}.\n", { file: "g/g.en.game", files: { "vault.yaml": vault, "g/g.game": game } }).o;
+  assert.deepEqual(tr.values.map((x) => [x.name, x.from]), [["hand", "the default-language file"], ["max", "the default-language file"], ["target", "vault.yaml"]]);
   assert.deepEqual(core.valueContext("Deal {=ha", 9), { typed: "ha", start: 7, closed: false });
   assert.equal(core.valueContext("Deal {=ha}", 9).closed, true);
   assert.equal(core.valueContext("Deal {2p: x", 11), null);
@@ -244,11 +249,10 @@ test("values: YAML entries, the vault's and the game's, typing and hovering", ()
 
 test("symbols: definitions, typing and hovering", () => {
   const vault = 'symbols:\n  gold: media/gold.png\n  star: "⭐"\n';
-  const game = '---\nsymbols:\n  key: {image: media/key.png, text: "🔑"}\n  star: ★\n---\n';
-  assert.deepEqual(core.symbolsOf(game, vault), [
-    { name: "gold", image: "media/gold.png", text: null, from: "vault.yaml" },
-    { name: "star", image: null, text: "★", from: "this game" },
-    { name: "key", image: "media/key.png", text: "🔑", from: "this game" },
+  const game = '---\ntitle: G\nplayers: 2\nsymbols:\n  key: {image: media/key.png, text: "🔑"}\n  star: ★\n---\n# R\n';
+  const { o, root } = outlineOf(game, { files: { "vault.yaml": vault } });
+  assert.deepEqual(o.symbols.map((s) => [s.name, s.text, s.image && require("path").relative(root, s.image), s.from]), [
+    ["key", "🔑", "g/media/key.png", "this file"], ["star", "★", null, "this file"], ["gold", null, "media/gold.png", "vault.yaml"],
   ]);
   assert.deepEqual(core.symbolContext("Pay 3 :go", 9), { typed: "go", start: 6, closed: false });
   assert.equal(core.symbolContext("effet:", 6), null);           // a field, not a symbol
@@ -262,19 +266,18 @@ test("symbols: definitions, typing and hovering", () => {
 
 test("card pictures: hover shows the image:: field as a picture", () => {
   const text = "# Cards {#cards}\n\nGift\n: points:: 7\n  image:: media/gift.png\n  Give two cards.\n";
-  const md = core.hoverText(text, "Gift", (p) => "file:///v/g/" + p);
-  assert.equal(md, "**Gift**\n\n![](file:///v/g/media/gift.png|height=160)\n\n**points:** 7\n\nGive two cards.");
-  assert.match(core.hoverText(text, "Gift"), /\*picture: media\/gift\.png\*/);
+  const { o } = outlineOf(text, { files: { "g/media/gift.png": "x" } });
+  const md = core.definitionHover(o.definitions[0], (p) => "file://" + p);
+  assert.match(md, /^\*\*Gift\*\*\n\n!\[\]\(file:\/\/.*g\/media\/gift\.png\|height=160\)\n\n\*\*points:\*\* 7\n\nGive two cards\.$/);
+  assert.match(core.definitionHover(outlineOf(text).o.definitions[0], (p) => p), /\*picture: media\/gift\.png\*/);   // missing file
 });
 
-test("paths, value labels, parts that don't add up", () => {
-  const t = "---\ncover: media/box.jpg\n---\n![a](media/x.png) ![b](https://e.com/y.png)\n`![c](media/code.png)`\n";
-  assert.deepEqual(core.pathLinks(t).map((p) => [p.line, p.path]), [[1, "media/box.jpg"], [3, "media/x.png"]]);
-  assert.deepEqual(core.pathLinks("---\ncover: false\n---\n"), []);
-  assert.equal(core.valueLabel('{2p: 7, 3p: 6, "*": 5}'), "2p 7 · 3p 6 · * 5");
-  assert.equal(core.valueLabel("100"), "100");
-  const comps = "- 10x [[a]]\n  - 6x [[b]]\n  - 4x [[c]]\n- 5x [[d]]\n  - 2x [[e]]\n  - 2x [[f]]\n    - 1x [[g]]\n";
-  assert.deepEqual(core.inlineHints(comps, []).map((h) => [h.line, h.label]), [[3, "parts: 4 ≠ 5"]]);
+test("paths, parts that don't add up", () => {
+  const t = "---\ntitle: T\nplayers: 2\ncover: media/box.jpg\n---\n![a](media/x.png) ![b](https://e.com/y.png)\n`![c](media/code.png)`\n";
+  const { o } = outlineOf(t);
+  assert.deepEqual(o.links.map((p) => [p.line, p.src, !!p.url]), [[5, "media/x.png", false], [5, "https://e.com/y.png", true], [3, "media/box.jpg", false]]);
+  const comps = "# C\n\n- 10x [[a]]\n  - 6x [[b]]\n  - 4x [[c]]\n- 5x [[d]]\n  - 2x [[e]]\n  - 2x [[f]]\n    - 1x [[g]]\n";
+  assert.deepEqual(outlineOf(comps).o.hints.map((h) => [h.line, h.label]), [[5, "parts: 4 ≠ 5"]]);
 });
 
 test("totals of a group: hover and inline hints", () => {
@@ -288,18 +291,13 @@ test("totals of a group: hover and inline hints", () => {
     "## Barking {+barking}", "",
     "Perso", ": avec:: 1.5", "  type:: perso", "  Texte.", "",
   ].join("\n");
-  const totals = core.groupTotals(text);
-  assert.equal(totals.get(2).avec.all, "3.5");
-  assert.equal(totals.get(2).avec.base, "2");
-  assert.equal(totals.get(2).sans.all, "3");
-  assert.equal(totals.get(2).type.all, "attaque, perso");
-  assert.equal(totals.get(10).avec.all, "7.5");                       // a group of groups
-  const hints = core.inlineHints(text, []).filter((h) => h.label.startsWith("Σ"));
+  const { o } = outlineOf(text);
+  const hints = o.hints.filter((h) => h.label.startsWith("Σ"));
   assert.deepEqual(hints.map((h) => [h.line, h.label]),
     [[3, "Σ 3.5 (base game: 2)"], [4, "Σ 3"], [5, "Σ attaque, perso (base game: attaque)"], [11, "Σ 7.5 (base game: 6)"]]);
   assert.equal(hints[0].tooltip, "Attaque 2x: 2\nPerso: 1.5 (+barking)");
-  assert.match(core.hoverText(text, "Attaque"), /\*\*avec:\*\* Σ 3\.5 \(base game: 2\)  \n\*\*sans:\*\* Σ 3/);
-  assert.match(core.hoverText(text, "Attaque 2x"), /\*\*avec:\*\* 2/);
+  assert.match(core.definitionHover(o.definitions[0]), /\*\*avec:\*\* Σ 3\.5 \(base game: 2\)  \n\*\*sans:\*\* Σ 3/);
+  assert.match(core.definitionHover(o.definitions[2]), /\*\*avec:\*\* 2/);
 });
 
 test("the schemas in the extension are those of the spec", () => {
@@ -313,8 +311,21 @@ test("the schemas in the extension are those of the spec", () => {
 });
 
 test("frontmatter levels", () => {
-  const text = "---\ntitle: F\nvalues:\n  main: 3\nextensions:\n  pandora:\n    players: 2-10\n    \n---\n";
-  assert.equal(core.frontmatterContext(text, 3, 2), null);                  // under values: not a key of ours
-  assert.deepEqual(core.frontmatterContext(text, 7, 4), { level: "option", typed: "", start: 4, present: ["players"] });
-  assert.equal(core.frontmatterContext(text, 9, 0), null);                  // after the frontmatter
+  const text = "---\ntitle: F\nplayers: 2\nvalues:\n  main: 3\nextensions:\n  pandora:\n    players: 2-10\n    \n---\n";
+  const { o, lines } = outlineOf(text);
+  assert.equal(core.frontmatterContext(o, lines[4], 4, 2), null);                  // under values: not a key of ours
+  assert.deepEqual(core.frontmatterContext(o, lines[8], 8, 4), { level: "option", start: 4, present: ["players"] });
+  assert.deepEqual(core.frontmatterContext(o, "pl", 2, 2).present, ["title", "values", "extensions"]);
+  assert.equal(core.frontmatterContext(o, "", 10, 0), null);                  // after the frontmatter
+  assert.deepEqual(core.frontmatterKeyAt(o, 7, 5), { level: "option", key: "players", start: 4, end: 11 });
+});
+
+test("columns: the outline counts characters, VS Code UTF-16 units", () => {
+  const line = "🎲 [[dé]] x";
+  assert.equal(core.u16(line, 2), 3);
+  assert.equal(core.cp(line, 3), 2);
+  const { o } = outlineOf("# R\n\n" + line + "\n\n# G {#glossary}\n\nDé\n: Un cube.\n");
+  const r = o.references[0];
+  assert.deepEqual([r.start, r.end], [2, 8]);
+  assert.equal(core.u16(line, r.start), 3);
 });

@@ -196,22 +196,83 @@ async function checkVault(opts = {}) {
   if (errors || warnings) vscode.commands.executeCommand("workbench.actions.view.problems");
 }
 
-// ------------------------------------------------------------------ outline, folding, go to definition
+// ------------------------------------------------------------------ the outline: tabula reads the file
+
+// The extension doesn't parse .game files: `tabula outline --json` does, with the same parser as every other
+// tabula command. Its result is kept for each version of a document.
+const outlines = new Map();          // document uri -> { version, promise }
+const fileOutlines = new Map();      // other files (fragments) -> { mtime, promise }
+
+function outlineRun(file, cfg, text) {
+  const args = core.outlineArgs({ file, vault: cfg.vault, extraArgs: cfg.extraArgs, stdin: text !== undefined });
+  return runTabula(args, cfg, text, true).done.then((r) => {
+    if (!r) return null;
+    if (r.code !== 0) {
+      output.appendLine(`$ tabula outline ${file}\n${(r.err || r.out).trim()}`);
+      return null;
+    }
+    try {
+      return core.parseOutline(r.out);
+    } catch (e) {
+      output.appendLine(`tabula outline ${file}: ${e.message}`);
+      return null;
+    }
+  });
+}
+
+/** The outline of a document as it is now (unsaved changes included): a promise, null when tabula fails. */
+function outlineOf(doc) {
+  const key = doc.uri.toString();
+  const version = doc.version !== undefined ? doc.version : doc.getText();
+  const c = outlines.get(key);
+  if (c && c.version === version) return c.promise;
+  const promise = outlineRun(doc.uri.fsPath, settings(doc.uri), doc.getText());
+  outlines.set(key, { version, promise });
+  return promise;
+}
+
+/** The outline of a file on disk (a shared fragment), kept until the file changes. */
+function outlineOfFile(file, cfg) {
+  let mtime = 0;
+  try {
+    mtime = fs.statSync(file).mtimeMs;
+  } catch {
+    return Promise.resolve(null);
+  }
+  const c = fileOutlines.get(file);
+  if (c && c.mtime === mtime) return c.promise;
+  const promise = outlineRun(file, cfg);
+  fileOutlines.set(file, { mtime, promise });
+  return promise;
+}
+
+const lineText = (doc, line) => (line < doc.lineCount ? doc.lineAt(line).text : "");
+/** A VS Code range from the outline's columns (characters) on a line. */
+const rangeOf = (doc, line, a, b) => {
+  const t = lineText(doc, line);
+  return new vscode.Range(line, core.u16(t, a), line, core.u16(t, b));
+};
+/** The cursor's column as the outline counts it. */
+const colOf = (doc, pos) => core.cp(lineText(doc, pos.line), pos.character);
+
+// ------------------------------------------------------------------ outline view, folding, go to definition
 
 const symbols = {
-  provideDocumentSymbols(doc) {
-    const o = core.outline(doc.getText());
+  async provideDocumentSymbols(doc) {
+    const o = await outlineOf(doc);
+    if (!o) return [];
     const root = [];
     const stack = [];
-    const range = (a, b) => new vscode.Range(a, 0, b, doc.lineAt(Math.min(b, doc.lineCount - 1)).text.length);
+    const range = (a, b) => new vscode.Range(a, 0, b, lineText(doc, Math.min(b, doc.lineCount - 1)).length);
     for (const h of o.headings) {
       const s = new vscode.DocumentSymbol(
-        (h.key ? "★ " : "") + (h.title || "(untitled)"), h.attrs ? `{${h.attrs}}` : "", vscode.SymbolKind.Namespace,
-        range(h.line, h.end), range(h.line, h.line)
+        (h.key ? "★ " : "") + (h.title || "(untitled)"),
+        [h.cond, ...h.roles.map((r) => "#" + r)].filter(Boolean).length ? `{${[h.cond, ...h.roles.map((r) => "#" + r)].filter(Boolean).join(" ")}}` : "",
+        vscode.SymbolKind.Namespace, range(h.line, h.end), range(h.line, h.line)
       );
       while (stack.length && stack[stack.length - 1].level >= h.level) stack.pop();
       (stack.length ? stack[stack.length - 1].sym.children : root).push(s);
-      stack.push({ level: h.level, end: h.end, sym: s });
+      stack.push({ level: h.level, sym: s });
     }
     const parentAt = (line) => {
       let best = null;
@@ -246,41 +307,26 @@ const symbols = {
 };
 
 const folding = {
-  provideFoldingRanges(doc) {
-    const o = core.outline(doc.getText());
-    return [...o.headings, ...o.definitions.map((d) => ({ line: d.line, end: d.end }))]
+  async provideFoldingRanges(doc) {
+    const o = await outlineOf(doc);
+    if (!o) return [];
+    return [...o.headings, ...o.definitions]
       .filter((x) => x.end > x.line)
       .map((x) => new vscode.FoldingRange(x.line, x.end));
   },
 };
 
 const definitionProvider = {
-  provideDefinition(doc, pos) {
-    const inc = core.includeAt(doc.lineAt(pos.line).text, pos.character);
-    if (inc) {
-      const file = fragmentFile(doc.uri.fsPath, inc.name);
-      if (!file) return null;
-      const line = inc.section ? (core.findTargets(readText(file) || "", "#" + inc.section)[0] || 0) : 0;
-      return new vscode.Location(vscode.Uri.file(file), new vscode.Position(line, 0));
-    }
-    const ref = core.refAt(doc.lineAt(pos.line).text, pos.character);
+  async provideDefinition(doc, pos) {
+    const o = await outlineOf(doc);
+    if (!o) return null;
+    const inc = core.includeUnder(o, pos.line);
+    if (inc && inc.file) return new vscode.Location(vscode.Uri.file(inc.file), new vscode.Position(inc.section_line || 0, 0));
+    const ref = core.refUnder(o, pos.line, colOf(doc, pos));
     if (!ref) return null;
-    const files = [doc.uri.fsPath];
-    // in a translation, terms may only exist in the default-language file: look there too
-    const m = path.basename(doc.uri.fsPath).match(/^(.*)\.([a-z]{2}(?:-[A-Za-z]{2})?)\.game$/);
-    if (m) files.push(path.join(path.dirname(doc.uri.fsPath), `${m[1]}.game`));
-    for (const f of files) {
-      let text;
-      try {
-        text = f === doc.uri.fsPath ? doc.getText() : fs.readFileSync(f, "utf8");
-      } catch {
-        continue;
-      }
-      const lines = core.findTargets(text, ref.name);
-      if (lines.length) return lines.map((l) => new vscode.Location(vscode.Uri.file(f), new vscode.Position(l, 0)));
-    }
-    const inFragments = fragmentTargets(doc, ref.name);
-    return inFragments.length ? inFragments : null;
+    const found = core.targets(o, ref);
+    if (!found.length) return null;
+    return found.map((t) => new vscode.Location(t.file ? vscode.Uri.file(t.file) : doc.uri, new vscode.Position(t.line, 0)));
   },
 };
 
@@ -308,12 +354,13 @@ function vaultRoot(file) {
 
 /** The language code of a translation file (slug.fr.game), or null. */
 function fileLang(file) {
-  const m = path.basename(file).match(/^.*\.([a-z]{2}(?:-[A-Za-z]{2})?)\.game$/);
+  const m = path.basename(file).match(/^.*\.([a-z]{2,3}(?:-[A-Za-z0-9]{2,8})?)\.game$/);
   return m ? m[1] : null;
 }
 
 /** _shared/<name>.<lang>.game when the document is a translation and it exists, else _shared/<name>.game. */
 function fragmentFile(docFile, name) {
+  if (!/^[^/\\:]+$/.test(name) || name.startsWith(".")) return null;
   const dir = path.join(vaultRoot(docFile), "_shared");
   const lang = fileLang(docFile);
   const cands = (lang ? [path.join(dir, `${name}.${lang}.game`)] : []).concat(path.join(dir, `${name}.game`));
@@ -323,46 +370,14 @@ function fragmentFile(docFile, name) {
 function fragmentNames(docFile) {
   try {
     return fs.readdirSync(path.join(vaultRoot(docFile), "_shared"))
-      .filter((f) => f.endsWith(".game") && !/\.[a-z]{2}(?:-[A-Za-z]{2})?\.game$/.test(f))
+      .filter((f) => f.endsWith(".game") && !/\.[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})?\.game$/.test(f))
       .map((f) => f.slice(0, -5)).sort();
   } catch {
     return [];
   }
 }
 
-function readText(file) {
-  try {
-    return fs.readFileSync(file, "utf8");
-  } catch {
-    return null;
-  }
-}
-
-/** The document with its `![[fragment]]` lines replaced by what they include. */
-function expandedText(doc) {
-  return core.expandIncludes(doc.getText(), (name) => {
-    const file = fragmentFile(doc.uri.fsPath, name);
-    return file ? readText(file) : null;
-  });
-}
-
-/** Terms defined in the fragments a document includes: their locations in the fragment files. */
-function fragmentTargets(doc, name) {
-  const out = [];
-  const seen = new Set();
-  for (const line of doc.getText().split(/\r?\n/)) {
-    const inc = core.includeAt(line, line.indexOf("!"));
-    if (!inc) continue;
-    const file = fragmentFile(doc.uri.fsPath, inc.name);
-    if (!file || seen.has(file)) continue;
-    seen.add(file);
-    const text = readText(file) || "";
-    for (const l of core.findTargets(text, name)) out.push(new vscode.Location(vscode.Uri.file(file), new vscode.Position(l, 0)));
-  }
-  return out;
-}
-
-function includeCompletions(doc, pos, ctx) {
+async function includeCompletions(doc, pos, ctx) {
   const range = new vscode.Range(pos.line, ctx.start, pos.line, pos.character);
   const end = ctx.closed ? "" : "]]";
   if (ctx.section === null) {
@@ -373,9 +388,9 @@ function includeCompletions(doc, pos, ctx) {
     });
   }
   const file = fragmentFile(doc.uri.fsPath, ctx.name);
-  const text = file && readText(file);
-  if (!text) return undefined;
-  return core.completions(text).sections.map((x, i) => {
+  const o = file && (await outlineOfFile(file, settings(doc.uri)));
+  if (!o) return undefined;
+  return core.sectionItems(o.headings).map((x, i) => {
     const item = new vscode.CompletionItem({ label: x.label, description: x.detail }, KINDS[x.kind]);
     Object.assign(item, { range, insertText: x.label + end, filterText: x.label, sortText: String(i).padStart(5, "0"),
                           detail: `${x.kind} in ${ctx.name}` });
@@ -383,39 +398,9 @@ function includeCompletions(doc, pos, ctx) {
   });
 }
 
-/** The vault's vault.yaml, as text ("" when there is none). */
-function vaultYaml(doc) {
-  return readText(path.join(vaultRoot(doc.uri.fsPath), "vault.yaml")) || "";
-}
-
-/** In a translation, the default-language file's text (its frontmatter has the values), else "". */
-function defaultFileText(doc) {
-  const m = path.basename(doc.uri.fsPath).match(/^(.*)\.([a-z]{2}(?:-[A-Za-z]{2})?)\.game$/);
-  return m ? readText(path.join(path.dirname(doc.uri.fsPath), `${m[1]}.game`)) || "" : "";
-}
-
-function valuesFor(doc) {
-  const inherited = core.valuesOf(defaultFileText(doc), vaultYaml(doc));
-  const own = core.valuesOf(doc.getText(), "");
-  const byName = new Map(inherited.map((v) => [v.name, v]));
-  for (const v of own) byName.set(v.name, v);
-  return [...byName.values()];
-}
-
-/** Symbols for a document, with their image as an absolute path. */
-function symbolsFor(doc) {
-  const root = vaultRoot(doc.uri.fsPath);
-  const dir = path.dirname(doc.uri.fsPath);
-  const base = (from) => (from === "vault.yaml" ? root : dir);
-  const all = [...core.symbolsOf(defaultFileText(doc), vaultYaml(doc)), ...core.symbolsOf(doc.getText(), "")];
-  const byName = new Map();
-  for (const s of all) byName.set(s.name, { ...s, file: s.image ? path.resolve(base(s.from), s.image) : null });
-  return [...byName.values()];
-}
-
 function symbolMarkdown(s) {
-  const pic = s.file ? `![${s.name}](${vscode.Uri.file(s.file).toString()}|height=32)` : s.text;
-  return `${pic}  \`:${s.name}:\`${s.file && s.text ? ` — ${s.text} in the terminal` : ""}\n\nfrom ${s.from}`;
+  const pic = s.image ? `![${s.name}](${vscode.Uri.file(s.image).toString()}|height=32)` : s.text;
+  return `${pic}  \`:${s.name}:\`${s.image && s.text ? ` — ${s.text} in the terminal` : ""}\n\nfrom ${s.from}`;
 }
 
 // the JSON Schemas of spec/schemas (copied into the extension): frontmatter keys and their descriptions
@@ -429,8 +414,8 @@ for (const name of ["game", "sheet"]) {
 }
 const kindOf = (doc) => (doc.uri.fsPath.endsWith(".sheet") ? "sheet" : "game");
 
-function frontmatterCompletions(doc, pos) {
-  const fm = core.frontmatterContext(doc.getText(), pos.line, pos.character);
+function frontmatterCompletions(doc, pos, o) {
+  const fm = core.frontmatterContext(o, lineText(doc, pos.line), pos.line, pos.character);
   if (!fm) return null;
   const range = new vscode.Range(pos.line, fm.start, pos.line, pos.character);
   return core.schemaKeys(SCHEMAS, kindOf(doc), fm.level).filter((k) => !fm.present.includes(k.key)).map((k) => {
@@ -444,16 +429,20 @@ function frontmatterCompletions(doc, pos) {
 }
 
 const completionProvider = {
-  provideCompletionItems(doc, pos) {
-    const fmItems = frontmatterCompletions(doc, pos);
+  async provideCompletionItems(doc, pos) {
+    const text = lineText(doc, pos.line);
+    const inc = core.includeContext(text, pos.character);
+    if (inc) return includeCompletions(doc, pos, inc);
+    const o = await outlineOf(doc);
+    if (!o) return undefined;
+    const fmItems = frontmatterCompletions(doc, pos, o);
     if (fmItems) return fmItems;
-    const sctx = core.symbolContext(doc.lineAt(pos.line).text, pos.character);
+    const sctx = core.symbolContext(text, pos.character);
     if (sctx) {
-      const list = symbolsFor(doc);
-      if (!list.length) return undefined;
+      if (!o.symbols.length) return undefined;
       const range = new vscode.Range(pos.line, sctx.start, pos.line, pos.character + (sctx.closed ? 1 : 0));
-      return list.map((s) => {
-        const item = new vscode.CompletionItem({ label: `:${s.name}:`, description: s.text || s.image }, vscode.CompletionItemKind.EnumMember);
+      return o.symbols.map((s) => {
+        const item = new vscode.CompletionItem({ label: `:${s.name}:`, description: s.text || s.src }, vscode.CompletionItemKind.EnumMember);
         item.range = range;
         item.insertText = `:${s.name}:`;
         item.filterText = `:${s.name}`;
@@ -462,10 +451,10 @@ const completionProvider = {
         return item;
       });
     }
-    const vctx = core.valueContext(doc.lineAt(pos.line).text, pos.character);
+    const vctx = core.valueContext(text, pos.character);
     if (vctx) {
       const range = new vscode.Range(pos.line, vctx.start, pos.line, pos.character);
-      return valuesFor(doc).map((v) => {
+      return o.values.map((v) => {
         const item = new vscode.CompletionItem({ label: v.name, description: v.value }, vscode.CompletionItemKind.Constant);
         item.range = range;
         item.insertText = v.name + (vctx.closed ? "" : "}");
@@ -473,11 +462,9 @@ const completionProvider = {
         return item;
       });
     }
-    const inc = core.includeContext(doc.lineAt(pos.line).text, pos.character);
-    if (inc) return includeCompletions(doc, pos, inc);
-    const ctx = core.completionContext(doc.lineAt(pos.line).text, pos.character);
+    const ctx = core.completionContext(text, pos.character);
     if (!ctx) return undefined;
-    const all = core.completions(expandedText(doc));
+    const all = core.completionsFor(o);
     const list = ctx.section ? all.sections : all.terms;
     const range = new vscode.Range(pos.line, ctx.start, pos.line, pos.character);
     return list.map((x, i) => {
@@ -494,56 +481,39 @@ const completionProvider = {
 };
 
 const hoverProvider = {
-  provideHover(doc, pos) {
-    const fk = core.frontmatterKeyAt(doc.getText(), pos.line, pos.character);
-    if (fk) {
-      return new vscode.Hover(new vscode.MarkdownString(core.frontmatterHover(SCHEMAS, kindOf(doc), fk.level, fk.key)),
-        new vscode.Range(pos.line, fk.start, pos.line, fk.end));
-    }
-    const inc = core.includeAt(doc.lineAt(pos.line).text, pos.character);
-    if (inc) {
-      const file = fragmentFile(doc.uri.fsPath, inc.name);
-      const text = file ? readText(file) : null;
-      const md = text ? core.includeHover(text, inc.name, inc.section)
-        : `No shared fragment \`${inc.name}\` (looked for _shared/${inc.name}.game)`;
-      if (!md) return null;
-      return new vscode.Hover(new vscode.MarkdownString(md), new vscode.Range(pos.line, inc.start, pos.line, inc.end));
-    }
-    const sym = core.symbolAt(doc.lineAt(pos.line).text, pos.character);
-    const known = sym && symbolsFor(doc).find((s) => s.name === sym.name);
+  async provideHover(doc, pos) {
+    const o = await outlineOf(doc);
+    if (!o) return null;
+    const col = colOf(doc, pos);
+    const md = (text, line, a, b) => new vscode.Hover(new vscode.MarkdownString(text), rangeOf(doc, line, a, b));
+    const fk = core.frontmatterKeyAt(o, pos.line, col);
+    if (fk) return md(core.frontmatterHover(SCHEMAS, kindOf(doc), fk.level, fk.key), pos.line, fk.start, fk.end);
+    const inc = core.includeUnder(o, pos.line);
+    if (inc) return md(core.includeHover(inc), pos.line, inc.start, inc.end);
+    const text = lineText(doc, pos.line);
+    const sym = core.symbolAt(text, pos.character);
+    const known = sym && o.symbols.find((s) => s.name === sym.name);
     if (known) {
       return new vscode.Hover(new vscode.MarkdownString(symbolMarkdown(known)), new vscode.Range(pos.line, sym.start, pos.line, sym.end));
     }
-    const img = core.imagePathAt(doc.getText(), pos.line, pos.character);
-    if (img) {
-      const file = path.resolve(path.dirname(doc.uri.fsPath), img.path);
-      const md = fs.existsSync(file) ? `![](${vscode.Uri.file(file).toString()}|height=220)\n\n\`${img.path}\``
-        : `Image not found: \`${img.path}\``;
-      return new vscode.Hover(new vscode.MarkdownString(md), new vscode.Range(pos.line, img.start, pos.line, img.end));
+    const link = core.linkAt(o, pos.line, col);
+    if (link && link.kind === "image") {
+      const body = link.path && link.exists ? `![](${vscode.Uri.file(link.path).toString()}|height=220)\n\n\`${link.src}\``
+        : link.url ? `![](${link.url}|height=220)`
+        : link.outside ? `\`${link.src}\` is outside the vault: tabula doesn't use it` : `Image not found: \`${link.src}\``;
+      return md(body, pos.line, link.start, link.end);
     }
-    const val = core.valueAt(doc.lineAt(pos.line).text, pos.character);
+    const val = core.valueAt(text, pos.character);
     if (val) {
-      const v = valuesFor(doc).find((x) => x.name === val.name);
-      const md = v ? `**${v.name}** = \`${v.value}\`\n\nfrom ${v.from}`
+      const v = o.values.find((x) => x.name === val.name);
+      const body = v ? `**${v.name}** = \`${v.value}\`\n\nfrom ${v.from}`
         : `No value \`${val.name}\`: define it under \`values:\` in the frontmatter or in vault.yaml`;
-      return new vscode.Hover(new vscode.MarkdownString(md), new vscode.Range(pos.line, val.start, pos.line, val.end));
+      return new vscode.Hover(new vscode.MarkdownString(body), new vscode.Range(pos.line, val.start, pos.line, val.end));
     }
-    const ref = core.refAt(doc.lineAt(pos.line).text, pos.character);
+    const ref = core.refUnder(o, pos.line, col);
     if (!ref) return null;
-    const pic = (p) => (/^[a-z]+:\/\//.test(p) ? p : vscode.Uri.file(path.resolve(path.dirname(doc.uri.fsPath), p)).toString());
-    let text = core.hoverText(expandedText(doc), ref.name, pic);
-    // in a translation, terms may only be defined in the default-language file
-    const m = path.basename(doc.uri.fsPath).match(/^(.*)\.([a-z]{2}(?:-[A-Za-z]{2})?)\.game$/);
-    if (!text && m) {
-      try {
-        text = core.hoverText(fs.readFileSync(path.join(path.dirname(doc.uri.fsPath), `${m[1]}.game`), "utf8"), ref.name);
-      } catch {
-        text = null;
-      }
-    }
-    if (!text) return null;
-    const range = new vscode.Range(pos.line, ref.start, pos.line, ref.end);
-    return new vscode.Hover(new vscode.MarkdownString(text), range);
+    const body = core.hoverFor(o, ref, (p) => vscode.Uri.file(p).toString());
+    return body ? md(body, pos.line, ref.start, ref.end) : null;
   },
 };
 
@@ -629,28 +599,29 @@ function openPreview() {
 
 // ------------------------------------------------------------------ references, use counts, links, inline hints
 
-const loc = (doc, r) => new vscode.Location(doc.uri, new vscode.Range(r.line, r.start, r.line, r.end));
+const loc = (doc, r) => new vscode.Location(doc.uri, rangeOf(doc, r.line, r.start, r.end));
 
 const referenceProvider = {
-  provideReferences(doc, pos, context) {
-    const o = core.occurrences(doc.getText(), pos.line, pos.character);
-    if (!o) return [];
-    return [...(context && context.includeDeclaration === false ? [] : o.definitions), ...o.references].map((r) => loc(doc, r));
+  async provideReferences(doc, pos, context) {
+    const o = await outlineOf(doc);
+    const found = o && core.occurrencesAt(o, pos.line, colOf(doc, pos));
+    if (!found) return [];
+    return [...(context && context.includeDeclaration === false ? [] : found.definitions), ...found.references].map((r) => loc(doc, r));
   },
 };
 
 const codeLensProvider = {
-  provideCodeLenses(doc) {
-    const text = doc.getText();
-    const refs = core.allRefs(text);
+  async provideCodeLenses(doc) {
+    const o = await outlineOf(doc);
+    if (!o) return [];
     const byKey = new Map();
-    for (const r of refs) {
-      const k = (r.section ? "#" : "") + core.fold(r.name);
+    for (const r of o.references) {
+      const k = (r.section ? "#" : "") + r.fold;
       if (!byKey.has(k)) byKey.set(k, []);
       byKey.get(k).push(r);
     }
-    return core.useCounts(text).map((u) => {
-      const where = byKey.get((u.kind === "section" ? "#" : "") + core.fold(u.name)) || [];
+    return core.useCounts(o).map((u) => {
+      const where = byKey.get((u.kind === "section" ? "#" : "") + u.fold) || [];
       const range = new vscode.Range(u.line, 0, u.line, 0);
       const title = u.count === 0 ? "not used" : u.count === 1 ? "used once" : `used ${u.count} times`;
       return new vscode.CodeLens(range, u.count
@@ -661,26 +632,25 @@ const codeLensProvider = {
 };
 
 const linkProvider = {
-  provideDocumentLinks(doc) {
-    const dir = path.dirname(doc.uri.fsPath);
-    const out = [];
-    for (const p of core.pathLinks(doc.getText())) {
-      const file = p.kind === "fragment" ? fragmentFile(doc.uri.fsPath, p.path) : path.resolve(dir, p.path);
-      if (!file || !fs.existsSync(file)) continue;
-      const link = new vscode.DocumentLink(new vscode.Range(p.line, p.start, p.line, p.end), vscode.Uri.file(file));
-      link.tooltip = p.kind === "fragment" ? "Open the shared fragment" : "Open the image";
-      out.push(link);
-    }
-    return out;
+  async provideDocumentLinks(doc) {
+    const o = await outlineOf(doc);
+    if (!o) return [];
+    return o.links.filter((l) => (l.file || l.path) && l.exists).map((l) => {
+      const link = new vscode.DocumentLink(rangeOf(doc, l.line, l.start, l.end), vscode.Uri.file(l.file || l.path));
+      link.tooltip = l.kind === "fragment" ? "Open the shared fragment" : "Open the image";
+      return link;
+    });
   },
 };
 
 const inlayHintsProvider = {
-  provideInlayHints(doc, range) {
-    return core.inlineHints(doc.getText(), valuesFor(doc))
+  async provideInlayHints(doc, range) {
+    const o = await outlineOf(doc);
+    if (!o) return [];
+    return o.hints
       .filter((h) => h.line >= range.start.line && h.line <= range.end.line)
       .map((h) => {
-        const hint = new vscode.InlayHint(new vscode.Position(h.line, h.character), h.label);
+        const hint = new vscode.InlayHint(new vscode.Position(h.line, core.u16(lineText(doc, h.line), h.character)), h.label);
         hint.paddingLeft = true;
         hint.tooltip = h.tooltip;
         return hint;
@@ -722,8 +692,9 @@ async function imageEdit(doc, line, dataTransfer) {
   const img = await droppedImage(dataTransfer);
   if (!img) return null;
   const dir = path.dirname(doc.uri.fsPath);
-  const text = doc.getText();
-  const probe = core.imagePlacement(text, line, "x");
+  const o = (await outlineOf(doc)) || { definitions: [] };
+  const lines = doc.getText().replace(/\r\n?/g, "\n").split("\n");
+  const probe = core.imagePlacement(o, lines, line, "x");
   const folder = path.join(dir, "media", probe.kind === "card" ? "cards" : "");
   const we = new vscode.WorkspaceEdit();
   let file;
@@ -739,7 +710,7 @@ async function imageEdit(doc, line, dataTransfer) {
     we.createFile(vscode.Uri.file(file), { contents, ignoreIfExists: false });
   }
   const rel = path.relative(dir, file).split(path.sep).join("/");
-  const place = core.imagePlacement(text, line, rel, probe.kind === "card" ? "" : img.name);
+  const place = core.imagePlacement(o, lines, line, rel, probe.kind === "card" ? "" : img.name);
   if (place.kind === "inline") return { insertText: place.text, additionalEdit: we };
   for (const e of place.edits) {
     if (e.line >= doc.lineCount) we.insert(doc.uri, new vscode.Position(doc.lineCount, 0), e.text);
@@ -789,17 +760,18 @@ function workspaceEdit(doc, edits) {
 }
 
 const codeActionProvider = {
-  provideCodeActions(doc, _range, context) {
+  async provideCodeActions(doc, _range, context) {
     const mine = context.diagnostics.filter((d) => d.source === "tabula");
     if (!mine.length) return [];
-    const o = core.outline(expandedText(doc));
-    const names = [...o.definitions.map((d) => d.term), ...o.components.map((c) => c.name)];
+    const o = await outlineOf(doc);
+    if (!o) return [];
+    const names = [...core.allDefinitions(o).map((d) => d.term), ...core.allComponents(o).map((c) => c.name)];
     const sections = o.headings.map((h) => h.title).filter(Boolean);
     const text = doc.getText();
     const actions = [];
     for (const d of mine) {
       const range = { start: d.range.start.character, end: d.range.end.character };
-      for (const f of core.quickFixes(text, d.range.start.line, d.message, range, names, sections)) {
+      for (const f of core.quickFixes(text, d.range.start.line, d.message, range, names, sections, o.glossary_line)) {
         const a = new vscode.CodeAction(f.title, vscode.CodeActionKind.QuickFix);
         a.diagnostics = [d];
         a.isPreferred = !!f.preferred;
@@ -832,12 +804,20 @@ function addWord(uri, word) {
 }
 
 const renameProvider = {
-  prepareRename(doc, pos) {
-    const t = core.renameTarget(doc.getText(), pos.line, pos.character);     // throws a message for the user
-    return { range: new vscode.Range(pos.line, t.start, pos.line, t.end), placeholder: t.placeholder || t.name };
+  async prepareRename(doc, pos) {
+    const o = await outlineOf(doc);
+    if (!o) throw new Error("tabula couldn't read this file (see Output → Tabula)");
+    const t = core.renameTarget(o, pos.line, colOf(doc, pos));     // throws a message for the user
+    return { range: rangeOf(doc, pos.line, t.start, t.end), placeholder: t.placeholder || t.name };
   },
-  provideRenameEdits(doc, pos, newName) {
-    return workspaceEdit(doc, core.renameEdits(doc.getText(), pos.line, pos.character, newName));
+  async provideRenameEdits(doc, pos, newName) {
+    const o = await outlineOf(doc);
+    if (!o) throw new Error("tabula couldn't read this file (see Output → Tabula)");
+    const edits = core.renameEdits(o, pos.line, colOf(doc, pos), newName).map((e) => {
+      const t = lineText(doc, e.line);
+      return { ...e, start: core.u16(t, e.start), end: core.u16(t, e.end) };
+    });
+    return workspaceEdit(doc, edits);
   },
 };
 
@@ -932,6 +912,7 @@ function activate(context) {
     }),
     vscode.workspace.onDidCloseTextDocument((doc) => {
       const key = doc.uri.toString();
+      outlines.delete(key);
       clearTimeout(timers.get(key));
       if (!vaultUris.has(key)) diagnostics.delete(doc.uri);
     }),

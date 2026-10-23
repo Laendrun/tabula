@@ -21,24 +21,6 @@ local ns = vim.api.nvim_create_namespace("tabula")
 
 -- ------------------------------------------------------------------ helpers
 
-local function fold(s)
-  -- the same key as tabula's references: case and accents ignored, a final s/x dropped
-  s = vim.fn.tolower(s or "")
-  local map = { ["à"] = "a", ["â"] = "a", ["ä"] = "a", ["á"] = "a", ["ç"] = "c", ["é"] = "e", ["è"] = "e",
-                ["ê"] = "e", ["ë"] = "e", ["î"] = "i", ["ï"] = "i", ["í"] = "i", ["ô"] = "o", ["ö"] = "o",
-                ["ó"] = "o", ["ù"] = "u", ["û"] = "u", ["ü"] = "u", ["ú"] = "u", ["ÿ"] = "y", ["ñ"] = "n",
-                ["œ"] = "oe", ["æ"] = "ae", ["ß"] = "ss", ["’"] = "'" }
-  for k, v in pairs(map) do s = s:gsub(k, v) end
-  s = s:gsub("[%.,;:!%?%(%)%[%]{}\"/]", " ")
-  local words = {}
-  for w in s:gmatch("%S+") do
-    if vim.fn.strchars(w) > 2 and w:match("[sx]$") and not w:match("ss$") then w = w:sub(1, -2) end
-    words[#words + 1] = w
-  end
-  return table.concat(words, " ")
-end
-M.fold = fold
-
 local function read_lines(path)
   local f = io.open(path, "r")
   if not f then return nil end
@@ -53,136 +35,93 @@ function M.vault_root(file)
   return found and vim.fs.dirname(found) or nil
 end
 
--- ------------------------------------------------------------------ reading a game
+--- A column of the outline (characters) as a byte column on that line, and back.
+local function byte_col(line, cp)
+  local ok, r = pcall(vim.str_byteindex, line, "utf-32", cp, false)          -- Neovim 0.11
+  if ok and type(r) == "number" then return r end
+  ok, r = pcall(vim.str_byteindex, line, cp)                                  -- Neovim 0.10
+  return ok and r or #line
+end
+local function char_col(line, byte)
+  return vim.fn.strchars(line:sub(1, byte))
+end
+M.byte_col, M.char_col = byte_col, char_col
 
---- Headings, definitions (with their body), components, includes and the frontmatter range of a game.
-function M.outline(lines)
-  local o = { headings = {}, definitions = {}, components = {}, includes = {}, frontmatter = nil }
-  local n = #lines
-  local start = 1
-  if lines[1] and lines[1]:match("^%-%-%-%s*$") then
-    for k = 2, n do
-      if lines[k]:match("^%-%-%-%s*$") or lines[k]:match("^%.%.%.%s*$") then
-        o.frontmatter = { 2, k - 1 }
-        start = k + 1
-        break
-      end
-    end
-  end
-  local in_fence, in_comment = false, false
-  for k = start, n do
-    local t = lines[k]
-    if in_comment then
-      if t:find("-->", 1, true) then in_comment = false end
-    elseif t:match("^%s*```") or t:match("^%s*~~~") then
-      in_fence = not in_fence
-    elseif not in_fence then
-      if t:find("<!--", 1, true) and not t:find("-->", 1, true) then in_comment = true end
-      local hashes, title = t:match("^(#+)%s+(.-)%s*$")
-      if hashes and #hashes <= 6 then
-        local key = title:match("^!") and not title:match("^!%[")
-        if key then title = title:gsub("^!%s*", "") end
-        local attrs = title:match("%s*{([^{}]*)}%s*$") or ""
-        title = title:gsub("%s*{[^{}]*}%s*$", "")
-        local roles = {}
-        for r in attrs:gmatch("#([%w_-]+)") do roles[#roles + 1] = r end
-        o.headings[#o.headings + 1] = { level = #hashes, title = title, roles = roles, line = k, key = key and true or false }
-      else
-        local item = t:match("^%s*[-*+]%s+(.*)$")
-        local name = item and item:gsub("^{[^{}]*}%s*", ""):gsub("^(%d+%-?%d*)%s*×", "%1x")
-          :match("^%d+%-?%d*%s*[xX]%s+[^%[]-%[%[([^%]|#]+)")
-        if name then
-          o.components[#o.components + 1] = { name = vim.trim(name), line = k }
-        end
-        local inc, sec = t:match("^%s*!%[%[([^%]#|]+)#?([^%]|]*)%]%]%s*$")
-        if inc then o.includes[#o.includes + 1] = { name = vim.trim(inc), section = sec, line = k } end
-        local nxt = lines[k + 1]
-        if t:match("%S") and nxt and (nxt:match("^:%s") or nxt == ":") and not t:match("^%s")
-            and not t:match("^[-*+>|!#:]") and not t:match("^%d+[.)]%s") then
-          local term = t:gsub("^{[^{}]*}%s*", ""):gsub("%s*{[^{}]*}%s*$", "")
-          local body, last = {}, k + 1
-          body[1] = lines[k + 1]:gsub("^:%s?", "")
-          while last + 1 <= n do
-            local l = lines[last + 1]
-            local after = lines[last + 2]
-            if l:match("^:%s") or l == ":" then
-              body[#body + 1] = ""
-              body[#body + 1] = (l:gsub("^:%s?", ""))
-            elseif l:match("^%s+%S") then
-              body[#body + 1] = (l:gsub("^%s%s?", ""))
-            elseif l == "" and after and (after:match("^%s+%S") or after:match("^:%s")) then
-              body[#body + 1] = ""
-            else
-              break
-            end
-            last = last + 1
-          end
-          o.definitions[#o.definitions + 1] = { term = vim.trim(term), line = k, body = body }
-        end
-      end
-    end
-  end
-  return o
+-- ------------------------------------------------------------------ the outline: tabula reads the file
+
+-- The plugin doesn't parse .game files: `tabula outline --json` does, with the same parser as every other
+-- tabula command. Its result is kept until the buffer changes.
+
+local missing = false        -- the tabula command isn't there: said once, then everything that needs it is off
+
+local function say_missing(err)
+  missing = true
+  vim.schedule(function()
+    vim.notify("tabula: can't run `" .. table.concat(M.config.cmd, " ") .. "`: install tabula (pipx install ./cli in "
+      .. "the tabula repository), or set `cmd` in require('tabula').setup(). Completion, K, gd, checks and "
+      .. "formatting need it (" .. tostring(err):gsub("^.-: ", "") .. ")", vim.log.levels.WARN)
+  end)
 end
 
---- The `name:` entries under a top-level YAML key (values:, symbols:) of a frontmatter or vault.yaml.
-function M.yaml_entries(lines, first, last, key)
-  local out, inside = {}, false
-  for k = first, last do
-    local l = lines[k]
-    if l:match("^" .. key .. ":%s*$") then
-      inside = true
-    elseif inside and l:match("^%S") then
-      inside = false
-    elseif inside then
-      local name, value = l:match("^  ([%w_-]+):%s*(.-)%s*$")
-      if name then out[#out + 1] = { name = name, value = value } end
-    end
-  end
-  return out
+local function outline_args(file, stdin)
+  local args = {}
+  local root = M.vault_root(file)
+  if root then vim.list_extend(args, { "--vault", root }) end
+  vim.list_extend(args, { "outline", file, "--json" })
+  if stdin then args[#args + 1] = "--stdin" end
+  return args
 end
 
-local function vault_yaml(root)
-  return root and (read_lines(root .. "/vault.yaml") or read_lines(root .. "/vault.yml")) or nil
+local function run_outline(file, input)
+  if missing then return nil end
+  local cmd = vim.list_extend(vim.deepcopy(M.config.cmd), outline_args(file, input ~= nil))
+  local ok, proc = pcall(vim.system, cmd, { stdin = input, text = true })
+  if not ok then
+    say_missing(proc)
+    return nil
+  end
+  local res = proc:wait(10000)
+  if res.code ~= 0 then return nil end
+  local okj, data = pcall(vim.json.decode, res.stdout or "", { luanil = { object = true, array = true } })
+  if not okj or type(data) ~= "table" or data.outline ~= 1 then return nil end
+  return data
 end
 
---- Values ({=name}) and symbols (:name:) of the game and its vault: { values = {...}, symbols = {...} }.
-function M.definitions_of(lines, file)
-  local o = M.outline(lines)
-  local out = { values = {}, symbols = {} }
-  local seen = { values = {}, symbols = {} }
-  local function add(kind, list, from)
-    for _, e in ipairs(list) do
-      if not seen[kind][e.name] then
-        seen[kind][e.name] = true
-        out[kind][#out[kind] + 1] = { name = e.name, value = e.value, from = from }
-      end
-    end
-  end
-  if o.frontmatter then
-    add("values", M.yaml_entries(lines, o.frontmatter[1], o.frontmatter[2], "values"), "this game")
-    add("symbols", M.yaml_entries(lines, o.frontmatter[1], o.frontmatter[2], "symbols"), "this game")
-  end
-  local vy = vault_yaml(file and M.vault_root(file))
-  if vy then
-    add("values", M.yaml_entries(vy, 1, #vy, "values"), "vault.yaml")
-    add("symbols", M.yaml_entries(vy, 1, #vy, "symbols"), "vault.yaml")
-  end
-  return out
+local cache = {}             -- buffer -> { tick, data }
+local file_cache = {}        -- path -> { mtime, data }
+
+--- The outline of a buffer as it is now (unsaved changes included), or nil when tabula can't read it.
+function M.outline(buf)
+  buf = (buf == nil or buf == 0) and vim.api.nvim_get_current_buf() or buf
+  local tick = vim.api.nvim_buf_get_changedtick(buf)
+  local c = cache[buf]
+  if c and c.tick == tick then return c.data end
+  local text = table.concat(vim.api.nvim_buf_get_lines(buf, 0, -1, false), "\n") .. "\n"
+  local data = run_outline(vim.api.nvim_buf_get_name(buf), text)
+  cache[buf] = { tick = tick, data = data }
+  return data
 end
 
---- The outlines of the shared fragments the game includes: { { name, path, outline, lines } }.
-function M.fragments(o, file)
-  local root = file and M.vault_root(file)
-  local out, seen = {}, {}
-  if not root then return out end
-  for _, inc in ipairs(o.includes) do
-    if not seen[inc.name] then
-      seen[inc.name] = true
-      local path = root .. "/_shared/" .. inc.name .. ".game"
-      local fl = read_lines(path)
-      if fl then out[#out + 1] = { name = inc.name, path = path, lines = fl, outline = M.outline(fl) } end
-    end
+--- The outline of a file on disk (a shared fragment), kept until the file changes.
+function M.outline_file(path)
+  local st = vim.uv.fs_stat(path)
+  if not st then return nil end
+  local c = file_cache[path]
+  if c and c.mtime == st.mtime.sec .. "." .. st.mtime.nsec then return c.data end
+  local data = run_outline(path, nil)
+  file_cache[path] = { mtime = st.mtime.sec .. "." .. st.mtime.nsec, data = data }
+  return data
+end
+
+--- Every definition (or component) the file can refer to: its own, the fragments', the default-language file's.
+local function all_of(o, kind)
+  local out = {}
+  for _, x in ipairs(o[kind]) do out[#out + 1] = vim.tbl_extend("force", x, { file = false }) end
+  for _, f in ipairs(o.fragments or {}) do
+    for _, x in ipairs(f[kind]) do out[#out + 1] = vim.tbl_extend("force", x, { file = f.file, from = f.name }) end
+  end
+  if o.default then
+    for _, x in ipairs(o.default[kind]) do out[#out + 1] = vim.tbl_extend("force", x, { file = o.default.file }) end
   end
   return out
 end
@@ -227,42 +166,43 @@ local function schema_keys(kind, level)
   return keys
 end
 
---- Where a frontmatter line is: "top", "option" (an extension's details) or nil.
-function M.frontmatter_level(lines, row, indent)
-  if indent == 0 then return "top" end
-  local parents, want = {}, indent
-  for k = row - 1, 2, -1 do
-    local l = lines[k]
-    if l:match("%S") and not l:match("^%s*#") then
-      local i = #l:match("^%s*")
-      if i < want then
-        table.insert(parents, 1, vim.trim(l))
-        want = i
-        if i == 0 then break end
-      end
+--- The frontmatter key being typed: { level, start, present } or nil. `row0`: the 0-based line.
+local function frontmatter_context(o, before, row0)
+  local fm = o.frontmatter
+  if not fm or row0 < fm.start or row0 > fm["end"] then return nil end
+  local ind = before:match("^(%s*)[%w_-]*$")
+  if not ind then return nil end
+  local present = {}
+  if #ind == 0 then
+    for _, k in ipairs(fm.keys) do
+      if k.level == "top" and k.line ~= row0 then present[k.key] = true end
     end
+    return { level = "top", start = 0, present = present }
   end
-  if #parents == 2 and (parents[1]:match("^extensions:%s*$") or parents[1]:match("^variants:%s*$"))
-      and parents[2]:match("^[^%s:#-][^:]*:%s*$") then
-    return "option"
+  local opt
+  for _, x in ipairs(fm.options) do
+    if x.line < row0 and #ind > x.indent then opt = x end
   end
-  return nil
+  if not opt then return nil end
+  for _, k in ipairs(fm.keys) do
+    if k.level == "top" and k.line > opt.line and k.line <= row0 then return nil end
+    if k.option == opt.name and k.line ~= row0 then present[k.key] = true end
+  end
+  return { level = "option", start = #ind, present = present }
 end
 
---- What is being completed at the cursor: { kind, start (0-based column), typed } or nil.
---- kind: "term", "section", "fragment", "value", "symbol" or "key" (frontmatter).
-function M.context(lines, row, col)
-  local before = (lines[row] or ""):sub(1, col)
-  local o = M.outline(lines)
-  if o.frontmatter and row >= o.frontmatter[1] and row <= o.frontmatter[2] then
-    local ind, typed = before:match("^(%s*)([%w_-]*)$")
-    if ind then
-      local level = M.frontmatter_level(lines, row, #ind)
-      if level then return { kind = "key", level = level, start = #ind, typed = typed } end
-    end
+--- What is being completed at the cursor: { kind, start (0-based byte column), typed } or nil.
+--- kind: "term", "section", "fragment", "fragment-section", "value", "symbol" or "key" (frontmatter).
+function M.context(o, line, row, col)
+  local before = (line or ""):sub(1, col)
+  if o and o.frontmatter and row - 1 >= o.frontmatter.start and row - 1 <= o.frontmatter["end"] then
+    local fm = frontmatter_context(o, before, row - 1)
+    if fm then return { kind = "key", level = fm.level, present = fm.present, start = fm.start, typed = before:sub(fm.start + 1) } end
     return nil
   end
-  local s, typed = before:match("()!%[%[([^%]#|]*)$")
+  local s, name, typed = before:match("^%s*()!%[%[([^%]#|]*)#([^%]|]*)$")
+  if s then return { kind = "fragment-section", name = vim.trim(name), start = #before - #typed, typed = typed } end
+  s, typed = before:match("()!%[%[([^%]#|]*)$")
   if s then return { kind = "fragment", start = s + 2, typed = typed } end
   s, typed = before:match("()%[%[#([^%]|]*)$")
   if s then return { kind = "section", start = s + 2, typed = typed } end
@@ -278,80 +218,79 @@ function M.context(lines, row, col)
 end
 
 local function starts(word, typed)
-  return typed == "" or fold(word):sub(1, #fold(typed)) == fold(typed) or word:lower():find(typed:lower(), 1, true) == 1
+  return typed == "" or vim.startswith(word:lower(), typed:lower())
 end
 
---- Completion items for the cursor: list of { word, abbr, menu, info, kind } (complete-items).
-function M.items(lines, row, col, file)
-  local ctx = M.context(lines, row, col)
+--- What the typed text is compared with: the name (a symbol's without its colons).
+function M.filter_text(item)
+  return (type(item.user_data) == "table" and item.user_data.filter) or item.abbr or item.word
+end
+
+local function section_items(headings, close, add)
+  for _, h in ipairs(headings) do
+    if h.title ~= "" then add({ word = h.title .. close, abbr = h.title, kind = "s", menu = "section" }, "s|" .. h.fold) end
+  end
+  for _, h in ipairs(headings) do
+    for _, r in ipairs(h.roles) do
+      add({ word = r .. close, abbr = r, kind = "r", menu = "role → " .. h.title }, "r|" .. r)
+    end
+  end
+end
+
+--- Completion items at the cursor (complete-items): { word, abbr, menu, info, kind }, and the context.
+function M.items(o, line, row, col, file)
+  local ctx = M.context(o, line, row, col)
   if not ctx then return nil, nil end
   local out, seen = {}, {}
-  local function add(item)
-    local k = item.kind_ .. "|" .. fold(item.word)
-    if seen[k] or not starts(item.word, ctx.typed) then return end
-    seen[k] = true
-    item.kind_ = nil
+  local function add(item, key)
+    if seen[key] or not starts(M.filter_text(item), ctx.typed) then return end
+    seen[key] = true
     out[#out + 1] = item
   end
-  local o = M.outline(lines)
-  local rest = (lines[row] or ""):sub(col + 1)
-  if ctx.kind == "term" or ctx.kind == "section" then
-    local close = rest:match("^%]%]") and "" or "]]"
-    local sources = { { outline = o, from = nil } }
-    for _, f in ipairs(M.fragments(o, file)) do sources[#sources + 1] = { outline = f.outline, from = f.name } end
-    if ctx.kind == "term" then
-      for _, src in ipairs(sources) do
-        for _, d in ipairs(src.outline.definitions) do
-          add({ word = d.term .. close, abbr = d.term, kind = "d", menu = src.from and ("def · " .. src.from) or "definition",
-                info = table.concat(d.body, "\n"), kind_ = "t" })
-        end
-      end
-      for _, src in ipairs(sources) do
-        for _, c in ipairs(src.outline.components) do
-          add({ word = c.name .. close, abbr = c.name, kind = "c", menu = "component", kind_ = "t" })
-        end
-      end
-    else
-      for _, h in ipairs(o.headings) do
-        add({ word = h.title .. close, abbr = h.title, kind = "s", menu = "section", kind_ = "s" })
-      end
-      for _, h in ipairs(o.headings) do
-        for _, r in ipairs(h.roles) do
-          add({ word = r .. close, abbr = r, kind = "r", menu = "role → " .. h.title, kind_ = "r" })
-        end
-      end
-    end
-  elseif ctx.kind == "fragment" then
+  local rest = (line or ""):sub(col + 1)
+  local close = rest:match("^[^%]%[]*%]%]") and "" or "]]"
+  if ctx.kind == "fragment" then
     local root = file and M.vault_root(file)
-    if root then
-      for _, path in ipairs(vim.fn.glob(root .. "/_shared/*.game", false, true)) do
-        local name = vim.fn.fnamemodify(path, ":t:r")
-        if not name:find("%.") then add({ word = name, kind = "f", menu = "fragment", kind_ = "f" }) end
-      end
+    for _, path in ipairs(root and vim.fn.glob(root .. "/_shared/*.game", false, true) or {}) do
+      local name = vim.fn.fnamemodify(path, ":t:r")
+      if not name:find("%.") then add({ word = name .. close, abbr = name, kind = "f", menu = "fragment" }, name) end
     end
+    return out, ctx
+  end
+  if ctx.kind == "fragment-section" then
+    local root = file and M.vault_root(file)
+    local f = root and root .. "/_shared/" .. ctx.name .. ".game"
+    local fo = f and M.outline_file(f)
+    if fo then section_items(fo.headings, close, add) end
+    return out, ctx
+  end
+  if not o then return nil, nil end
+  if ctx.kind == "term" then
+    for _, d in ipairs(all_of(o, "definitions")) do
+      add({ word = d.term .. close, abbr = d.term, kind = "d", menu = d.from and ("def · " .. d.from) or "definition",
+            info = d.markdown }, d.fold)
+    end
+    for _, c in ipairs(all_of(o, "components")) do
+      add({ word = c.name .. close, abbr = c.name, kind = "c", menu = "component", info = c.text }, c.fold)
+    end
+  elseif ctx.kind == "section" then
+    section_items(o.headings, close, add)
   elseif ctx.kind == "value" then
-    local close = rest:match("^%s*}") and "" or "}"
-    for _, v in ipairs(M.definitions_of(lines, file).values) do
-      add({ word = v.name .. close, abbr = v.name, kind = "v", menu = v.value, info = "value from " .. v.from, kind_ = "v" })
+    local vclose = rest:match("^%s*}") and "" or "}"
+    for _, v in ipairs(o.values) do
+      add({ word = v.name .. vclose, abbr = v.name, kind = "v", menu = v.value, info = "value from " .. v.from }, v.name)
     end
   elseif ctx.kind == "symbol" then
-    for _, v in ipairs(M.definitions_of(lines, file).symbols) do
-      add({ word = ":" .. v.name .. ":", abbr = ":" .. v.name .. ":", kind = "y", menu = v.value,
-            info = "symbol from " .. v.from, kind_ = "y" })
+    for _, v in ipairs(o.symbols) do
+      add({ word = ":" .. v.name .. ":", abbr = ":" .. v.name .. ":", kind = "y", menu = v.text or v.src,
+            info = "symbol from " .. v.from, user_data = { filter = v.name } }, v.name)
     end
   elseif ctx.kind == "key" then
     local kind = file and file:match("%.sheet$") and "sheet" or "game"
-    local present = {}
-    for k = o.frontmatter[1], o.frontmatter[2] do
-      local ind, key = (lines[k] or ""):match("^(%s*)([%w_-]+)%s*:")
-      if key and k ~= row and #ind == ctx.start and M.frontmatter_level(lines, k, #ind) == ctx.level then
-        present[key] = true
-      end
-    end
     for _, k in ipairs(schema_keys(kind, ctx.level)) do
-      if not present[k.key] then
+      if not ctx.present[k.key] then
         add({ word = k.key .. ": ", abbr = k.key, kind = "k",
-              menu = ctx.level == "option" and "detail" or "frontmatter", info = k.description, kind_ = "k" })
+              menu = ctx.level == "option" and "detail" or "frontmatter", info = k.description }, k.key)
       end
     end
   end
@@ -364,111 +303,134 @@ local pending = {}
 function M.omnifunc(findstart, base)
   if findstart == 1 then
     local row, col = unpack(vim.api.nvim_win_get_cursor(0))
-    local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
-    local items, ctx = M.items(lines, row, col, vim.api.nvim_buf_get_name(0))
+    local line = vim.api.nvim_get_current_line()
+    local ctx = M.context(nil, line, row, col)
+    -- the outline is needed for everything but fragment names (it's read again when the text changed)
+    local o = (ctx and (ctx.kind == "fragment" or ctx.kind == "fragment-section")) and nil or M.outline(0)
+    local items
+    items, ctx = M.items(o, line, row, col, vim.api.nvim_buf_get_name(0))
     pending = items or {}
     return ctx and ctx.start or -3
   end
   -- Vim takes the typed text out of the line before this second call: filter by `base` instead
-  local typed = base:gsub("^!?%[%[#?", ""):gsub("^{=%s*", "")
-  return vim.tbl_filter(function(i) return starts(i.abbr or i.word, typed) end, pending)
+  local typed = base:gsub("^!?%[%[#?", ""):gsub("^{=%s*", ""):gsub("^:", "")
+  return vim.tbl_filter(function(i) return starts(M.filter_text(i), typed) end, pending)
 end
 
 -- ------------------------------------------------------------------ hover and go to definition
 
---- The [[reference]] (or ![[fragment]]) under the cursor: { name, section, fragment } or nil.
-function M.ref_at(line, col)
-  for s, inner, e in line:gmatch("()!?%[%[([^%]]-)%]%]()") do
-    if col + 1 >= s and col + 1 < e then
-      local fragment = line:sub(s, s) == "!"
-      local name = vim.trim((inner:match("^([^|]*)")))
-      if fragment then
-        local n, sec = name:match("^([^#]*)#?(.*)$")
-        return { fragment = true, name = vim.trim(n), section = sec }
-      end
-      return { name = name }
-    end
+--- The reference (from the outline) under a 1-based row and a byte column, or nil.
+function M.ref_at(o, line, row, col)
+  local c = char_col(line, col)
+  for _, r in ipairs(o.references) do
+    if r.line == row - 1 and c >= r.start and c < r["end"] then return r end
   end
   return nil
 end
 
-local function find_target(lines, file, ref)
-  local o = M.outline(lines)
-  if ref.fragment then
-    local root = file and M.vault_root(file)
-    return root and { path = root .. "/_shared/" .. ref.name .. ".game", line = 1 } or nil
+local function include_at(o, row)
+  for _, i in ipairs(o.includes) do
+    if i.line == row - 1 then return i end
   end
-  if ref.name:match("^#") then
-    local want = fold(ref.name:sub(2))
+  return nil
+end
+
+--- Where a reference points to: { file (false: this buffer), line (0-based), item } or nil.
+function M.find_target(o, ref)
+  if ref.section then
     for _, h in ipairs(o.headings) do
-      if fold(h.title) == want then return { line = h.line, heading = h } end
+      if h.fold == ref.fold then return { file = false, line = h.line, heading = h } end
     end
     for _, h in ipairs(o.headings) do
       for _, r in ipairs(h.roles) do
-        if r:lower() == want then return { line = h.line, heading = h } end
+        if r == ref.name:lower() then return { file = false, line = h.line, heading = h } end
       end
     end
     return nil
   end
-  local key = fold(ref.name)
-  local sources = { { outline = o } }
-  for _, f in ipairs(M.fragments(o, file)) do sources[#sources + 1] = { outline = f.outline, path = f.path, lines = f.lines } end
-  for _, src in ipairs(sources) do
-    for _, d in ipairs(src.outline.definitions) do
-      if fold(d.term) == key then return { line = d.line, path = src.path, def = d } end
-    end
+  for _, d in ipairs(all_of(o, "definitions")) do
+    if d.fold == ref.fold then return { file = d.file, line = d.line, def = d } end
   end
-  for _, src in ipairs(sources) do
-    for _, c in ipairs(src.outline.components) do
-      if fold(c.name) == key then return { line = c.line, path = src.path, component = c, lines = src.lines } end
-    end
+  for _, c in ipairs(all_of(o, "components")) do
+    if c.fold == ref.fold then return { file = c.file, line = c.line, component = c } end
   end
   return nil
 end
-M.find_target = find_target
 
---- K: the definition of the reference under the cursor in a floating window (else the usual K).
+local function hover_lines(o, ref)
+  if ref.section then
+    local t = M.find_target(o, ref)
+    if not t then return nil end
+    local h = t.heading
+    return vim.split(("**%s%s**%s\n\n%s"):format(h.key and "★ " or "", h.title, h.cond ~= "" and (" `{" .. h.cond .. "}`") or "",
+      h.preview), "\n")
+  end
+  local parts = {}
+  for _, d in ipairs(all_of(o, "definitions")) do
+    if d.fold == ref.fold then
+      local pic = d.image and ("*picture: " .. d.image.src .. "*") or nil
+      parts[#parts + 1] = table.concat(vim.tbl_filter(function(x) return x and x ~= "" end,
+        { "**" .. d.term .. "**" .. (d.cond ~= "" and (" `{" .. d.cond .. "}`") or ""), pic, d.markdown }), "\n\n")
+    end
+  end
+  local comps = {}
+  for _, c in ipairs(o.components) do
+    if c.fold == ref.fold then comps[#comps + 1] = "- " .. c.text end
+  end
+  if #comps > 0 then parts[#parts + 1] = table.concat(comps, "\n") end
+  if #parts == 0 then return nil end
+  return vim.split(table.concat(parts, "\n\n---\n\n"), "\n")
+end
+M.hover_lines = hover_lines
+
+--- K: the definition of the reference under the cursor (or what an include brings) in a floating window.
 function M.hover()
   local row, col = unpack(vim.api.nvim_win_get_cursor(0))
-  local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
-  local ref = M.ref_at(lines[row], col)
-  local t = ref and find_target(lines, vim.api.nvim_buf_get_name(0), ref)
-  if not t then
+  local line = vim.api.nvim_get_current_line()
+  local o = M.outline(0)
+  local body
+  if o then
+    local inc = include_at(o, row)
+    if inc then
+      body = vim.split(inc.file and (("*from `_shared/%s`*\n\n%s"):format(inc.name, inc.preview or ""))
+        or ("No shared fragment `" .. inc.name .. "`"), "\n")
+    else
+      local ref = M.ref_at(o, line, row, col)
+      body = ref and hover_lines(o, ref)
+    end
+  end
+  if not body then
     vim.cmd("normal! K")
     return
-  end
-  local body
-  if t.def then
-    body = vim.list_extend({ "**" .. t.def.term .. "**", "" }, t.def.body)
-  elseif t.heading then
-    body = {}
-    for k = t.line, math.min(#lines, t.line + 12) do body[#body + 1] = lines[k] end
-  elseif t.component then
-    body = { ((t.lines or lines)[t.line]):gsub("^%s+", "") }
-  else
-    body = { ref.name }
   end
   vim.lsp.util.open_floating_preview(body, "markdown", { border = "rounded", focus_id = "tabula-hover" })
 end
 
---- gd: go to the definition, component line or heading of the reference under the cursor.
+--- gd: go to the definition, component line or heading of the reference under the cursor (or the fragment).
 function M.goto_definition()
   local row, col = unpack(vim.api.nvim_win_get_cursor(0))
-  local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
-  local ref = M.ref_at(lines[row], col)
-  local t = ref and find_target(lines, vim.api.nvim_buf_get_name(0), ref)
+  local line = vim.api.nvim_get_current_line()
+  local o = M.outline(0)
+  local t
+  if o then
+    local inc = include_at(o, row)
+    if inc and inc.file then
+      t = { file = inc.file, line = inc.section_line or 0 }
+    else
+      local ref = M.ref_at(o, line, row, col)
+      t = ref and M.find_target(o, ref)
+    end
+  end
   if not t then
     vim.cmd("normal! gd")
     return
   end
   vim.cmd("normal! m'")
-  if t.path then vim.cmd.edit(vim.fn.fnameescape(t.path)) end
-  vim.api.nvim_win_set_cursor(0, { t.line, 0 })
+  if t.file then vim.cmd.edit(vim.fn.fnameescape(t.file)) end
+  vim.api.nvim_win_set_cursor(0, { t.line + 1, 0 })
 end
 
 -- ------------------------------------------------------------------ running tabula
-
-local missing = false        -- the tabula command isn't there: said once, then checks are skipped
 
 --- Runs tabula; returns false (and never calls on_done) when it can't be run.
 local function run(args, input, on_done)
@@ -478,12 +440,7 @@ local function run(args, input, on_done)
     vim.schedule(function() on_done(res) end)
   end)
   if not ok then
-    missing = true
-    vim.schedule(function()
-      vim.notify("tabula: can't run `" .. table.concat(M.config.cmd, " ") .. "`: install tabula (pipx install ./cli in "
-        .. "the tabula repository), or set `cmd` in require('tabula').setup(). Checks, formatting and the preview "
-        .. "are off until then (" .. tostring(err):gsub("^.-: ", "") .. ")", vim.log.levels.WARN)
-    end)
+    say_missing(err)
     return false
   end
   return true
@@ -647,8 +604,11 @@ function M.attach(buf)
       local before = vim.api.nvim_get_current_line():sub(1, col)
       local frontmatter = false
       if before:match("^%s*[%w_]$") then           -- the first letter of a frontmatter key
-        local o = M.outline(vim.api.nvim_buf_get_lines(buf, 0, row + 1, false))
-        frontmatter = o.frontmatter == nil and vim.api.nvim_buf_get_lines(buf, 0, 1, false)[1] == "---"
+        local above = vim.api.nvim_buf_get_lines(buf, 0, row - 1, false)     -- still inside the frontmatter?
+        frontmatter = row > 1 and above[1] == "---"
+        for k = 2, #above do
+          if above[k]:match("^%-%-%-%s*$") or above[k]:match("^%.%.%.%s*$") then frontmatter = false end
+        end
       end
       if before:match("%[%[$") or before:match("%[%[#$") or before:match("{=$") or frontmatter
           or before:match("^:%a$") or before:match("[^%w_:\\/]:%a$") then
@@ -661,6 +621,7 @@ end
 function M.setup(opts)
   M.config = vim.tbl_deep_extend("force", M.config, opts or {})
   missing = false
+  cache, file_cache = {}, {}
 end
 
 return M
