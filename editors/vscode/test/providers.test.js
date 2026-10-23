@@ -59,7 +59,11 @@ const vscode = {
     registerDocumentPasteEditProvider: (sel, p, meta) => { registered.paste = p; registered.pasteMeta = meta; return disposable; },
   },
   window: {
-    createOutputChannel: () => ({ appendLine() {}, dispose() {} }),
+    createOutputChannel: (name, opts) => {
+      const ch = { name, opts, appendLine() {}, dispose() {} };
+      if (opts && opts.log) Object.assign(ch, { logLevel: 2, onDidChangeLogLevel: () => disposable, info() {}, warn() {}, error() {} });
+      return ch;
+    },
     onDidChangeActiveTextEditor: () => disposable,
     registerTreeDataProvider: (id, p) => { (registered.trees = registered.trees || {})[id] = p; return disposable; },
     withProgress: (o, f) => f(),
@@ -157,6 +161,7 @@ test("the language server: tabula lsp, started with the settings", async () => {
   assert.deepEqual(c.options.documentSelector, [{ scheme: "file", language: "tabula" }]);
   assert.deepEqual(c.options.initializationOptions, { spell: false, definitions: false, images: "html" });
   assert.equal(c.options.markdown.supportHtml, true);
+  assert.equal(typeof c.options.outputChannel.onDidChangeLogLevel, "function");     // the client needs a log channel
   // a setting changes: the server restarts with it
   registered.config = { path: PYTHON, extraArgs: ["-m", "tabula"], spellCheck: true, vault: "/v" };
   await registered.onConfig({ affectsConfiguration: (k) => k === "tabula" });

@@ -5,6 +5,11 @@ Newest first. VS Code shows this file in the extension's "Changelog" tab. Add yo
 
 ## Unreleased
 
+## 0.27.2 — 2026-10-23
+
+### Fixed
+- "this.traceOutputChannel.onDidChangeLogLevel is not a function" when the language server started or restarted: the Tabula output channel is now a log channel, as the language client expects.
+
 ## 0.27.1 — 2026-10-23
 
 ### Changed

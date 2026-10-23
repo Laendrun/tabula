@@ -427,7 +427,8 @@ async function formatVault() {
 
 function activate(context) {
   diagnostics = vscode.languages.createDiagnosticCollection("tabula-vault");
-  output = vscode.window.createOutputChannel("Tabula");
+  // a log channel: the language client follows its log level (Set Log Level…) for the server's trace
+  output = vscode.window.createOutputChannel("Tabula", { log: true });
   const sel = { language: "tabula", scheme: "file" };
   context.subscriptions.push(
     diagnostics,
