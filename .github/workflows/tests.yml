@@ -49,7 +49,7 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
-      - run: pip install -e ./cli                # the plugin runs tabula for checks and formatting
+      - run: pip install -e "./cli[lsp]"         # the plugin starts the language server: tabula lsp
       - run: |
           curl -sSL https://github.com/neovim/neovim/releases/download/v0.11.4/nvim-linux-x86_64.tar.gz | tar xz
           echo "$PWD/nvim-linux-x86_64/bin" >> "$GITHUB_PATH"

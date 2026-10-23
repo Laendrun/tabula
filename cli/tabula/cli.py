@@ -29,6 +29,7 @@ from .todo import cmd_todo
 from .fmt import cmd_fmt
 from .sheet import cmd_sheet
 from .outline import cmd_outline
+from .lsp import cmd_lsp
 from .wishlist import cmd_wish
 from .new import cmd_new
 from .book import cmd_book
@@ -191,6 +192,11 @@ def main(argv=None) -> int:
                    help="format the text of the one GAME file given from standard input, to standard output (for editors)")
     p.add_argument("--vault", default=argparse.SUPPRESS)
     p.set_defaults(func=cmd_fmt)
+
+    p = sub.add_parser("lsp", help="language server for editors (needs pygls)")
+    p.add_argument("--stdio", action="store_true", help="talk over stdin/stdout (the default)")
+    p.add_argument("--vault", default=argparse.SUPPRESS)
+    p.set_defaults(func=cmd_lsp)
 
     p = sub.add_parser("outline", help="what a file contains, for editors (--json)")
     p.add_argument("file", help="a .game or .sheet file")

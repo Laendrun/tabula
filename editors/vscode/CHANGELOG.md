@@ -5,6 +5,14 @@ Newest first. VS Code shows this file in the extension's "Changelog" tab. Add yo
 
 ## Unreleased
 
+## 0.27.0 — 2026-10-23
+
+### Changed
+- The extension runs tabula's language server (`tabula lsp`) instead of calling tabula for every check and every hover: problems as you type, completion, hovers, go to definition, references, rename, quick fixes, formatting, the outline, folding, links, inline hints and use counts come from it, and answer at once.
+- *Tabula: Restart the language server*. The `tabula.run` setting is gone (problems always show as you type).
+
+Needs tabula 0.33 with pygls (`pipx inject tabula pygls`).
+
 ## 0.26.0 — 2026-10-23
 
 ### Changed
