@@ -2,7 +2,7 @@
   "name": "tabula-syntax",
   "displayName": "Tabula Game Files",
   "description": "Highlighting and live checks for Tabula .game files (board and card game rules).",
-  "version": "0.26.0",
+  "version": "0.27.0",
   "publisher": "Laendrun",
   "license": "MIT",
   "repository": {
@@ -124,6 +124,11 @@
         "title": "Add to the wishlist",
         "category": "Tabula",
         "icon": "$(add)"
+      },
+      {
+        "command": "tabula.restartServer",
+        "title": "Restart the language server",
+        "category": "Tabula"
       }
     ],
     "configuration": {
@@ -149,23 +154,11 @@
           "default": "",
           "markdownDescription": "The vault folder. Empty: found from the file (the folder with `vault.yaml`, or the folder around the game's folder). `${workspaceFolder}` works."
         },
-        "tabula.run": {
-          "type": "string",
-          "enum": [
-            "onType",
-            "onSave"
-          ],
-          "default": "onType",
-          "enumDescriptions": [
-            "Check while typing (after a short pause)",
-            "Check only when the file is saved"
-          ],
-          "description": "When to check the file."
-        },
         "tabula.delay": {
           "type": "number",
           "default": 500,
-          "description": "Pause after typing before checking, in milliseconds."
+          "description": "Pause after typing before checking, in milliseconds.",
+          "markdownDescription": "Milliseconds after you stop typing before the preview updates."
         },
         "tabula.requireDefinitions": {
           "type": "boolean",
@@ -309,8 +302,11 @@
     "package": "vsce package"
   },
   "devDependencies": {
+    "@vscode/vsce": "3.6.0",
     "vscode-oniguruma": "^2.0.1",
-    "vscode-textmate": "^9.2.0",
-    "@vscode/vsce": "3.6.0"
+    "vscode-textmate": "^9.2.0"
+  },
+  "dependencies": {
+    "vscode-languageclient": "10.1.2"
   }
 }

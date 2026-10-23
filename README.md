@@ -129,9 +129,9 @@ Open `site/index.html` in a browser; it works offline. You can also put the fold
 
 ## Editor
 
-`editors/vscode/` is a VS Code extension: highlighting, `tabula check` while you type (squiggles and the Problems panel), a live preview with the filters (Ctrl+K V), quick fixes, rename (F2), formatting (Shift+Alt+F), an outline, and Ctrl+click on `[[references]]`. Install it from the `.vsix` that CI builds (Actions tab → a green run → Artifacts → *vscode-extension*). See [its README](editors/vscode/README.md) for the settings.
+`tabula lsp` is a language server (it needs pygls: `pipx inject tabula pygls`): problems as you type, completion, hovers, go to definition, references, rename, quick fixes, formatting, the outline and inline hints, for any editor with an LSP client. `editors/vscode/` is a VS Code extension that uses it, with highlighting, a live preview with the filters (Ctrl+K V) and the Tabula panel. Install it from the `.vsix` that CI builds (Actions tab → a green run → Artifacts → *vscode-extension*). See [its README](editors/vscode/README.md) for the settings.
 
-`editors/nvim/` is a Neovim plugin: highlighting, completion of references, sections, values, symbols and frontmatter keys, `tabula check` as diagnostics, `K` and `gd` on references, `:TabulaFormat` and `:TabulaPreview`. Install it with lazy.nvim as `{ "Laendrun/tabula", opts = {} }` (the repository's root is the plugin); see [its README](editors/nvim/README.md).
+`editors/nvim/` is a Neovim plugin: highlighting, the language server through Neovim's LSP client, and `:TabulaPreview`. Install it with lazy.nvim as `{ "Laendrun/tabula", opts = {} }` (the repository's root is the plugin); see [its README](editors/nvim/README.md).
 
 ## Changelog
 
@@ -154,6 +154,7 @@ What changed in each version: [cli/CHANGELOG.md](cli/CHANGELOG.md) for `tabula`,
 | `wishlist.py` | the wishlist: `wishlist.yaml`, `tabula wish`, its check and site page |
 | `sheet.py` | score sheets: `.sheet` files, their check and `tabula sheet` |
 | `spell.py` | spelling for `check --spell`: dictionaries (downloaded once) and the words to skip |
+| `lsp.py`, `editor.py` | `tabula lsp`: the language server, and the editor features it serves (completion, hovers, rename, quick fixes…) |
 | `outline.py` | `tabula outline --json`: what a file contains, for the editors (they don't parse the format themselves) |
 | `fields.py` | your own frontmatter keys and extension details, shown as "Label: value"; `year` |
 | `totals.py` | totals: empty fields of a definition filled in from the cards it lists |

@@ -1,6 +1,6 @@
 [project]
 name = "tabula"
-version = "0.32.0"
+version = "0.33.0"
 description = "Board & card game rules in Markdown: show, filter by player count, check."
 requires-python = ">=3.9"
 license = {text = "MIT"}
@@ -8,7 +8,8 @@ dependencies = ["pyyaml>=6"]
 
 [project.optional-dependencies]
 spell = ["spylls>=0.1.7"]                  # tabula check --spell (Hunspell dictionaries)
-test = ["pytest>=7", "epubcheck>=5", "spylls>=0.1.7", "jsonschema>=4"]   # epubcheck: `tabula book` (needs java); jsonschema: spec/schemas
+lsp = ["pygls>=2,<3"]                       # tabula lsp: the language server for editors
+test = ["pytest>=7", "epubcheck>=5", "spylls>=0.1.7", "jsonschema>=4", "pygls>=2,<3"]   # epubcheck: `tabula book` (needs java); jsonschema: spec/schemas
 
 [project.scripts]
 tabula = "tabula.cli:main"
@@ -19,6 +20,9 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 packages = ["tabula"]
+
+[tool.setuptools.package-data]
+tabula = ["schemas/*.json"]                # copies of spec/schemas, for the language server
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

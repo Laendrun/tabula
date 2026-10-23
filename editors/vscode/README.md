@@ -50,7 +50,14 @@ Highlighting, live checks and a live preview for Tabula `.game` files.
 
 ## Install
 
-The extension needs tabula 0.32 or newer on your computer: it doesn't parse .game files itself, `tabula outline --json` does (completion, hovers, go to definition, references, rename, the outline, inline hints all come from it), with the same parser as `tabula check` and the export. Only highlighting and snippets work without it. If `tabula --version` works in a terminal, there's nothing more to set up.
+The extension needs tabula 0.33 or newer on your computer, with pygls for its language server:
+
+```
+pipx install --editable ./cli      # from the tabula repository
+pipx inject tabula pygls
+```
+
+It starts `tabula lsp`, a language server with the same parser as every tabula command: problems as you type, completion, hovers, go to definition, references, rename, quick fixes, formatting, the outline, inline hints and use counts all come from it. Only highlighting and snippets work without it. *Tabula: Restart the language server* restarts it (after updating tabula, say).
 
 Get the `.vsix` from GitHub: **Actions** tab → a green *tests* run → **Artifacts** → *vscode-extension*. It downloads as a zip; unzip it to get `tabula-syntax-<version>.vsix`, then:
 
@@ -75,15 +82,14 @@ npm run package
 | Setting | Default | |
 |---|---|---|
 | `tabula.path` | `tabula` | The command. If `tabula` isn't on your PATH, the full path to `tabula.exe`, e.g. `C:\Users\you\.local\bin\tabula.exe`. |
-| `tabula.extraArgs` | `[]` | Arguments before the subcommand (`check`, `outline`, `export`…). To run the script from the repo without installing it: `tabula.path` = `python`, `tabula.extraArgs` = `["${workspaceFolder}/cli/tabula"]`. |
+| `tabula.extraArgs` | `[]` | Arguments before the subcommand (`lsp`, `check`, `export`…). To run the script from the repo without installing it: `tabula.path` = `python`, `tabula.extraArgs` = `["${workspaceFolder}/cli/tabula"]`. |
 | `tabula.vault` | (found from the file) | The vault folder, if it can't be found automatically (it is found from the folder with `vault.yaml`, or the folder around the game's folder). |
-| `tabula.run` | `onType` | `onType`: check after a short pause in typing. `onSave`: only when saving. |
-| `tabula.delay` | `500` | The pause, in milliseconds (checks and preview). |
+| `tabula.delay` | `500` | Milliseconds after you stop typing before the preview updates (problems are shown as you type). |
 | `tabula.requireDefinitions` | `false` | Same as `tabula check -d`. |
 | `tabula.siteFolder` | `site` in the vault | Where *Write the site* writes it (relative to the vault). |
 | `tabula.spellCheck` | `false` | Same as `tabula check --spell`: underline unknown words. |
 
-If nothing happens, open *View → Output* and pick **Tabula** in the list: it shows the command that was run and its error.
+If nothing happens, open *View → Output* and pick **Tabula** in the list: it shows what the language server said, or why it didn't start.
 
 ## Changelog
 

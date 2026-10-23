@@ -1,6 +1,6 @@
 -- Tests for the Neovim plugin. Run from the repository's root:
 --   nvim --headless -u NONE -l editors/nvim/tests/test.lua
--- Checks and formatting run `tabula` (TABULA_CMD="python3 -m tabula" to use another command).
+-- The language server is `tabula lsp` (TABULA_CMD="python3 -m tabula" to use another command; it needs pygls).
 local root = vim.fn.fnamemodify(debug.getinfo(1, "S").source:sub(2), ":p:h:h:h:h")
 vim.opt.rtp:prepend(root .. "/editors/nvim")
 vim.opt.swapfile = false
@@ -9,7 +9,7 @@ vim.cmd("syntax on")
 
 local tabula = require("tabula")
 local cmd = vim.env.TABULA_CMD and vim.split(vim.env.TABULA_CMD, " ") or { "tabula" }
-tabula.setup({ cmd = cmd, check_on_change = false, autocomplete = false })
+tabula.setup({ cmd = cmd, autocomplete = false })
 
 local failures, count = 0, 0
 local function test(name, f)
@@ -80,7 +80,7 @@ end
 
 test("filetype", function()
   eq(vim.bo.filetype, "tabula")
-  eq(vim.bo.omnifunc, "v:lua.require'tabula'.omnifunc")
+  eq(vim.bo.commentstring, "<!-- %s -->")
 end)
 
 test("highlighting", function()
@@ -105,125 +105,116 @@ test("highlighting", function()
   eq(group_at(33, 6), "tabulaTodo")
 end)
 
--- a scratch buffer in the vault: its outline comes from `tabula outline --stdin`
-local scratch = vim.api.nvim_create_buf(false, true)
-local scratch_file = tmp .. "/v/g/scratch.game"
-vim.api.nvim_buf_set_name(scratch, scratch_file)
-local function outline_of(lines)
-  vim.api.nvim_buf_set_lines(scratch, 0, -1, false, lines)
-  return tabula.outline(scratch)
-end
-local function items(lines, row, col)
-  local o = outline_of(lines)
-  return (tabula.items(o, lines[row], row, col, scratch_file))
-end
-local function words(lines, row, col)
-  return vim.tbl_map(function(i) return i.word end, items(lines, row, col) or {})
+local function wait_for(f, ms)
+  return vim.wait(ms or 20000, f, 50)
 end
 
-test("outline (from tabula outline --json)", function()
-  local o = outline_of(GAME)
-  eq({ o.frontmatter.start, o.frontmatter["end"] }, { 1, 8 })
-  eq(vim.tbl_map(function(c) return c.name end, o.components), { "Jeton", "Pion" })
-  eq(o.definitions[1].term, "Jeton")
-  eq(o.definitions[1].markdown, "**points:** 3\n\nUn jeton rond.")
-  eq(o.includes[1].name, "deck")
-  eq(o.headings[3].key, true)
-  eq(o.fragments[1].definitions[1].term, "Carte")
-  eq(tabula.outline(scratch) == o, true, "kept until the buffer changes")
-end)
-
-test("completes terms (and the fragment's), sections, values, symbols", function()
-  eq(words(GAME, 18, #GAME[18]), { "Jeton]]", "Carte]]", "Pion]]" })
-  local sec = words(GAME, 19, #GAME[19])
-  eq(sec[1], "Matériel]]")
-  eq(vim.tbl_contains(sec, "setup]]"), true)
-  local g = vim.list_extend(vim.deepcopy(GAME), { "Prenez {=" })
-  eq(words(g, #g, #g[#g]), { "main}", "target}" })
-  g[#g] = "Payez 3 :go"
-  eq(words(g, #g, #g[#g]), { ":gold:" })
-  g[#g] = "À 10:30 heures"
-  eq(items(g, #g, 6), nil)
-  g[#g] = "![[de"
-  eq(words(g, #g, #g[#g]), { "deck]]" })
-  g[#g] = "![[deck#Gl"
-  eq(words(g, #g, #g[#g]), { "Glossaire]]", "glossary]]" })          -- its title and its role
-end)
-
-test("completes frontmatter keys and extension details", function()
-  local g = vim.deepcopy(GAME)
-  g[4] = "pla"
-  local keys = vim.tbl_map(function(i) return i.abbr end, items(g, 4, 3))
-  eq(vim.tbl_contains(keys, "players"), false, "already there")
-  g[3] = "x: 1"
-  keys = vim.tbl_map(function(i) return i.abbr end, items(g, 4, 3))
-  eq(vim.tbl_contains(keys, "players"), true)
-  keys = vim.tbl_map(function(i) return i.abbr end, items(GAME, 9, 4))
-  eq(keys, { "duration", "excludes", "needs", "players", "year" })
-end)
-
-test("go to definition and hover", function()
-  vim.api.nvim_set_current_buf(buf)
-  vim.api.nvim_win_set_cursor(0, { 13, 20 })
-  tabula.goto_definition()
-  eq(vim.api.nvim_win_get_cursor(0), { 30, 0 })
-  local o = tabula.outline(buf)
-  local carte = vim.tbl_filter(function(r) return r.name == "Pion" end, o.references)[1]
-  eq(tabula.find_target(o, carte).line, 13)                          -- 0-based: the component line
-  local line = "Voir [[#setup]] et 🎲 [[jetons]]."
-  local o2 = outline_of(vim.list_extend(vim.deepcopy(GAME), { line }))
-  local row = #GAME + 1
-  local setup = tabula.ref_at(o2, line, row, 8)
-  eq(setup.name, "setup")
-  eq(tabula.find_target(o2, setup).line, 15)
-  local jetons = tabula.ref_at(o2, line, row, line:find("jetons", 1, true))      -- after an emoji: bytes vs characters
-  eq(jetons.name, "jetons")
-  eq(tabula.hover_lines(o2, jetons)[1], "**Jeton**")
-  eq(tabula.byte_col(line, jetons.start), line:find("[[jetons", 1, true) - 1)
-end)
-
-test("issue columns", function()
-  eq({ tabula.issue_columns("Voir [[crad]] ici", "reference [[crad]] matches nothing") }, { 5, 13 })
-  eq({ tabula.issue_columns("  Texte", "something") }, { 2, 7 })
-end)
-
-local function wait_for(f)
-  return vim.wait(15000, f, 50)
+local function client()
+  return vim.lsp.get_clients({ bufnr = buf, name = "tabula" })[1]
 end
 
-test("check: tabula's problems as diagnostics", function()
+local function request(method, params)
+  local res = vim.lsp.buf_request_sync(buf, method, params, 20000)
+  for _, r in pairs(res or {}) do
+    if r.err then error(vim.inspect(r.err)) end
+    return r.result
+  end
+end
+
+local function at(line, col)          -- 0-based line, byte column (converted to the server's encoding)
+  local text = vim.api.nvim_buf_get_lines(buf, line, line + 1, false)[1] or ""
+  local enc = client().offset_encoding
+  local ok, c = pcall(vim.str_utfindex, text, enc, col, false)            -- Neovim 0.11
+  if not ok or type(c) ~= "number" then
+    local u32, u16 = vim.str_utfindex(text, col)                           -- Neovim 0.10
+    c = enc == "utf-16" and u16 or enc == "utf-8" and col or u32
+  end
+  return { textDocument = { uri = vim.uri_from_bufnr(buf) }, position = { line = line, character = c } }
+end
+
+test("the language server starts", function()
+  eq(wait_for(function() return client() ~= nil end), true, "attached")
+  eq(client().config.cmd[#client().config.cmd], "lsp")
+  eq(client().config.root_dir, tmp .. "/v")
+end)
+
+test("problems as you type (tabula check)", function()
   vim.api.nvim_buf_set_lines(buf, 18, 19, false, { "Voir [[Crad]]." })
-  tabula.check(buf)
-  eq(wait_for(function() return #vim.diagnostic.get(buf) > 0 end), true, "diagnostics arrived")
+  eq(wait_for(function()
+    return #vim.tbl_filter(function(d) return d.message:find("Crad", 1, true) end, vim.diagnostic.get(buf)) > 0
+  end), true, "the unknown reference is reported")
   local d = vim.tbl_filter(function(x) return x.message:find("Crad", 1, true) end, vim.diagnostic.get(buf))[1]
-  eq(d ~= nil, true, "the unknown reference is reported")
   eq({ d.lnum, d.col, d.end_col }, { 18, 5, 13 })
   local todo = vim.tbl_filter(function(x) return x.severity == vim.diagnostic.severity.INFO end, vim.diagnostic.get(buf))
   eq(#todo >= 1, true, "the TODO is information")
 end)
 
-test("format", function()
-  vim.api.nvim_buf_set_lines(buf, 19, 20, false, { "", "", "" })
-  local done
-  tabula.format(buf, function(ok) done = ok end)
-  eq(wait_for(function() return done ~= nil end), true)
-  eq(done, true)
-  local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-  local at = vim.fn.index(lines, "Voir [[Crad]].") + 1
-  eq(at > 0, true)
-  eq({ lines[at + 1], lines[at + 2] }, { "", "## ! Si la tour tombe" }, "blank lines collapsed")
+test("completion: terms (the fragment's too), values, frontmatter keys", function()
+  local r = request("textDocument/completion", at(17, #GAME[18]))
+  local labels = vim.tbl_map(function(i) return i.label end, r.items or r)
+  eq(labels, { "Jeton", "Carte", "Pion" })
+  vim.api.nvim_buf_set_lines(buf, 19, 20, false, { "Prenez {=" })
+  r = request("textDocument/completion", at(19, 9))
+  eq(vim.tbl_map(function(i) return i.label end, r.items or r), { "main", "target" })
+  r = request("textDocument/completion", at(8, 4))
+  eq(vim.tbl_map(function(i) return i.label end, r.items or r), { "players", "duration", "year", "needs", "excludes" })
+  vim.api.nvim_buf_set_lines(buf, 19, 20, false, { "" })
 end)
 
-test("without tabula: formatting doesn't wait", function()
-  tabula.setup({ cmd = { "tabula-command-that-does-not-exist" } })
+test("hover, go to definition, references (after an emoji)", function()
+  vim.api.nvim_buf_set_lines(buf, 19, 20, false, { "🎲 Prenez des [[jetons]]." })
+  local col = ("🎲 Prenez des [["):len() + 2          -- bytes: the emoji is 4
+  local h = request("textDocument/hover", at(19, col))
+  eq(h.contents.value:sub(1, 9), "**Jeton**")
+  local d = request("textDocument/definition", at(19, col))
+  eq(d[1].range.start.line, 29)
+  local refs = request("textDocument/references", vim.tbl_extend("force", at(19, col), { context = { includeDeclaration = false } }))
+  eq(#refs, 2)
+  vim.api.nvim_set_current_buf(buf)
+  vim.api.nvim_win_set_cursor(0, { 13, 20 })
+  vim.lsp.buf.definition()
+  eq(wait_for(function() return vim.api.nvim_win_get_cursor(0)[1] == 30 end, 5000), true, "gd jumps to Jeton")
+  vim.api.nvim_buf_set_lines(buf, 19, 20, false, { "" })
+end)
+
+test("rename, symbols, inlay hints, code lens", function()
+  local edit = request("textDocument/rename", vim.tbl_extend("force", at(29, 1), { newName = "Pièce" }))
+  local texts = vim.tbl_map(function(e) return e.newText end, edit.changes[vim.uri_from_bufnr(buf)])
+  table.sort(texts)
+  eq(texts, { "Pièce", "[[Pièce|jetons]]" })
+  local syms = request("textDocument/documentSymbol", { textDocument = { uri = vim.uri_from_bufnr(buf) } })
+  eq(vim.tbl_map(function(s) return s.name end, syms), { "Matériel", "Mise en place", "Glossaire" })
+  local hints = request("textDocument/inlayHint", { textDocument = { uri = vim.uri_from_bufnr(buf) },
+    range = { start = { line = 0, character = 0 }, ["end"] = { line = 40, character = 0 } } })
+  eq(vim.tbl_map(function(x) return x.label end, hints), { "= 2p 7 · * 5" })
+  local lenses = request("textDocument/codeLens", { textDocument = { uri = vim.uri_from_bufnr(buf) } })
+  eq(lenses[1].command.title, "used once")
+  vim.fn.setqflist({}, "r")
+  tabula.show_references(lenses[1].command)
+  eq(#vim.fn.getqflist(), 1)
+  vim.cmd("cclose")
+end)
+
+test("formatting through the server", function()
+  vim.api.nvim_buf_set_lines(buf, 19, 20, false, { "", "", "" })
+  vim.lsp.buf.format({ bufnr = buf, name = "tabula", timeout_ms = 10000 })
+  local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+  local at_ = vim.fn.index(lines, "Voir [[Crad]].") + 1
+  eq(at_ > 0, true)
+  eq({ lines[at_ + 1], lines[at_ + 2] }, { "", "## ! Si la tour tombe" }, "blank lines collapsed")
+end)
+
+test("without tabula: one message, no server", function()
+  local messages = {}
   local notify = vim.notify
-  vim.notify = function() end
-  local done, t0 = nil, vim.uv.hrtime()
-  tabula.format(buf, function(ok) done = ok end)
-  tabula.format(buf, function(ok) done = ok end)          -- the second time too (tabula known to be missing)
+  vim.notify = function(m) messages[#messages + 1] = m end
+  tabula.setup({ cmd = { "tabula-command-that-does-not-exist" } })
+  eq(tabula.start(buf), nil)
+  eq(tabula.start(buf), nil)
+  vim.wait(50)
   vim.notify = notify
-  eq(done, false)
-  eq((vim.uv.hrtime() - t0) / 1e6 < 500, true, "no wait")
+  eq(#messages, 1)
+  eq(messages[1]:find("pipx inject tabula pygls", 1, true) ~= nil, true)
   tabula.setup({ cmd = cmd })
 end)
 

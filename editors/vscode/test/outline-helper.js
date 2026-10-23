@@ -4,7 +4,6 @@ const cp = require("child_process");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
-const core = require("../src/core");
 
 const PYTHON = process.env.PYTHON || (process.platform === "win32" ? "python" : "python3");
 const CLI = path.join(__dirname, "..", "..", "..", "cli");
@@ -19,7 +18,7 @@ function outlineOf(text, { file = "g/g.game", files = {} } = {}) {
   }
   const out = cp.execFileSync(PYTHON, ["-m", "tabula", "--vault", root, "outline", path.join(root, file), "--json", "--stdin"],
     { input: text, env: { ...process.env, PYTHONPATH: CLI } });
-  return { o: core.parseOutline(out.toString("utf8")), root, lines: text.split("\n") };
+  return { o: JSON.parse(out.toString("utf8")), root, lines: text.split("\n") };
 }
 
 module.exports = { outlineOf };

@@ -6,6 +6,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/): Added, Chang
 
 ## Unreleased
 
+## 0.33.0 — 2026-10-23
+
+### Added
+- `tabula lsp`: a language server (LSP over stdin/stdout) that keeps the open files in memory and answers editors with tabula's own parser: problems as you type, completion, hovers, go to definition, references, rename, quick fixes (and "add to words.txt"), formatting, symbols, folding, links, inline hints and use counts. It needs the optional pygls package (`pipx inject tabula pygls`, or the `lsp` extra). VS Code and Neovim use it; so can any editor with an LSP client.
+
 ## 0.32.0 — 2026-10-23
 
 ### Added
