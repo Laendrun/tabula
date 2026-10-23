@@ -2,7 +2,7 @@
   "name": "tabula-syntax",
   "displayName": "Tabula Game Files",
   "description": "Highlighting and live checks for Tabula .game files (board and card game rules).",
-  "version": "0.23.0",
+  "version": "0.24.0",
   "publisher": "Laendrun",
   "license": "MIT",
   "repository": {
@@ -132,7 +132,8 @@
         "tabula.path": {
           "type": "string",
           "default": "tabula",
-          "markdownDescription": "The `tabula` command. Leave as is if `tabula` works in a terminal; otherwise the full path to `tabula.exe`, or `python` together with `#tabula.extraArgs#`."
+          "markdownDescription": "The `tabula` command. Leave as is if `tabula` works in a terminal; otherwise the full path to `tabula.exe`, or `python` together with `#tabula.extraArgs#`. Only in your user settings: a folder's `.vscode/settings.json` can't change the command that runs (it could run anything).",
+          "scope": "machine"
         },
         "tabula.extraArgs": {
           "type": "array",
@@ -140,7 +141,8 @@
             "type": "string"
           },
           "default": [],
-          "markdownDescription": "Arguments put before `check`, e.g. `[\"${workspaceFolder}/cli/tabula\"]` with `#tabula.path#` set to `python`."
+          "markdownDescription": "Arguments put before `check`, e.g. `[\"${workspaceFolder}/cli/tabula\"]` with `#tabula.path#` set to `python`. Only in your user settings: a folder's `.vscode/settings.json` can't change the command that runs (it could run anything).",
+          "scope": "machine"
         },
         "tabula.vault": {
           "type": "string",

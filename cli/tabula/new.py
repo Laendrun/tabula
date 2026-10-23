@@ -151,6 +151,9 @@ def skeleton(lang: str) -> str:
 
 
 def write_game(vault: Vault, slug: str, meta: dict, lang: str, image: str = "", force: bool = False) -> Path:
+    if not re.fullmatch(r"[^\W_][\w-]*", slug):
+        raise SystemExit(f"tabula: '{slug}' can't be a game's name: use letters, digits and '-' (like 'oh-my-socks'), "
+                         "no '/', '.' or '..'")
     folder = vault.root / slug
     path = folder / f"{slug}.game"
     others = [p for p in (path, vault.root / f"{slug}.game") if p.exists()]

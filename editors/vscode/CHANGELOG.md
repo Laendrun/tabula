@@ -5,6 +5,13 @@ Newest first. VS Code shows this file in the extension's "Changelog" tab. Add yo
 
 ## Unreleased
 
+## 0.24.0 — 2026-10-22
+
+### Fixed
+- Security: `tabula.path` and `tabula.extraArgs` can only be set in your user settings: a folder's `.vscode/settings.json` could change the command run when a `.game` file is opened.
+
+Needs tabula 0.30 for the safer previews (files outside the vault are no longer embedded).
+
 ## 0.23.0 — 2026-10-22
 
 ### Added

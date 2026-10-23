@@ -22,6 +22,7 @@ from .cards import card_catalog
 from .spell import SpellError, check_spelling
 from .values import value_problems
 from .fields import GAME_KEYS
+from .source import file_problem
 from .totals import count_mismatches, empty_totals, members
 from .options import option_problems, players_range, year_ok
 from .sheet import check_sheet, load_sheet, sheets_of
@@ -71,8 +72,8 @@ def check_game(game: Game, vault: Vault, require_defs: bool = False,
         iss.warn(path, 1, f"age should be a number (got '{meta['age']}')")
     if meta.get("year") is not None and not year_ok(meta["year"]):
         iss.warn(path, 1, f"year should be the year the game came out, e.g. 2019 (got '{meta['year']}')")
-    if meta.get("cover") and not (game.base_dir / str(meta["cover"])).exists():
-        iss.error(path, 1, f"cover image not found: {meta['cover']}")
+    if meta.get("cover") and (why := file_problem(game.base_dir, str(meta["cover"]), vault.root)):
+        iss.error(path, 1, f"cover image {why}: {meta['cover']}")
     v = meta.get("variants")
     if v is not None and not isinstance(v, (dict, list)):
         iss.error(path, 1, "'variants' must be a mapping (name: description) or a list of names")
@@ -87,7 +88,7 @@ def check_game(game: Game, vault: Vault, require_defs: bool = False,
             iss.warn(path, 1, f"'{key}:' in frontmatter: did you mean '{close[0]}'? (other keys are kept as they are)")
 
     own = game.tr_meta if game.body_path != game.path else meta
-    for msg in value_problems(own.get("values")) + symbol_problems(own.get("symbols"), game.base_dir):
+    for msg in value_problems(own.get("values")) + symbol_problems(own.get("symbols"), game.base_dir, vault.root):
         iss.error(path, 1, msg)
 
     for level, msg in option_problems(game):
@@ -191,8 +192,8 @@ def check_game(game: Game, vault: Vault, require_defs: bool = False,
             iss.error(path, ln, "unclosed '[[' reference")
         for m in IMAGE_RE.finditer(rest):
             src = m.group(2)
-            if not re.match(r"^[a-z]+://", src) and not (game.base_dir / src).exists():
-                iss.error(path, ln, f"image not found: {src}")
+            if why := file_problem(game.base_dir, src, vault.root):
+                iss.error(path, ln, f"image {why}: {src}")
 
     terms: dict[str, tuple[int, str]] = {}
     bracketed: set[str] = set()      # terms written as [[Term]]: reported once, not at every reference
@@ -229,8 +230,8 @@ def check_game(game: Game, vault: Vault, require_defs: bool = False,
                 if re.sub(r"`[^`]*`|\\\*", "", b.text).count("**") % 2:
                     iss.warn(path, b.line, "'**' is opened but never closed (bold text needs '**' on both sides)")
             elif b.kind == "image":
-                if not re.match(r"^[a-z]+://", b.term) and not (game.base_dir / b.term).exists():
-                    iss.error(path, b.line, f"image not found: {b.term}")
+                if why := file_problem(game.base_dir, b.term, vault.root):
+                    iss.error(path, b.line, f"image {why}: {b.term}")
             elif b.kind == "def":
                 if (rm := REF_RE.fullmatch(b.term)):
                     iss.error(path, b.line, f"term '{b.term}' is written as a reference; "
@@ -253,8 +254,8 @@ def check_game(game: Game, vault: Vault, require_defs: bool = False,
                                          " (an empty field is a total: list the cards to add up, '- [[Card]]')"))
                     elif key == "image":           # a card's picture
                         src = val.strip()
-                        if not re.match(r"^[a-z]+://", src) and not (game.base_dir / src).is_file():
-                            iss.error(path, b.field_lines.get(key, b.line), f"picture of '{b.term}' not found: {src}")
+                        if why := file_problem(game.base_dir, src, vault.root):
+                            iss.error(path, b.field_lines.get(key, b.line), f"picture of '{b.term}' {why}: {src}")
                     else:
                         check_text(val, b.field_lines.get(key, b.line))
                 for key, ln in b.field_lines.get("__dup__", []):

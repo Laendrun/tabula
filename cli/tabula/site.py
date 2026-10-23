@@ -94,7 +94,7 @@ def game_nav(base: Game, lang: str, kind: str, has_key: dict[str, bool], sheets=
             have = {"index": True, "key": has_key.get(l), "turn": (has_turn or {}).get(l)}
             target = kind if have.get(kind) else "index"
             langs.append(f'<span class="here">{l.upper()}</span>' if l == lang
-                         else f'<a href="{page_name(target, l, d)}" hreflang="{l}">{l.upper()}</a>')
+                         else f'<a href="{esc(page_name(target, l, d))}" hreflang="{esc(l)}">{esc(l.upper())}</a>')
         parts.append(" · ".join(langs))
     return "".join(parts)
 
@@ -180,7 +180,7 @@ def index_page(vault: Vault, entries: list[dict], ui: dict, lang: str, wishes: i
             links.append(f'<a href="{g.slug}/{page_name("key", main_lang, d)}">{esc(ui["key"])}</a>')
         others = [l for l in g.languages if l != main_lang]
         if others:
-            links.append(" · ".join(f'<a href="{g.slug}/{page_name("index", l, d)}" hreflang="{l}">{l.upper()}</a>'
+            links.append(" · ".join(f'<a href="{esc(g.slug)}/{esc(page_name("index", l, d))}" hreflang="{esc(l)}">{esc(l.upper())}</a>'
                                     for l in others))
         cover = (f'<img src="{esc(e["cover"])}" alt="" loading="lazy">' if e["cover"]
                  else f'<span class="initial" aria-hidden="true">{esc(shown.title[:1].upper())}</span>')

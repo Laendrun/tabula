@@ -18,8 +18,10 @@ MAX_DEPTH = 8
 def fragment_path(root: Path, name: str, lang: str | None) -> Path | None:
     """_shared/<name>.<lang>.game when it exists, else _shared/<name>.game."""
     base = root / SHARED_DIR
+    if not re.fullmatch(r"[^/\\:]+", name) or name.strip(".") == "" or name.startswith("."):
+        return None                     # a name, not a path: ![[../x]] or ![[/etc/x]] never leave _shared/
     for cand in ([base / f"{name}.{lang}.game"] if lang else []) + [base / f"{name}.game"]:
-        if cand.is_file():
+        if cand.is_file() and cand.resolve().is_relative_to(base.resolve()):
             return cand
     return None
 

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -13,7 +14,7 @@ from .syntax import (
 )
 from .blocks import callout_family, callout_title, card_image, shown_fields, Block, components_of, is_sep_row, player_columns, player_rows
 from .filtering import filter_blocks, section_end, section_names, select_key, select_sections, select_turn
-from .source import UNSAVED
+from .source import UNSAVED, local_file
 from .vault import Game, open_vault
 from .fields import GAME_KEYS, extra_fields, year as year_of
 from .options import OPTION_KEYS, apply_options, names, option_info, players_note, players_range
@@ -345,6 +346,9 @@ FILTER_JS = r"""
 """
 
 
+# links that can't run anything: web, mail and phone addresses, and paths and anchors (no scheme)
+SAFE_HREF_RE = re.compile(r"^(?:https?:|mailto:|tel:|#|/(?!/)|\.{0,2}/|[^:/?#]+(?:[/?#]|$))", re.I)
+
 CALLOUT_ICONS = {"example": "◆", "warning": "⚠\ufe0e", "tip": "✦", "info": "ℹ\ufe0e", "question": "?", "note": "▪"}
 
 
@@ -417,12 +421,14 @@ class HtmlRenderer:
     def data_uri(self, src: str) -> str:
         import base64
         import mimetypes
-        if re.match(r"^[a-z]+://", src):
+        if re.match(r"^https?://", src, re.I):
             return src
+        p = local_file(self.game.base_dir, src, self.game.root)
+        if p is None:                         # another scheme, or a file outside the vault: never embedded
+            return ""
         if self.image_src:                    # tabula book: images are files inside the book
-            return self.image_src(self.game.base_dir / src)
-        p = self.game.base_dir / src
-        if not p.exists():
+            return self.image_src(p)
+        if not p.is_file():
             return src
         mime = mimetypes.guess_type(p.name)[0] or "application/octet-stream"
         return f"data:{mime};base64," + base64.b64encode(p.read_bytes()).decode()
@@ -467,6 +473,7 @@ class HtmlRenderer:
             stash.append(h)
             return f"\x00{len(stash) - 1}\x00"
 
+        text = text.replace("\x00", "")          # the stash's marker: never from the file itself
         text = ESCAPE_RE.sub(lambda m: keep(self.esc(m.group(1))), text)
         text = CHOICE_RE.sub(lambda m: keep(self.choice(m)), text)
         text = REF_RE.sub(lambda m: keep(self.ref(m.group(1).strip(), (m.group(2) or m.group(1).lstrip("#")).strip())), text)
@@ -478,9 +485,12 @@ class HtmlRenderer:
         text = re.sub(r"(?<!\w)__(?!\s)(.+?)(?<!\s)__(?!\w)", r"<strong>\1</strong>", text)
         text = re.sub(r"(?<![*\w])\*(?!\s)(.+?)(?<!\s)\*(?![*\w])", r"<em>\1</em>", text)
         text = re.sub(r"(?<!\w)_(?!\s)(.+?)(?<!\s)_(?!\w)", r"<em>\1</em>", text)
-        while "\x00" in text:
-            text = re.sub(r"\x00(\d+)\x00", lambda m: stash[int(m.group(1))], text)
-        return text
+        while True:                       # stashed parts can contain others: until nothing is left
+            new = re.sub(r"\x00(\d+)\x00", lambda m: stash[int(m.group(1))], text)
+            if new == text:
+                break
+            text = new
+        return text.replace("\x00", "")
 
     def choice(self, m) -> str:
         branches = parse_choice(m.group(1))
@@ -530,6 +540,8 @@ class HtmlRenderer:
     def link(self, label: str, href: str) -> str:
         if href.startswith("game:"):
             href = self.game_href.format(href[5:])
+        elif not SAFE_HREF_RE.match(href.strip()):          # javascript:, data:… would run in the page
+            return self.esc(label)
         return f'<a href="{self.esc(href)}">{self.esc(label)}</a>'
 
     # ------------------------------------------------------------------ blocks
@@ -845,7 +857,7 @@ class HtmlRenderer:
             opts = f'<details class="options-info"{"" if self.interactive else " open"}><summary>{esc(t["options"])}</summary>{opts}</details>'
         cover = ""
         if g.cover and g.cover.is_file():
-            src = str(g.cover.relative_to(g.base_dir)) if g.cover.is_relative_to(g.base_dir) else str(g.cover)
+            src = os.path.relpath(g.cover, g.base_dir)       # inside the vault (Game.cover sees to it)
             cover = f'<img class="cover" src="{esc(self.data_uri(src))}" alt="">'
 
         sel = [self.sel_label] if self.sel_label else [t["key"]] if self.key_only else []
