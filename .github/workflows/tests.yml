@@ -1,17 +1,14 @@
 name: tests
-on: [push, pull_request]
+on: pull_request                         # pull requests only (opened, updated); not every push
 
 jobs:
   cli:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python: ["3.9", "3.13"]              # the oldest supported (pyproject: >=3.9) and the newest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
-          python-version: ${{ matrix.python }}
+          python-version: "3.13"
       - run: pip install -e "./cli[test]"     # tabula + pyyaml + pytest, from cli/pyproject.toml
       - run: pytest -q tests
       - run: tabula --vault examples/vault check

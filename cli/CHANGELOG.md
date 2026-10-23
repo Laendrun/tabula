@@ -6,6 +6,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/): Added, Chang
 
 ## Unreleased
 
+### Changed
+- Python 3.9 is no longer supported: tabula needs Python 3.10 or newer (CI tests 3.13).
+
 ## 0.33.0 — 2026-10-23
 
 ### Added
