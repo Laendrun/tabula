@@ -2,7 +2,7 @@
   "name": "tabula-syntax",
   "displayName": "Tabula Game Files",
   "description": "Highlighting and live checks for Tabula .game files (board and card game rules).",
-  "version": "0.27.0",
+  "version": "0.27.1",
   "publisher": "Laendrun",
   "license": "MIT",
   "repository": {
@@ -28,7 +28,7 @@
     "rules",
     "game rules"
   ],
-  "main": "./src/extension.js",
+  "main": "./dist/extension.js",
   "activationEvents": [],
   "contributes": {
     "languages": [
@@ -299,10 +299,13 @@
   },
   "scripts": {
     "test": "node --test test/*.test.js",
+    "bundle": "esbuild src/extension.js --bundle --platform=node --format=cjs --target=node20 --external:vscode --outfile=dist/extension.js --minify --sourcemap",
+    "vscode:prepublish": "npm run bundle",
     "package": "vsce package"
   },
   "devDependencies": {
     "@vscode/vsce": "3.6.0",
+    "esbuild": "0.28.2",
     "vscode-oniguruma": "^2.0.1",
     "vscode-textmate": "^9.2.0"
   },

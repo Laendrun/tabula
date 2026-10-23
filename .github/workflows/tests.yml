@@ -31,6 +31,7 @@ jobs:
           cache: npm
           cache-dependency-path: editors/vscode/package-lock.json
       - run: npm ci
+      - run: npm run bundle                    # dist/extension.js: what the .vsix contains (test/bundle.test.js loads it)
       - run: npm test                          # the extension's logic and its grammar (the .vsix: vsix.yml, on merge)
 
   neovim:
