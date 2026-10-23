@@ -129,7 +129,7 @@ Open `site/index.html` in a browser; it works offline. You can also put the fold
 
 ## Editor
 
-`tabula lsp` is a language server (it needs pygls: `pipx inject tabula pygls`): problems as you type, completion, hovers, go to definition, references, rename, quick fixes, formatting, the outline and inline hints, for any editor with an LSP client. `editors/vscode/` is a VS Code extension that uses it, with highlighting, a live preview with the filters (Ctrl+K V) and the Tabula panel. Install it from the `.vsix` that CI builds (Actions tab → a green run → Artifacts → *vscode-extension*). See [its README](editors/vscode/README.md) for the settings.
+`tabula lsp` is a language server (it needs pygls: `pipx inject tabula pygls`): problems as you type, completion, hovers, go to definition, references, rename, quick fixes, formatting, the outline and inline hints, for any editor with an LSP client. `editors/vscode/` is a VS Code extension that uses it, with highlighting, a live preview with the filters (Ctrl+K V) and the Tabula panel. Install it from the `.vsix` that CI builds when a change to it is merged into main (Actions tab → *vsix* → the latest run → Artifacts → *vscode-extension*; or *Run workflow* to build one now). See [its README](editors/vscode/README.md) for the settings.
 
 `editors/nvim/` is a Neovim plugin: highlighting, the language server through Neovim's LSP client, and `:TabulaPreview`. Install it with lazy.nvim as `{ "Laendrun/tabula", opts = {} }` (the repository's root is the plugin); see [its README](editors/nvim/README.md).
 
