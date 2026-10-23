@@ -6,6 +6,22 @@ The format follows [Keep a Changelog](https://keepachangelog.com/): Added, Chang
 
 ## Unreleased
 
+## 0.31.0 — 2026-10-22
+
+### Fixed
+- `![[deck#Jokers]]` lost the condition of the section's heading (`## Jokers {+jokers}`): its content showed even with the variant off. The condition now applies to what is included.
+- Two games with one name (`x.game` and `x/x.game`) made `tabula site` fail after it had emptied the folder; the second is ignored and `tabula check` reports it.
+- A `vault.yaml` that isn't `key: value` settings (a list…) made every command fail; check reports it.
+- `players: 2-99999999` (a typo) made the export and the site run for ever; menus stop at 100 players and check warns.
+- A `<!--` inside a code block (or `` `<!--` ``) was read as a comment and hid the rest of the file; a code block that is never closed is now reported.
+- A frontmatter closed with `...` (as `fmt` and the editors accept) is read too.
+- An empty value showed "Deal None cards"; it shows nothing and check reports it.
+- `check` matched references accent-sensitively, unlike the export and the editors; plurals of words of three letters (`dés` = `dé`) are matched, as the spec says.
+- `tabula wish remove` left a lone `-` behind when an entry starts with `-` alone on its line.
+- `tabula check x.sheet` failed when the file doesn't exist.
+- Score sheets default to the vault's language (they defaulted to French).
+- `tabula lookup GAME -e x TERM` (options before the term) and `newline=` failed on Python 3.9 to 3.11; CI now tests 3.9 and 3.13.
+
 ## 0.30.0 — 2026-10-22
 
 ### Fixed

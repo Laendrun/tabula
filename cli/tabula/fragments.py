@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from .blocks import QUIET_END
+from .blocks import SCOPE_MARK, QUIET_END
 from .source import Issue, Issues, read_source
 from .syntax import FENCE_RE, HEADING_RE, fold
 
@@ -52,8 +52,15 @@ def sections_of(texts: list[str]) -> list[str]:
     return out
 
 
-def select_section(texts: list[str], want: str) -> tuple[list[str], int] | None:
-    """The content of the section titled (or with the role) `want`, without its heading, and its level."""
+def heading_cond(text: str) -> str:
+    """The condition of a heading, without its roles: '## Jokers {+jokers #cards}' -> '+jokers'."""
+    m = re.search(r"\s*\{([^{}]*)\}\s*$", text)
+    return " ".join(t for t in m.group(1).split() if not t.startswith("#")) if m else ""
+
+
+def select_section(texts: list[str], want: str) -> tuple[list[str], int, str, str] | None:
+    """The content of the section titled (or with the role) `want`, without its heading; its level, its title
+    and its condition (that still applies to what is included)."""
     want_key, want_role = fold(want), want.strip().lower()
     code = False
     start = level = None
@@ -64,7 +71,7 @@ def select_section(texts: list[str], want: str) -> tuple[list[str], int] | None:
             continue
         title, roles = heading_title(m.group(2))
         if fold(title) == want_key or want_role in roles:
-            start, level = i, len(m.group(1))
+            start, level, cond = i, len(m.group(1)), heading_cond(m.group(2))
             break
     if start is None:
         return None
@@ -87,7 +94,7 @@ def select_section(texts: list[str], want: str) -> tuple[list[str], int] | None:
         body.append(t)
     while body and not body[-1].strip():
         body.pop()
-    return body, level
+    return body, level, title, cond
 
 
 def shift_headings(texts: list[str], base: int, under: int) -> list[str]:
@@ -145,7 +152,7 @@ def expand_includes(lines: list[tuple[int, str]], root: Path, lang: str | None, 
             report(ln, f"in {SHARED_DIR}/{fp.name}: {i.msg}")
         flines = expand_includes(flines, root, lang, issues, path, _stack + (fp.resolve(),), _at or (path, ln))
         texts = [x for _, x in flines]
-        base = 0
+        base, title, cond = 0, "", ""
         if section:
             picked = select_section(texts, section)
             if picked is None:
@@ -153,14 +160,34 @@ def expand_includes(lines: list[tuple[int, str]], root: Path, lang: str | None, 
                 report(ln, f"no section '{section}' in {SHARED_DIR}/{fp.name}; "
                            f"sections: {', '.join(avail) or '(none)'}")
                 continue
-            texts, base = picked
+            texts, base, title, cond = picked
         while texts and not texts[0].strip():
             texts = texts[1:]
         shifted = shift_headings(texts, base, level)
+        if cond:
+            # the section's heading isn't included, but its condition still applies: an invisible heading
+            # carries it, and the included sections at that level get it too (they'd close the invisible one)
+            top = min(6, level + 1)
+            shifted = [f"{'#' * top} {SCOPE_MARK}{title} {{{cond}}}"] + add_cond(shifted, top, cond)
         for x in shifted:
             out.append((ln, indent + x if x.strip() else x))
         # close the sections the fragment opened, so the game's next lines are back where the include was
         out += [(ln, "")] + [(ln, QUIET_END)] * open_sections(shifted, level)
+    return out
+
+
+def add_cond(texts: list[str], level: int, cond: str) -> list[str]:
+    """Headings of `level` (or higher) get `cond` added to their own condition."""
+    out, code = [], False
+    for t in texts:
+        if FENCE_RE.match(t):
+            code = not code
+        elif not code and (m := HEADING_RE.match(t)) and len(m.group(1)) <= level:
+            if a := re.search(r"\s*\{([^{}]*)\}\s*$", t):
+                t = f"{t[:a.start()]} {{{cond} {a.group(1).strip()}}}"
+            else:
+                t = f"{t.rstrip()} {{{cond}}}"
+        out.append(t)
     return out
 
 

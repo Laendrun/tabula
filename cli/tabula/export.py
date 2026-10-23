@@ -347,6 +347,7 @@ FILTER_JS = r"""
 
 
 # links that can't run anything: web, mail and phone addresses, and paths and anchors (no scheme)
+MAX_PLAYERS = 100           # player-count menus stop there (players: 2-99999999 is a typo, not a menu)
 SAFE_HREF_RE = re.compile(r"^(?:https?:|mailto:|tel:|#|/(?!/)|\.{0,2}/|[^:/?#]+(?:[/?#]|$))", re.I)
 
 CALLOUT_ICONS = {"example": "◆", "warning": "⚠\ufe0e", "tip": "✦", "info": "ℹ\ufe0e", "question": "?", "note": "▪"}
@@ -377,7 +378,7 @@ class HtmlRenderer:
         self.tip = {k: self._tooltip(e) for k, e in self.entries.items()}
         self.heading_ids: dict[int, str] = {}               # id(heading) -> its HTML id, for [[#Section]] links
         for b in blocks:
-            if b.kind == "heading" and not b.reopens:
+            if b.kind == "heading" and not b.reopens and not b.hidden:
                 self.heading_ids[id(b)] = self.uid(
                     b.roles[0] if b.roles else html_slug(plain(CHOICE_RE.sub("", b.text), ctx)))
         self.catalogs: dict[int, list[dict]] = {}          # id(#cards heading) -> its cards
@@ -640,6 +641,9 @@ class HtmlRenderer:
 
     def block(self, b: Block, in_card: bool) -> str:
         ext = " from-ext" if (b.via or b.tint) else ""
+        if b.kind == "heading" and b.hidden:        # an included section's condition: only its badge
+            badges = self.badges(b)
+            return f'<p class="scope">{badges}</p>' if badges else ""
         if b.kind == "heading" and b.reopens:
             return "" if b.quiet else '<hr class="end">'
         if b.kind == "heading":
@@ -747,7 +751,7 @@ class HtmlRenderer:
         if rng:
             lo = min(a for a, _ in rng)
             hi = max(min(b, a + 4) if b == float("inf") else b for a, b in rng)
-            counts = [n for n in range(lo, int(hi) + 1) if in_range(rng, n)]
+            counts = [n for n in range(lo, int(min(hi, MAX_PLAYERS)) + 1) if in_range(rng, n)]
         if len(counts) < 2 and not g.options:
             return ""                        # nothing to choose
         parts = []

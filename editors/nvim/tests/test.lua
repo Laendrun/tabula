@@ -191,6 +191,19 @@ test("format", function()
   eq({ lines[at + 1], lines[at + 2] }, { "", "## ! Si la tour tombe" }, "blank lines collapsed")
 end)
 
+test("without tabula: formatting doesn't wait", function()
+  tabula.setup({ cmd = { "tabula-command-that-does-not-exist" } })
+  local notify = vim.notify
+  vim.notify = function() end
+  local done, t0 = nil, vim.uv.hrtime()
+  tabula.format(buf, function(ok) done = ok end)
+  tabula.format(buf, function(ok) done = ok end)          -- the second time too (tabula known to be missing)
+  vim.notify = notify
+  eq(done, false)
+  eq((vim.uv.hrtime() - t0) / 1e6 < 500, true, "no wait")
+  tabula.setup({ cmd = cmd })
+end)
+
 print(string.format("\n%d tests, %d failed", count, failures))
 vim.fn.delete(tmp, "rf")
 os.exit(failures == 0 and 0 or 1)

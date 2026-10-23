@@ -5,6 +5,11 @@ Newest first. VS Code shows this file in the extension's "Changelog" tab. Add yo
 
 ## Unreleased
 
+## 0.25.0 — 2026-10-22
+
+### Fixed
+- References match plurals of three-letter words (`[[dés]]` → *Dé*), like tabula 0.31.
+
 ## 0.24.0 — 2026-10-22
 
 ### Fixed

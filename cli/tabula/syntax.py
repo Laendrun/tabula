@@ -73,7 +73,7 @@ def norm(name: str) -> str:
     """Case- and plural-insensitive key: 'Cartes Chaussettes' == 'carte chaussette'."""
     words = []
     for w in name.lower().split():
-        if len(w) > 3 and w[-1] in "sx" and not w.endswith("ss"):
+        if len(w) > 2 and w[-1] in "sx" and not w.endswith("ss"):   # dés = dé, cartes = carte
             w = w[:-1]
         words.append(w)
     return " ".join(words)

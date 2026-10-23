@@ -32,7 +32,7 @@ local function fold(s)
   s = s:gsub("[%.,;:!%?%(%)%[%]{}\"/]", " ")
   local words = {}
   for w in s:gmatch("%S+") do
-    if vim.fn.strchars(w) > 3 and w:match("[sx]$") and not w:match("ss$") then w = w:sub(1, -2) end
+    if vim.fn.strchars(w) > 2 and w:match("[sx]$") and not w:match("ss$") then w = w:sub(1, -2) end
     words[#words + 1] = w
   end
   return table.concat(words, " ")
@@ -470,8 +470,9 @@ end
 
 local missing = false        -- the tabula command isn't there: said once, then checks are skipped
 
+--- Runs tabula; returns false (and never calls on_done) when it can't be run.
 local function run(args, input, on_done)
-  if missing then return end
+  if missing then return false end
   local cmd = vim.list_extend(vim.deepcopy(M.config.cmd), args)
   local ok, err = pcall(vim.system, cmd, { stdin = input, text = true }, function(res)
     vim.schedule(function() on_done(res) end)
@@ -483,7 +484,9 @@ local function run(args, input, on_done)
         .. "the tabula repository), or set `cmd` in require('tabula').setup(). Checks, formatting and the preview "
         .. "are off until then (" .. tostring(err):gsub("^.-: ", "") .. ")", vim.log.levels.WARN)
     end)
+    return false
   end
+  return true
 end
 
 local function buffer_text(buf)
@@ -561,7 +564,7 @@ function M.format(buf, done)
   if root then vim.list_extend(args, { "--vault", root }) end
   vim.list_extend(args, { "fmt", file, "--stdin" })
   local tick = vim.api.nvim_buf_get_changedtick(buf)
-  run(args, buffer_text(buf), function(res)
+  local started = run(args, buffer_text(buf), function(res)
     if res.code ~= 0 or not vim.api.nvim_buf_is_valid(buf) or vim.api.nvim_buf_get_changedtick(buf) ~= tick then
       if res.code ~= 0 then vim.notify("tabula fmt: " .. vim.trim(res.stderr or ""), vim.log.levels.WARN) end
       if done then done(false) end
@@ -577,6 +580,7 @@ function M.format(buf, done)
     end
     if done then done(true) end
   end)
+  if not started and done then done(false) end      -- no tabula: saving doesn't wait for it
 end
 
 --- Export the buffer as an interactive page and open it in the browser (a .sheet: the printable sheet).

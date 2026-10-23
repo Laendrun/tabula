@@ -16,7 +16,7 @@ from __future__ import annotations
 import dataclasses
 
 from .blocks import Block
-from .syntax import REF_RE, Cond, Ctx, cond_ok, cond_tokens, norm
+from .syntax import REF_RE, Cond, Ctx, cond_ok, cond_tokens, fold
 
 
 def members(d: Block) -> list[tuple[list[Cond], str]]:
@@ -30,7 +30,7 @@ def members(d: Block) -> list[tuple[list[Cond], str]]:
         stack.append((b.level, b.cond))
         m = REF_RE.search(b.text)
         if m and not m.group(1).startswith("#"):
-            out.append(([c for _, c in stack if c], norm(m.group(1).split("#")[0])))
+            out.append(([c for _, c in stack if c], fold(m.group(1).split("#")[0])))
     return out
 
 
@@ -48,7 +48,7 @@ def definitions(blocks: list[Block]) -> dict[str, tuple[Block, list[Cond]]]:
                 stack.pop()
             stack.append((b.level, b.cond))
         elif b.kind == "def":
-            out.setdefault(norm(b.term), (b, [c for _, c in stack if c] + ([b.cond] if b.cond else [])))
+            out.setdefault(fold(b.term), (b, [c for _, c in stack if c] + ([b.cond] if b.cond else [])))
     return out
 
 
@@ -63,7 +63,7 @@ def parts(d: Block, key: str, defs: dict, seen: frozenset = frozenset()) -> list
         if v is None:
             continue
         if v == "":
-            out += [(conds + m_conds + c, x) for c, x in parts(m, key, defs, seen | {norm(d.term), target})]
+            out += [(conds + m_conds + c, x) for c, x in parts(m, key, defs, seen | {fold(d.term), target})]
         else:
             out.append((conds + m_conds, v))
     return out
@@ -116,7 +116,7 @@ def fill_totals(shown: list[Block], source: list[Block], ctx: Ctx) -> list[Block
                 for k, v in b.fields.items():
                     if v != "":
                         continue
-                    ps = parts(b, k, defs, frozenset({norm(b.term)}))
+                    ps = parts(b, k, defs, frozenset({fold(b.term)}))
                     fields[k] = total([x for conds, x in ps if all(cond_ok(c, ctx) for c in conds)])
                     totals[k] = None                 # filled in, but not numbers: the page can't add it up
                     if ps and all(number(x) is not None for _, x in ps):
@@ -141,7 +141,7 @@ def empty_totals(d: Block, source: list[Block]) -> list[str]:
     if not members(d):
         return [k for k, v in d.fields.items() if v == ""]
     defs = definitions(source)
-    return [k for k, v in d.fields.items() if v == "" and not parts(d, k, defs, frozenset({norm(d.term)}))]
+    return [k for k, v in d.fields.items() if v == "" and not parts(d, k, defs, frozenset({fold(d.term)}))]
 
 
 

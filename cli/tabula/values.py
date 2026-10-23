@@ -48,8 +48,13 @@ def value_problems(values) -> list[str]:
                     out.append(f"value '{name}': '{k}' is not a condition (2p, 3-4p, 5+p, +variant, -variant, or \"*\")")
             if not v:
                 out.append(f"value '{name}' is empty")
+            for k, x in v.items():
+                if x is None or str(x).strip() == "":
+                    out.append(f"value '{name}': '{k}' has no value")
         elif isinstance(v, list):
             out.append(f"value '{name}' is a list; write {{2p: 7, \"*\": 5}} for values by player count")
+        elif v is None or str(v).strip() == "":
+            out.append(f"value '{name}' is empty (write its value after '{name}:')")
         elif any(c in str(v) for c in "{}|"):
             out.append(f"value '{name}' can't contain {{ }} or |")
     return out
@@ -58,10 +63,10 @@ def value_problems(values) -> list[str]:
 def value_text(v) -> str:
     """What {=name} becomes: the inline choice for a mapping, else the value as written."""
     if isinstance(v, dict):
-        return "{" + " | ".join(f"{str(k).strip()}: {val}" for k, val in v.items()) + "}"
+        return "{" + " | ".join(f"{str(k).strip()}: {'' if val is None else val}" for k, val in v.items()) + "}"
     if isinstance(v, bool):
         return "yes" if v else "no"
-    return str(v)
+    return "" if v is None else str(v)          # never "None" in the rules (check reports the empty value)
 
 
 def expand_values(lines: list[tuple[int, str]], values: dict, issues: Issues, path: Path,
