@@ -5,6 +5,11 @@ Newest first. VS Code shows this file in the extension's "Changelog" tab. Add yo
 
 ## Unreleased
 
+## 0.28.1 — 2026-10-25
+
+### Changed
+- The frontmatter schema says that `needs` can also name another game (spec 1.2).
+
 ## 0.28.0 — 2026-10-23
 
 ### Added
