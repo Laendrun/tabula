@@ -300,7 +300,9 @@
   "scripts": {
     "test": "node --test test/*.test.js",
     "bundle": "esbuild src/extension.js --bundle --platform=node --format=cjs --target=node20 --external:vscode --outfile=dist/extension.js --minify --sourcemap",
-    "vscode:prepublish": "npm run bundle",
+    "schemas": "node scripts/copy-schemas.js",
+    "build": "npm run schemas && npm run bundle",
+    "vscode:prepublish": "npm run build",
     "package": "vsce package"
   },
   "devDependencies": {

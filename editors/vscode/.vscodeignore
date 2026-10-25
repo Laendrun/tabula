@@ -8,3 +8,4 @@ test/**
 .gitignore
 **/*.map
 package-lock.json
+scripts/**
