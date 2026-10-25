@@ -11,7 +11,7 @@ from .blocks import components_of
 from .filtering import filter_blocks, section_names, select_key, select_sections, select_summary, select_turn
 from .vault import open_vault
 from .fields import GAME_KEYS, extra_fields, year
-from .options import OPTION_KEYS, apply_options, names, option_info, players_note, players_range
+from .options import OPTION_KEYS, apply_options, names, needs_text, option_info, players_note, players_range
 from .terminal import Style, block_json, plain, render_blocks
 
 def meta_line(meta: dict) -> str:
@@ -36,7 +36,7 @@ def option_label(game, name: str) -> str:
     """'pandora (2019, 2-10p, needs troublemaker, Box: blue)' for the terminal."""
     d = option_info(game, name)
     bits = ([year(d)] if year(d) else []) + ([f"{d['players']}p"] if d.get("players") else []) + \
-           ([f"needs {', '.join(names(d['needs']))}"] if d.get("needs") else []) + \
+           ([f"needs {', '.join(needs_text(game, name))}"] if d.get("needs") else []) + \
            ([f"not with {', '.join(names(d['excludes']))}"] if d.get("excludes") else [])
     bits += [f"{k}: {v}" for k, v in extra_fields(d, OPTION_KEYS)]
     return f"{name} ({', '.join(bits)})" if bits else name
@@ -131,7 +131,7 @@ def cmd_show(args) -> int:
     if game.extensions:
         info.append("extensions: " + ", ".join(option_label(game, e) for e in game.extensions) + " (-e NAME)")
     if declared:
-        info.append("variants: " + ", ".join(declared) + " (-v NAME)")
+        info.append("variants: " + ", ".join(option_label(game, v) for v in declared) + " (-v NAME)")
     if game.options and not ctx.everything:
         info.append("--all shows everything")
     if info:

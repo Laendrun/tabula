@@ -1,8 +1,10 @@
 """The vault: finding games and their translations, loading them."""
 from __future__ import annotations
 
-import sys
 import os
+import re
+import sys
+import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -11,7 +13,7 @@ try:
 except ImportError:  # pragma: no cover
     sys.exit("tabula needs PyYAML:  pip install pyyaml")
 
-from .syntax import LANG_RE, split_lang
+from .syntax import LANG_RE, fold, split_lang
 from .fragments import SHARED_DIR, expand_includes
 from .values import expand_values, merged_values, value_problems
 from .symbols import expand_symbols, merged_symbols, symbol_problems
@@ -161,6 +163,11 @@ class Vault:
         raise SystemExit(f"tabula: game '{ref}' not found in {self.root}\n"
                          f"  available: {', '.join(g.stem for g in games) or '(none)'}")
 
+    def game_named(self, name: str) -> Path | None:
+        """The game called `name` in the vault: by its file name ('bandido', 'les-aventuriers-du-rail') or its
+        title in any of its languages ('Bandido', 'Les Aventuriers du Rail'), case and accents ignored."""
+        return game_named(self.root, name)
+
     def load(self, path: Path, lang: str | None = None) -> Game:
         issues = Issues()
         slug = path.stem
@@ -221,3 +228,26 @@ def open_vault(arg: str | None, ref: str | None = None) -> Vault:
         in_own_folder = (d / f"{d.name}.game").exists() or split_lang(p.stem)[0] == d.name
         return Vault(d.parent if in_own_folder else d)
     return Vault(Path.cwd())
+
+
+def game_named(root: Path, name: str) -> Path | None:
+    """See Vault.game_named. For a game's details (`needs: [Bandido]`), which only know the vault's folder."""
+    want, slug = fold(name), _slug(name)
+    if not want or root is None or not Path(root).is_dir():
+        return None
+    v = Vault(Path(root))
+    games = v.discover()
+    for g in games:
+        if g.stem == slug or fold(g.stem) == want:
+            return g
+    for g in games:
+        for f in [g, *sorted(g.parent.glob(f"{g.stem}.*.game"))]:
+            meta, _ = read_source(f, Issues())
+            if fold(str(meta.get("title") or "")) == want:
+                return g
+    return None
+
+
+def _slug(text: str) -> str:
+    s = "".join(c for c in unicodedata.normalize("NFKD", text) if not unicodedata.combining(c)).lower()
+    return re.sub(r"[^a-z0-9]+", "-", s).strip("-")

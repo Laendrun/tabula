@@ -6,7 +6,7 @@
         players: 2-10          # the player counts the game gets with it (added to the base game's)
         duration: 10-50
         year: 2019             # when it came out
-        needs: [troublemaker]  # turned on with it
+        needs: [troublemaker]  # turned on with it; a name that isn't a variant or extension is another game
         excludes: [points]     # can't be used together
 
 The short forms (`extensions: [pandora]`, `pandora: "description"`) still work. Other keys are your own:
@@ -17,17 +17,38 @@ from __future__ import annotations
 import difflib
 import sys
 
+from pathlib import Path
+
 from .syntax import Ctx, in_range, parse_range
+from .vault import game_named
 
 OPTION_KEYS = ("description", "players", "duration", "year", "needs", "excludes")
 
 
 def names(v) -> list[str]:
+    return [n.lower() for n in raw_names(v)]
+
+
+def raw_names(v) -> list[str]:
+    """The names of a `needs`/`excludes` list as written: a list, or one string with commas."""
     if v is None:
         return []
     if isinstance(v, (list, tuple)):
-        return [str(x).lower() for x in v]
-    return [s.strip().lower() for s in str(v).split(",") if s.strip()]
+        return [str(x).strip() for x in v if str(x).strip()]
+    return [s.strip() for s in str(v).split(",") if s.strip()]
+
+
+def needs_of(game, name: str) -> tuple[list[str], list[tuple[str, Path | None]]]:
+    """What an option needs: (the variants and extensions it turns on, the other games it needs as
+    [(name as written, the game's file when it is in the vault)]). `needs: [troublemaker, Bandido]`."""
+    declared = {k.lower() for k in game.options}
+    opts, games = [], []
+    for n in raw_names(option_info(game, name).get("needs")):
+        if n.lower() in declared:
+            opts.append(n.lower())
+        else:
+            games.append((n, game_named(game.root, n) if game.root else None))
+    return opts, games
 
 
 def option_info(game, name: str) -> dict:
@@ -41,13 +62,19 @@ def option_info(game, name: str) -> dict:
     return {}
 
 
+def needs_text(game, name: str) -> list[str]:
+    """['troublemaker', 'Bandido']: what an option needs, the other games as written."""
+    opts, games = needs_of(game, name)
+    return opts + [g for g, _ in games]
+
+
 def with_needs(game, chosen: set[str]) -> tuple[set[str], list[tuple[str, str]]]:
     """The chosen options plus the ones they need (and those need…); [(added, needed by)]."""
     enabled, added = set(chosen), []
     todo = list(chosen)
     while todo:
         o = todo.pop()
-        for n in names(option_info(game, o).get("needs")):
+        for n in needs_of(game, o)[0]:
             if n not in enabled:
                 enabled.add(n)
                 added.append((n, o))
@@ -91,10 +118,11 @@ def apply_options(game, ctx: Ctx, players: int | None) -> int | None:
     other and player counts the game doesn't have (with these options). Returns an exit code, or None."""
     enabled, added = with_needs(game, ctx.variants)
     for n, by in added:
-        if n not in {k.lower() for k in game.options}:
-            continue                       # check reports it
         print(f"tabula: +{by} needs +{n}: turned it on", file=sys.stderr)
-    ctx.variants |= {n for n, _ in added if n in {k.lower() for k in game.options}}
+    ctx.variants |= {n for n, _ in added}
+    for o in sorted(ctx.variants):
+        for g, _ in needs_of(game, o)[1]:
+            print(f"tabula: +{o} needs the game {g}", file=sys.stderr)
     for a, b in conflicts(game, ctx.variants):
         print(f"tabula: +{a} and +{b} can't be used together", file=sys.stderr)
         return 2
@@ -130,12 +158,19 @@ def option_problems(game) -> list[tuple[str, str]]:
             if d.get("year") is not None and not year_ok(d["year"]):
                 out.append(("warning", f"'{name}': year should be a year, e.g. 2019 (got '{d['year']}')"))
             for k in ("needs", "excludes"):
-                for n in names(d.get(k)):
+                for raw in raw_names(d.get(k)):
+                    n = raw.lower()
+                    close = difflib.get_close_matches(n, sorted(declared), n=1, cutoff=0.8)
                     if n == str(name).lower():
                         out.append(("error", f"'{name}' {k} itself"))
-                    elif n not in declared:
-                        out.append(("error", f"'{name}' {k} '{n}', which is not declared under variants or "
+                    elif n in declared:
+                        continue
+                    elif k == "excludes":
+                        out.append(("error", f"'{name}' excludes '{n}', which is not declared under variants or "
                                              "extensions"))
+                    elif close:            # needs: a name that isn't an option is another game, unless it's a typo
+                        out.append(("error", f"'{name}' needs '{raw}', which is not declared under variants or "
+                                             f"extensions: did you mean '{close[0]}'? (another game's name is fine)"))
             both = set(names(d.get("needs"))) & set(names(d.get("excludes")))
             if both:
                 out.append(("error", f"'{name}' both needs and excludes {', '.join(sorted(both))}"))

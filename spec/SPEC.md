@@ -1,4 +1,4 @@
-# Tabula — specification v1.1
+# Tabula — specification v1.2
 
 A plain-text format for board, card, dice, dexterity, outdoor and homemade games. Each game is a single `.game` file: a game description and its rules, written in Markdown with three small additions.
 
@@ -461,9 +461,21 @@ extensions:
 
 - `players`: `tabula show frantic -p 10` is refused, but `-p 10 -e pandora` works, and `{9-10p}` conditions don't count as "never applies". `tabula list -p 10` lists the game with "(+pandora)", the site's player filter finds it, and its page shows "2–10 +pandora" and offers 9 and 10 players.
 - `needs`: `-e pandora` also turns on troublemaker (and says so). `excludes`: asking for both is refused.
+- `needs` can also name **another game**: any name that isn't one of the game's variants or extensions. A play mode that needs a second box is a variant that needs that game:
+
+  ```yaml
+  title: Bandida
+  variants:
+    amoureux:
+      description: Les amoureux en cavale
+      players: 2-8
+      needs: [Bandido]       # another game
+  ```
+
+  `tabula show bandida -v amoureux` says it needs the game Bandido. When that game is in your vault (found by its title, in any of its languages, or its file name: `Bandido`, `bandido`), the exported page, the site and the book link to it. When it isn't, its name is shown as written. Names mix freely: `needs: [troublemaker, Bandido]`. `excludes` only names variants and extensions.
 - A translation can give just a translated description (`pandora: "Pandora's box"`): the details come from the default-language file.
 - `year`, your own details and the other details are listed with each extension and variant in the header of the exported page ("Extensions and variants") and the book, in the tooltip of its checkbox on an interactive page, and after its name in `tabula show`: "pandora (2016, 2-10p, needs troublemaker, Box: blue)".
-- Other keys are your own, as in the frontmatter. `tabula check` warns about one that looks like a typo of a known detail (`playres:`), and reports invalid ranges, a `year` that isn't a year, and names in `needs`/`excludes` that aren't declared.
+- Other keys are your own, as in the frontmatter. `tabula check` warns about one that looks like a typo of a known detail (`playres:`), and reports invalid ranges, a `year` that isn't a year, names in `excludes` that aren't declared, and names in `needs` that look like a misspelt variant or extension (`troublemakr`; another game's name is fine).
 
 **Additions** (more cards, new rules, new events):
 
@@ -787,6 +799,8 @@ year: 2019 / series: Micro             in frontmatter: the year it came out / yo
 ## 16. Versions
 
 The spec has a version of its own; the `tabula` CLI and the VS Code extension have theirs (see their changelogs). From 1.0 on, a new feature that doesn't change what existing files mean is a minor version (1.1, 1.2…); a change that makes an existing file mean something else, or no longer valid, is a major version (2.0), and `tabula check` points out what to change, as it does for v0.3 syntax.
+
+**1.2** (October 2026): `needs` can name another game, linked when it is in the vault (8.5).
 
 **1.1** (October 2026): the `#summary` role and the rules summary (9).
 

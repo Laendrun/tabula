@@ -92,13 +92,79 @@ def test_translation_keeps_details(tmp_path, capsys):
 
 
 def test_check(tmp_path, capsys):
-    bad = GAME.replace("    needs: [troublemaker]", "    needs: [troublemaker, ghost]\n    playres: 3\n    duration: soon") \
-              .replace("    excludes: [pandora]", "    excludes: [solo]")
+    bad = GAME.replace("    needs: [troublemaker]", "    needs: [troublemaker, troublemakr]\n    playres: 3\n    duration: soon") \
+              .replace("    excludes: [pandora]", "    excludes: [solo, ghost]")
     code, out, _ = run(capsys, vault(tmp_path, bad), "check", "--no-color")
     assert code == 1
     for msg in ("warning  f/f.game:1  'pandora': 'playres' looks like a typo of 'players'",
                 "'pandora': invalid duration 'soon'",
-                "'pandora' needs 'ghost', which is not declared", "'solo' excludes itself"):
+                "'pandora' needs 'troublemakr', which is not declared under variants or extensions: did you mean "
+                "'troublemaker'?", "'solo' excludes 'ghost', which is not declared", "'solo' excludes itself"):
         assert msg in out, msg
     code, out, _ = run(capsys, vault(tmp_path), "check", "--no-color")
     assert code == 0 and "never applies" not in out                           # {9-10p}: possible with pandora
+
+
+BANDIDA = """---
+title: Bandida
+players: 1-4
+language: fr
+variants:
+  amoureux:
+    description: Les amoureux en cavale
+    players: 2-8
+    needs: [Bandido]
+  troc:
+    description: Troc
+    needs: [amoureux, Un jeu absent]
+---
+# Règles
+
+Texte.
+
+{+amoureux} AMOUREUX.
+"""
+
+
+def bandida(tmp_path, with_bandido=True, title="Bandido"):
+    (tmp_path / "bandida").mkdir(exist_ok=True)
+    (tmp_path / "bandida" / "bandida.game").write_text(BANDIDA, encoding="utf-8")
+    if with_bandido:
+        (tmp_path / "le-bandido").mkdir(exist_ok=True)
+        (tmp_path / "le-bandido" / "le-bandido.game").write_text(
+            f"---\ntitle: {title}\nplayers: 1-4\n---\n# Règles\n\nTexte.\n", encoding="utf-8")
+    return tmp_path
+
+
+def test_needs_another_game(tmp_path, capsys):
+    v = bandida(tmp_path)
+    code, out, _ = run(capsys, v, "check", "--no-color")
+    assert code == 0, out                                    # another game: not an undeclared variant
+    code, out, err = run(capsys, v, "show", "bandida", "-v", "amoureux", "--no-color")
+    assert code == 0 and "AMOUREUX" in out and "+amoureux needs the game Bandido" in err
+    assert "amoureux (2-8p, needs Bandido)" in out
+    code, out, err = run(capsys, v, "show", "bandida", "-v", "troc", "--no-color")
+    assert "+troc needs +amoureux: turned it on" in err and "AMOUREUX" in out    # variants are still turned on
+    assert "needs the game Un jeu absent" in err
+
+
+def test_export_links_a_game_of_the_vault(tmp_path, capsys):
+    v = bandida(tmp_path)                                    # found by its title: its file is le-bandido
+    _, html, _ = run(capsys, v, "export", "bandida", "-o", "-")
+    assert 'nécessite <a class="game" href="le-bandido.html">Bandido</a>' in html
+    assert "nécessite amoureux, Un jeu absent<" in html      # not in the vault: plain text
+    run(capsys, v, "site", "-o", str(tmp_path / "site"))
+    page = (tmp_path / "site" / "bandida" / "index.html").read_text(encoding="utf-8")
+    assert '<a class="game" href="../le-bandido/index.html">Bandido</a>' in page
+
+
+def test_needed_game_found_by_file_name_or_translated_title(tmp_path, capsys):
+    v = bandida(tmp_path, title="Le Bandit")
+    _, html, _ = run(capsys, v, "export", "bandida", "-o", "-")
+    assert '<a class="game"' not in html                     # 'Bandido' is neither its title nor its file name
+    (tmp_path / "le-bandido" / "le-bandido.game").write_text(
+        "---\ntitle: Bandido\nplayers: 1-4\nlanguage: es\n---\n# Reglas\n\nTexto.\n", encoding="utf-8")
+    (tmp_path / "le-bandido" / "le-bandido.fr.game").write_text("---\ntitle: Le Bandit\n---\n# Règles\n", encoding="utf-8")
+    (tmp_path / "bandida" / "bandida.game").write_text(BANDIDA.replace("[Bandido]", "[le bandit]"), encoding="utf-8")
+    _, html, _ = run(capsys, v, "export", "bandida", "-o", "-")
+    assert '<a class="game" href="le-bandido.html">le bandit</a>' in html
