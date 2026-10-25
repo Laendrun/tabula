@@ -53,13 +53,23 @@ test("TODO reminders are information, not warnings", () => {
   assert.equal(core.severity("spelling", S), 2);
 });
 
-test("the schemas in the extension are those of the spec", () => {
+test("the schemas come from the spec when building", () => {
   const fs = require("fs");
+  const os = require("os");
   const path = require("path");
+  const { copySchemas, SPEC } = require("../scripts/copy-schemas");
+  const to = fs.mkdtempSync(path.join(os.tmpdir(), "tabula-schemas-"));
+  const names = copySchemas(to);
   for (const name of ["game", "sheet", "vault", "wishlist"]) {
-    const here = fs.readFileSync(path.join(__dirname, "..", "schemas", `${name}.schema.json`), "utf8");
-    const spec = fs.readFileSync(path.join(__dirname, "..", "..", "..", "spec", "schemas", `${name}.schema.json`), "utf8");
-    assert.equal(here, spec, `${name}.schema.json: copy spec/schemas/*.json into editors/vscode/schemas/`);
+    const file = `${name}.schema.json`;
+    assert.ok(names.includes(file), file);
+    assert.equal(fs.readFileSync(path.join(to, file), "utf8"), fs.readFileSync(path.join(SPEC, file), "utf8"));
+  }
+  // what package.json points to is one of them
+  const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "package.json"), "utf8"));
+  for (const v of pkg.contributes.jsonValidation || []) {
+    assert.match(v.url, /^\.\/schemas\/[\w.-]+\.schema\.json$/);
+    assert.ok(names.includes(path.basename(v.url)), v.url);
   }
 });
 

@@ -5,6 +5,9 @@ Newest first. VS Code shows this file in the extension's "Changelog" tab. Add yo
 
 ## Unreleased
 
+### Changed
+- The JSON Schemas are no longer kept in a copy here: `npm run build` (run before packaging, and by the "Run the extension" launch) copies them from `spec/schemas` into `schemas/`, which git ignores. The .vsix is unchanged.
+
 ## 0.28.1 — 2026-10-25
 
 ### Changed
