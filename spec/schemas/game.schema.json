@@ -227,7 +227,7 @@
                     ]
                   },
                   "needs": {
-                    "description": "Extensions or variants turned on with it.",
+                    "description": "Extensions or variants turned on with it, or other games it needs (a name that is not a variant or extension of this game: linked when that game is in the vault).",
                     "oneOf": [
                       {
                         "type": "string"
@@ -328,7 +328,7 @@
                     ]
                   },
                   "needs": {
-                    "description": "Extensions or variants turned on with it.",
+                    "description": "Extensions or variants turned on with it, or other games it needs (a name that is not a variant or extension of this game: linked when that game is in the vault).",
                     "oneOf": [
                       {
                         "type": "string"

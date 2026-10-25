@@ -17,7 +17,7 @@ from .filtering import filter_blocks, section_end, section_names, select_key, se
 from .source import UNSAVED, local_file
 from .vault import Game, open_vault
 from .fields import GAME_KEYS, extra_fields, year as year_of
-from .options import OPTION_KEYS, apply_options, names, option_info, players_note, players_range
+from .options import OPTION_KEYS, apply_options, names, needs_of, option_info, players_note, players_range
 from .terminal import find_section, plain
 from .lookup import Entry, lookup_entries
 from .cards import card_catalog, card_rows
@@ -716,30 +716,40 @@ class HtmlRenderer:
         return [f"<b>{self.esc(k)}</b> {self.esc(v)}"
                 for k, v in extra_fields(self.game.meta, GAME_KEYS, self.lang)]
 
-    def option_facts(self, name: str) -> list[str]:
-        """'2019', '2–10 players', '10–50 min', 'needs x', 'Label: value' for one extension or variant (text)."""
+    def option_facts(self, name: str, as_html: bool = False) -> list[str]:
+        """'2019', '2–10 players', '10–50 min', 'needs x', 'Label: value' for one extension or variant (text;
+        HTML with `as_html`, where another game the option needs links to its page when it is in the vault)."""
         d, t = option_info(self.game, name), self.t
+        esc = self.esc if as_html else (lambda s: s)
         out = [year_of(d)] if year_of(d) else []
         if d.get("players") is not None:
             out.append(t["players_n"].format(str(d["players"]).replace("-", "–")))
         if d.get("duration") is not None:
             out.append(f"{str(d['duration']).replace('-', '–')} {t['min']}")
-        for k in ("needs", "excludes"):
-            if names(d.get(k)):
-                out.append(t[k].format(", ".join(names(d[k]))))
-        out += [f"{k}: {v}" for k, v in extra_fields(d, OPTION_KEYS, self.lang)]
+        out = [esc(x) for x in out]
+        if d.get("needs"):
+            opts, games = needs_of(self.game, name)
+            shown = [esc(o) for o in opts]
+            for g, path in games:
+                slug = split_lang(path.stem)[0] if path else None
+                shown.append(f'<a class="game" href="{esc(self.game_href.format(slug))}">{esc(g)}</a>'
+                             if as_html and slug and slug != self.game.slug else esc(g))
+            out.append(esc(t["needs"]).replace("{}", ", ".join(shown)))
+        if names(d.get("excludes")):
+            out.append(esc(t["excludes"].format(", ".join(names(d["excludes"])))))
+        out += [esc(f"{k}: {v}") for k, v in extra_fields(d, OPTION_KEYS, self.lang)]
         return out
 
     def options_info(self) -> str:
         """The extensions and variants with their details, as a list ('' when there is nothing to tell)."""
         items = []
         for name, desc in self.game.options.items():
-            more = self.option_facts(name)
+            more = self.option_facts(name, as_html=True)
             if not desc and not more:
                 continue
             head = (f"<b>{self.esc(desc)}</b> <code>+{self.esc(name)}</code>" if desc
                     else f"<b>{self.esc(name)}</b>")
-            items.append(f"<li>{head}" + (f' <span class="more">{self.esc(" · ".join(more))}</span>' if more else "")
+            items.append(f"<li>{head}" + (f' <span class="more">{" · ".join(more)}</span>' if more else "")
                          + "</li>")
         return f'<ul class="options-info">{"".join(items)}</ul>' if items else ""
 

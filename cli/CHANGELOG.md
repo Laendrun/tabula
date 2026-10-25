@@ -6,6 +6,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/): Added, Chang
 
 ## Unreleased
 
+## 0.36.0 — 2026-10-25
+
+### Added
+- `needs` can name another game (spec 1.2): any name that isn't one of the game's variants or extensions, e.g. a play mode `needs: [Bandido]`. `tabula show` says "+amoureux needs the game Bandido". When the game is in the vault (by its title in any language, or its file name), the exported page, the site and the book link to it; otherwise its name is shown as written.
+
+### Changed
+- `tabula check` no longer reports a name in `needs` that isn't a variant or extension (it's another game), unless it looks like a misspelt one ("did you mean 'troublemaker'?"). Names in `excludes` must still be declared.
+
+### Fixed
+- `tabula show` listed the variants without their details (year, players, needs…), unlike the extensions.
+
 ## 0.35.0 — 2026-10-23
 
 ### Added
