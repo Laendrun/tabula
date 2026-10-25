@@ -13,7 +13,7 @@ from .syntax import (
     Cond, cond_tokens, json_range, parse_choice, parse_cond, parse_range, split_lang, via_of,
 )
 from .blocks import callout_family, callout_title, card_image, shown_fields, Block, components_of, is_sep_row, player_columns, player_rows
-from .filtering import filter_blocks, section_end, section_names, select_key, select_sections, select_turn
+from .filtering import filter_blocks, section_end, section_names, select_key, select_sections, select_summary, select_turn
 from .source import UNSAVED, local_file
 from .vault import Game, open_vault
 from .fields import GAME_KEYS, extra_fields, year as year_of
@@ -29,7 +29,7 @@ UI = {
            "only_with": "only with {}", "by": "Design", "art": "Art", "publisher": "Publisher",
            "exported": "Exported with tabula {} on {}.", "players_n": "{} players",
            "card": "card", "count": "count", "ext": "extension", "key": "key rules", "turn": "turn summary",
-           "for": "Players", "any": "any", "everything": "Everything", "options": "Extensions and variants",
+           "summary": "quick rules", "for": "Players", "any": "any", "everything": "Everything", "options": "Extensions and variants",
            "year": "Year", "needs": "needs {}", "excludes": "not with {}"},
     "fr": {"players": "joueurs", "best": "idéal à {}", "min": "min", "age": "{} ans et +", "toc": "Sommaire",
            "showing": "Affichage", "base": "jeu de base", "no_variants": "sans variante",
@@ -38,7 +38,7 @@ UI = {
            "only_with": "seulement avec {}", "by": "Auteurs", "art": "Illustrations", "publisher": "Éditeur",
            "exported": "Exporté avec tabula {} le {}.", "players_n": "{} joueurs",
            "card": "carte", "count": "nombre", "ext": "extension", "key": "règles clés", "turn": "résumé du tour",
-           "for": "Joueurs", "any": "tous", "everything": "Tout", "options": "Extensions et variantes",
+           "summary": "règles en bref", "for": "Joueurs", "any": "tous", "everything": "Tout", "options": "Extensions et variantes",
            "year": "Année", "needs": "nécessite {}", "excludes": "pas avec {}"},
     "de": {"players": "Spieler", "best": "am besten zu {}", "min": "Min.", "age": "ab {}", "toc": "Inhalt",
            "showing": "Ansicht", "base": "Grundspiel", "no_variants": "ohne Varianten",
@@ -47,7 +47,7 @@ UI = {
            "only_with": "nur mit {}", "by": "Autoren", "art": "Illustration", "publisher": "Verlag",
            "exported": "Exportiert mit tabula {} am {}.", "players_n": "{} Spieler",
            "card": "Karte", "count": "Anzahl", "ext": "Erweiterung", "key": "Kernregeln", "turn": "Spielzug",
-           "for": "Spieler", "any": "alle", "everything": "Alles", "options": "Erweiterungen und Varianten",
+           "summary": "Kurzregeln", "for": "Spieler", "any": "alle", "everything": "Alles", "options": "Erweiterungen und Varianten",
            "year": "Jahr", "needs": "braucht {}", "excludes": "nicht mit {}"},
 }
 
@@ -941,7 +941,7 @@ class HtmlRenderer:
 """
 
 
-def export_name(game: Game, ctx: Ctx, sections, key: bool = False, turn: bool = False) -> str:
+def export_name(game: Game, ctx: Ctx, sections, key: bool = False, turn: bool = False, summary: bool = False) -> str:
     parts = [game.slug]
     if ctx.players is not None:
         parts.append(f"{ctx.players}p")
@@ -950,7 +950,9 @@ def export_name(game: Game, ctx: Ctx, sections, key: bool = False, turn: bool = 
     parts += sorted(ctx.variants)
     if sections:
         parts += [html_slug(s) for s in sections]
-    if turn:
+    if summary:
+        parts.append("summary")
+    elif turn:
         parts.append("turn")
     elif key:
         parts.append("key")
@@ -991,7 +993,13 @@ def cmd_export(args) -> int:
                   f"available: {', '.join(section_names(blocks)) or '(none)'}", file=sys.stderr)
             return 2
         blocks = picked
-    if args.turn:
+    if args.summary:
+        blocks = select_summary(blocks, turn=args.turn)
+        if not blocks:
+            print(f"tabula: no rules summary in {game.title} (give the section that sums up the rules the role "
+                  f"#summary)", file=sys.stderr)
+            return 1
+    elif args.turn:
         blocks = select_turn(blocks)
         if not blocks:
             print(f"tabula: no turn summary in {game.title} (give the section that describes a turn the role "
@@ -1002,13 +1010,14 @@ def cmd_export(args) -> int:
         if not blocks:
             print(f"tabula: no key rules in {game.title} (mark them with '! ' or '## ! Title')", file=sys.stderr)
             return 1
-    renderer = HtmlRenderer(game, blocks, ctx, key_only=args.key and not args.turn, interactive=args.interactive)
-    if args.turn:
-        renderer.sel_label = renderer.t["turn"]
+    selection = "summary" if args.summary else "turn" if args.turn else "key" if args.key else ""
+    renderer = HtmlRenderer(game, blocks, ctx, key_only=selection == "key", interactive=args.interactive)
+    if selection in ("summary", "turn"):
+        renderer.sel_label = renderer.t[selection]
     if args.paper:
         renderer.paper = args.paper
     renderer.source_lines = args.lines
-    html_text = renderer.page(f" — {renderer.t['turn']}" if args.turn else f" — {renderer.t['key']}" if args.key else "")
+    html_text = renderer.page(f" — {renderer.t[selection]}" if selection else "")
     if args.output == "-":
         out = getattr(sys.stdout, "buffer", None)       # bytes: no \r\r\n on Windows
         if out is not None:
@@ -1018,7 +1027,7 @@ def cmd_export(args) -> int:
         else:
             sys.stdout.write(html_text)
         return 0
-    name = export_name(game, ctx, args.section, key=args.key, turn=args.turn)
+    name = export_name(game, ctx, args.section, key=args.key, turn=args.turn, summary=args.summary)
     out = Path(args.output) if args.output else Path.cwd() / name
     if out.is_dir():
         out = out / name

@@ -1,4 +1,4 @@
-# Tabula — specification v1.0
+# Tabula — specification v1.1
 
 A plain-text format for board, card, dice, dexterity, outdoor and homemade games. Each game is a single `.game` file: a game description and its rules, written in Markdown with three small additions.
 
@@ -539,11 +539,22 @@ Headings are written in the game's language, so tools can't rely on their text. 
 ## Cartes Puissance {+supercharge #cards}     ← a role and a condition together
 ```
 
-Suggested roles: `components`, `goal`, `setup`, `play`, `turn`, `scoring`, `end`, `glossary`, `cards`, `events`, `variants`, `notes`, `faq`. You can use your own names too (`tabula check` only warns about one that looks like a misspelt suggested role, like `#cartes` for `#cards`). Roles are optional and a section can have several (`{#glossary #cards}`).
+Suggested roles: `summary`, `components`, `goal`, `setup`, `play`, `turn`, `scoring`, `end`, `glossary`, `cards`, `events`, `variants`, `notes`, `faq`. You can use your own names too (`tabula check` only warns about one that looks like a misspelt suggested role, like `#cartes` for `#cards`). Roles are optional and a section can have several (`{#glossary #cards}`).
 
 Tools use roles to show part of a game. `tabula show frantic -s glossary` shows only the glossary, and `-s components -s setup` shows two sections. Filters still apply. `-s` also accepts a heading's title (`-s "fin de la partie"`), so it works on games without roles too. Later, roles will let tools build cheat sheets, card catalogs and a web view with a table of contents.
 
 **Turn summary:** give the section that describes a turn the role `turn` (`## À votre tour {#turn}`). `tabula show GAME --turn` then shows a summary to keep at hand during the game: that section (with its sub-sections), then the key rules and key sections found anywhere else. `tabula export GAME --turn --paper a5` makes a page to print, and `tabula site` adds a "Résumé du tour" page to games that have one.
+
+**Rules summary:** in many games, the general rules fit in a few lines and the rest is written on the cards. Give the section that sums up the rules the role `summary`:
+
+```markdown
+## En bref {#summary}
+
+À votre tour, jouez autant de cartes que vous voulez, puis piochez une carte : c'est ce qui termine votre tour.
+Si vous piochez un [[Exploding Kitten]] sans [[Kit de désamorçage]], vous explosez. Le dernier joueur en vie gagne.
+```
+
+The section is part of the rules like any other: write it where it reads best, often first. `tabula show GAME --summary` shows only that section (with its sub-sections), then the key rules and key sections found anywhere else, with the usual filters. `--summary --turn` also adds the `#turn` section after it. `tabula export GAME --summary --paper a5` makes a page to print, and `tabula site` adds a "Règles en bref" page to games that have one.
 
 ## 9.1 Card catalog
 
@@ -704,11 +715,11 @@ The reference CLI is `tabula`. Point it at a vault with `--vault PATH`, or set `
 | Command | What it does |
 |---|---|
 | `tabula list [-p N] [-l CODE]` | list games, optionally only those playable with N players |
-| `tabula show GAME [-p N] [-v VARIANT…] [-e EXTENSION…] [-a] [-s SECTION…] [-k] [-t] [-l CODE] [--json]` | print a game, by default the base game (no extensions or variants), filtered by player count, extensions, variants and language. `-a`/`--all` shows every extension and variant with badges. `-s` shows only some sections (role or title). `-k`/`--key` shows only the key rules and key sections (a cheat sheet), `-t`/`--turn` the turn summary (see 9). `--json` prints the parsed structure. |
+| `tabula show GAME [-p N] [-v VARIANT…] [-e EXTENSION…] [-a] [-s SECTION…] [-k] [-t] [--summary] [-l CODE] [--json]` | print a game, by default the base game (no extensions or variants), filtered by player count, extensions, variants and language. `-a`/`--all` shows every extension and variant with badges. `-s` shows only some sections (role or title). `-k`/`--key` shows only the key rules and key sections (a cheat sheet), `-t`/`--turn` the turn summary, `--summary` the rules summary (see 9). `--json` prints the parsed structure. |
 | `tabula cards GAME [-p N] [-e …] [-v …] [-a] [-l CODE] [--sort COLUMN] [--json]` | the card catalog (section 9.1): one row per card, counts from the component list for the current selection, and fields as columns |
 | `tabula lookup GAME [TERM] [-p N] [-e …] [-v …] [-a] [-l CODE] [--json]` | show one glossary term or component, for use at the table. Case, accents, plurals and small typos are ignored, and partial names work. Filters apply inside the definition. A term from an extension that isn't turned on is still shown, marked "only with +name". The output ends with "see also" for the terms it refers to. When no term has the exact name, it also looks for a section by role or title (`tabula lookup frantic components`). Without a term, lists every term. |
-| `tabula export GAME [-p N] [-e …] [-v …] [-a] [-s SECTION…] [-k] [-t] [--paper SIZE] [-i] [-l CODE] [--stdin] [-o FILE]` | write a self-contained HTML page with the same filtering as `show`: table of contents from the headings, glossary entries as cards, `[[references]]` as links with the definition as a tooltip, extension content highlighted, images embedded. Works offline, prints cleanly, and has a dark mode. The default file name describes the selection, e.g. `frantic-4p-supercharge.html`. `-k` exports the cheat sheet (`hearts-4p-key.html`), `-t` the turn summary (`hearts-turn.html`); `--paper a5` (a4, a5, a6, letter) prints on that paper size. `--lines` marks each block with its line in the file (`data-line`, for editors). `-i` makes the page `tabula site` would: everything, with the player and option filters. A translation (`hearts.fr.game`) is exported in its language unless `-l` says otherwise. `--stdin` reads the game's text from standard input instead of the file (an editor's unsaved text; the path still says which game it is). |
-| `tabula site [-o FOLDER]` | write the whole vault as a small website (default folder: `site/`): an `index.html` listing every game, with filters for player count, duration and tags and a search, and for each game a page per language (`index.html`, `index.fr.html`) with every extension and variant marked, plus a cheat sheet (`key.html`) when it has key rules. On a game page, a bar lets the reader choose the player count and the extensions and variants (or everything): the page shows only what applies, like `tabula show`, picks the right text in inline choices, renumbers steps and updates card counts. The choice is kept in the address (`#p=4&o=pandora`), so a link opens the same view. Works offline from the folder, or on any static host. The folder is replaced on every run, but only if `tabula site` made it. |
+| `tabula export GAME [-p N] [-e …] [-v …] [-a] [-s SECTION…] [-k] [-t] [--summary] [--paper SIZE] [-i] [-l CODE] [--stdin] [-o FILE]` | write a self-contained HTML page with the same filtering as `show`: table of contents from the headings, glossary entries as cards, `[[references]]` as links with the definition as a tooltip, extension content highlighted, images embedded. Works offline, prints cleanly, and has a dark mode. The default file name describes the selection, e.g. `frantic-4p-supercharge.html`. `-k` exports the cheat sheet (`hearts-4p-key.html`), `-t` the turn summary (`hearts-turn.html`), `--summary` the rules summary (`hearts-summary.html`); `--paper a5` (a4, a5, a6, letter) prints on that paper size. `--lines` marks each block with its line in the file (`data-line`, for editors). `-i` makes the page `tabula site` would: everything, with the player and option filters. A translation (`hearts.fr.game`) is exported in its language unless `-l` says otherwise. `--stdin` reads the game's text from standard input instead of the file (an editor's unsaved text; the path still says which game it is). |
+| `tabula site [-o FOLDER]` | write the whole vault as a small website (default folder: `site/`): an `index.html` listing every game, with filters for player count, duration and tags and a search, and for each game a page per language (`index.html`, `index.fr.html`) with every extension and variant marked, plus a rules summary (`summary.html`), a cheat sheet (`key.html`) and a turn summary (`turn.html`) when it has them. On a game page, a bar lets the reader choose the player count and the extensions and variants (or everything): the page shows only what applies, like `tabula show`, picks the right text in inline choices, renumbers steps and updates card counts. The choice is kept in the address (`#p=4&o=pandora`), so a link opens the same view. Works offline from the folder, or on any static host. The folder is replaced on every run, but only if `tabula site` made it. |
 | `tabula book [GAME…] [-p N] [-e …] [-v …] [-k] [-l CODE] [-t TITLE] [-o FILE]` | write games as an EPUB 3 book (default: the whole vault, in `<vault-name>.epub`): a title page and a chapter per game (cover, facts, rules, glossary, card catalogs), with a table of contents of the games and their sections. Without `-e`/`-v` everything is included and marked; with them, only those extensions and variants. `-p` leaves out the games that aren't for that many players. `-k`: only the key rules. Images from the web can't be shown in a book, so their caption stays; links to games that aren't in the book become plain text. |
 | `tabula new SLUG [-t TITLE] [-p N] [-l CODE]` / `tabula new bgg ID [SLUG]` | start a game file: `<slug>/<slug>.game` with the frontmatter and the usual sections (with roles, headings in the game's language, a TODO in each). `new bgg ID` fills the frontmatter from BoardGameGeek (title, players, duration, age, year, designers, artists, publisher, box image saved as `media/cover.*`, found without a `cover:` line); `new bgg NAME` lists matching games and their IDs. Needs a BoardGameGeek token in `BGG_TOKEN`. Never replaces an existing game without `--force`. |
 | `tabula sheet GAME [NAME] [N] [-p N] [--list] [-o FILE]` | write the game's score sheets (`.sheet`, see 11) as HTML pages the size of the paper, to print or save as PDF: one player column per player (`-p N` or a number, within the game's player count; by default its largest). `NAME` picks one sheet; `--list` lists them; the target can also be a `.sheet` file (`--stdin` for editors) |
@@ -761,6 +772,7 @@ extensions: [supercharge]              in frontmatter; then {+supercharge}
 oh-my-socks.de.game                    translation
 oh-my-socks.sheet                      score sheet: | Manche | {player} |, {r} rows, // shaded, < ^ merged
 ## À votre tour {#turn}                 turn summary (show/export --turn)
+## En bref {#summary}                   rules summary (show/export --summary)
 Carte                                  a card with fields and a picture
 : points:: 3
   image:: media/cards/carte.png
@@ -775,6 +787,8 @@ year: 2019 / series: Micro             in frontmatter: the year it came out / yo
 ## 16. Versions
 
 The spec has a version of its own; the `tabula` CLI and the VS Code extension have theirs (see their changelogs). From 1.0 on, a new feature that doesn't change what existing files mean is a minor version (1.1, 1.2…); a change that makes an existing file mean something else, or no longer valid, is a major version (2.0), and `tabula check` points out what to change, as it does for v0.3 syntax.
+
+**1.1** (October 2026): the `#summary` role and the rules summary (9).
 
 **1.0** (October 2026): the format is considered stable. Added since 0.9:
 

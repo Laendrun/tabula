@@ -1,6 +1,6 @@
 # Tabula
 
-Board, card and homemade games as plain Markdown files (`.game`). The rules can be filtered by player count, variant and language. See `spec/SPEC.md` for the format (v1.0), and `spec/schemas/` for JSON Schemas of the frontmatter, `vault.yaml`, `wishlist.yaml` and `.sheet` files.
+Board, card and homemade games as plain Markdown files (`.game`). The rules can be filtered by player count, variant and language. See `spec/SPEC.md` for the format (v1.1), and `spec/schemas/` for JSON Schemas of the frontmatter, `vault.yaml`, `wishlist.yaml` and `.sheet` files.
 
 ## Install
 
@@ -29,6 +29,7 @@ tabula show frantic -s glossary        # only one section (role or title)
 tabula show hearts --key -p 4          # cheat sheet: only the key rules and key sections
 tabula show hearts --turn               # turn summary: the {#turn} section, then the key rules
 tabula export hearts --turn --paper a5  # ...as a page to print on A5
+tabula show hearts --summary            # rules summary: the {#summary} section, then the key rules
 tabula show hearts --json              # parsed structure
 tabula lookup frantic black hole       # one card/term, for use at the table (typos and accents ok)
 tabula export frantic -p 4 -e supercharge   # → frantic-4p-supercharge.html (open in a browser, print)

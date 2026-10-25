@@ -172,15 +172,16 @@ footer{grid-column:1/-1;border-top:1px solid var(--rule);padding-top:1rem;color:
 </head>
 <body>
 <div class="page">
-<nav class="site"><a href="../index.html">← All games</a><span class="here">Rules</span><a href="key.en.html">Key rules</a><span class="here">EN</span> · <a href="index.html" hreflang="fr">FR</a></nav>
+<nav class="site"><a href="../index.html">← All games</a><span class="here">Rules</span><a href="summary.en.html">Quick rules</a><a href="key.en.html">Key rules</a><span class="here">EN</span> · <a href="index.html" hreflang="fr">FR</a></nav>
 <header class="game"><div><h1>Hearts</h1>
 <ul class="facts"><li>3–5 players</li><li>best with 4</li><li>30–60 min</li><li>10+</li></ul>
 
 <details class="options-info"><summary>Extensions and variants</summary><ul class="options-info"><li><b>The jack of diamonds is worth -10 points</b> <code>+omnibus</code></li></ul></details></div></header>
 <form class="game-filters" id="tabula-filters" onsubmit="return false"><label>Players <select id="f-players"><option value="">any</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></label><label class="all"><input type="checkbox" id="f-all" checked> Everything</label><span class="opts" role="group" aria-label="Extensions and variants"><label title="The jack of diamonds is worth -10 points"><input type="checkbox" value="omnibus"> omnibus</label></span></form>
-<nav class="toc" aria-label="Contents"><h2>Contents</h2><ol><li><a href="#overview">Overview</a></li><li><a href="#component">Components</a></li><li><a href="#goal">Goal</a></li><li><a href="#setup">Setup</a><ol><li><a href="#passing">Passing</a></li><li><a href="#passing-2">Passing</a></li></ol></li><li><a href="#play">Play</a></li><li><a href="#scoring">Scoring</a></li><li><a href="#glossary">Glossary</a></li></ol></nav>
+<nav class="toc" aria-label="Contents"><h2>Contents</h2><ol><li><a href="#overview">Overview</a></li><li><a href="#summary">In short</a></li><li><a href="#component">Components</a></li><li><a href="#goal">Goal</a></li><li><a href="#setup">Setup</a><ol><li><a href="#passing">Passing</a></li><li><a href="#passing-2">Passing</a></li></ol></li><li><a href="#play">Play</a></li><li><a href="#scoring">Scoring</a></li><li><a href="#glossary">Glossary</a></li></ol></nav>
 <main>
 <section class="sec"><h2 id="overview">Overview</h2><p>A classic trick-taking game where you try <em>not</em> to win certain cards. Every heart costs you a point and the queen of spades costs a lot, unless you're bold enough to take them all.</p></section>
+<section class="sec"><h2 id="summary">In short</h2><p>Deal all the cards. On each <a class="ref" href="#t-trick" title="One card from each player; the highest card of the led suit takes them all.">trick</a>, follow suit if you can. Avoid taking hearts and the queen of spades: the game ends at 100 points, and the lowest score wins.</p></section>
 <section class="sec"><h2 id="component">Components</h2><ul>
 <li id="c-deck">1x <a class="ref" href="#c-deck" title="1x deck — standard 52 cards, no jokers">deck</a> — standard 52 cards, no jokers
 </li>
@@ -219,7 +220,7 @@ footer{grid-column:1/-1;border-top:1px solid var(--rule);padding-top:1rem;color:
 <p class="key">The game ends when a player reaches 100 points. Lowest score wins.</p></section>
 <section class="sec"><h2 id="glossary">Glossary</h2><div class="cards"><article class="card" id="t-trick"><h3>Trick</h3><p>One card from each player; the highest card of the led suit takes them all.</p></article><article class="card" id="t-heart-are-broken"><h3>Hearts are broken</h3><p>A heart has been discarded on an earlier trick, so hearts may now be led.</p></article><article class="card" id="t-shoot-the-moon"><h3>Shoot the moon</h3><p>Taking every heart plus the queen of spades in a single hand.</p></article></div></section>
 </main>
-<footer>Exported with tabula 0.29.0 on 2026-10-22.</footer>
+<footer>Exported with tabula 0.35.0 on 2026-10-23.</footer>
 </div>
 <script>
 (function () {

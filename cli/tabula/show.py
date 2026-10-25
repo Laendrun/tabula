@@ -8,7 +8,7 @@ import sys
 
 from .syntax import Ctx, in_range, parse_range
 from .blocks import components_of
-from .filtering import filter_blocks, section_names, select_key, select_sections, select_turn
+from .filtering import filter_blocks, section_names, select_key, select_sections, select_summary, select_turn
 from .vault import open_vault
 from .fields import GAME_KEYS, extra_fields, year
 from .options import OPTION_KEYS, apply_options, names, option_info, players_note, players_range
@@ -71,7 +71,13 @@ def cmd_show(args) -> int:
                   f"available: {', '.join(avail) or '(none)'}", file=sys.stderr)
             return 2
         blocks = picked
-    if args.turn:
+    if args.summary:
+        blocks = select_summary(blocks, turn=args.turn)
+        if not blocks:
+            print(f"tabula: no rules summary in {game.title} (give the section that sums up the rules the role "
+                  f"#summary: '## En bref {{#summary}}')", file=sys.stderr)
+            return 1
+    elif args.turn:
         blocks = select_turn(blocks)
         if not blocks:
             print(f"tabula: no turn summary in {game.title} (give the section that describes a turn the role "
@@ -104,7 +110,7 @@ def cmd_show(args) -> int:
         out.append(st.dim(ml))
     if own := extra_fields(game.meta, GAME_KEYS, game.language):
         out.append(st.dim(" · ".join(f"{k}: {v}" for k, v in own)))
-    f = ["turn summary"] if args.turn else ["key rules"] if args.key else []
+    f = ["rules summary"] if args.summary else ["turn summary"] if args.turn else ["key rules"] if args.key else []
     f += [f"{ctx.players} players"] if ctx.players is not None else []
     if ctx.everything:
         if game.options:

@@ -6,6 +6,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/): Added, Chang
 
 ## Unreleased
 
+## 0.35.0 — 2026-10-23
+
+### Added
+- The rules summary (spec 1.1): give the section that sums up the rules the role `#summary` (`## En bref {#summary}`). `tabula show GAME --summary` and `tabula export GAME --summary [--paper a5]` give that section, then the key rules and key sections found anywhere else; with `--turn` too, the `#turn` section follows it. `tabula site` adds a "Règles en bref" / "Quick rules" page (`summary.html`) to games that have one. `#summary` is a suggested role (`tabula check` suggests it for a misspelling).
+
 ## 0.34.0 — 2026-10-23
 
 ### Changed

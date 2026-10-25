@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 from .export import HTML_CSS, HtmlRenderer
-from .filtering import filter_blocks, select_key, select_turn
+from .filtering import filter_blocks, select_key, select_summary, select_turn
 from .syntax import Ctx, fold, in_range, parse_range
 from .vault import Game, Vault, open_vault
 from .wishlist import load_wishes, wish_ui, wishlist_page
@@ -23,15 +23,15 @@ MARKER = ".tabula-site"          # marks a folder made by `tabula site`, so it c
 SITE_UI = {
     "en": {"games": "games", "players": "Players", "any": "any", "duration": "Duration", "up_to": "up to {} min",
            "search": "Search a game, a designer…", "count": "{} of {} games", "none": "No game matches.",
-           "rules": "Rules", "key": "Key rules", "turn": "Turn summary", "all_games": "All games", "min": "min", "players_n": "{} players",
+           "rules": "Rules", "summary": "Quick rules", "key": "Key rules", "turn": "Turn summary", "all_games": "All games", "min": "min", "players_n": "{} players",
            "age": "{}+", "reset": "Reset", "tags": "Tags", "sheet": "Score sheet"},
     "fr": {"games": "jeux", "players": "Joueurs", "any": "tous", "duration": "Durée", "up_to": "jusqu'à {} min",
            "search": "Chercher un jeu, un auteur…", "count": "{} jeux sur {}", "none": "Aucun jeu ne correspond.",
-           "rules": "Règles", "key": "Règles clés", "turn": "Résumé du tour", "all_games": "Tous les jeux", "min": "min",
+           "rules": "Règles", "summary": "Règles en bref", "key": "Règles clés", "turn": "Résumé du tour", "all_games": "Tous les jeux", "min": "min",
            "players_n": "{} joueurs", "age": "{} ans et +", "reset": "Réinitialiser", "tags": "Étiquettes", "sheet": "Feuille de score"},
     "de": {"games": "Spiele", "players": "Spieler", "any": "alle", "duration": "Dauer", "up_to": "bis {} Min.",
            "search": "Spiel oder Autor suchen…", "count": "{} von {} Spielen", "none": "Kein Spiel passt.",
-           "rules": "Regeln", "key": "Kernregeln", "turn": "Spielzug", "all_games": "Alle Spiele", "min": "Min.",
+           "rules": "Regeln", "summary": "Kurzregeln", "key": "Kernregeln", "turn": "Spielzug", "all_games": "Alle Spiele", "min": "Min.",
            "players_n": "{} Spieler", "age": "ab {}", "reset": "Zurücksetzen", "tags": "Schlagwörter", "sheet": "Wertungsblatt"},
 }
 DURATIONS = [15, 30, 45, 60, 90, 120, 180]
@@ -72,14 +72,16 @@ def ui_for(lang: str) -> dict:
 
 
 def game_nav(base: Game, lang: str, kind: str, has_key: dict[str, bool], sheets=(), has_turn=None,
-             wished: int = 0) -> str:
+             wished: int = 0, has_summary=None) -> str:
     """Links above a game page, in the page's language: all games · rules / key rules · languages."""
     esc = html.escape
     ui = ui_for(lang)
     d = base.default_language
     parts = [f'<a href="../index.html">← {esc(ui["all_games"])}</a>']
-    for k, label in (("index", ui["rules"]), ("key", ui["key"]), ("turn", ui["turn"])):
-        if (k == "key" and not has_key.get(lang)) or (k == "turn" and not (has_turn or {}).get(lang)):
+    have_page = {"index": {lang: True for lang in base.languages}, "summary": has_summary or {}, "key": has_key,
+                 "turn": has_turn or {}}
+    for k, label in (("index", ui["rules"]), ("summary", ui["summary"]), ("key", ui["key"]), ("turn", ui["turn"])):
+        if not have_page[k].get(lang):
             continue
         parts.append(f'<span class="here">{esc(label)}</span>' if k == kind
                      else f'<a href="{page_name(k, lang, d)}">{esc(label)}</a>')
@@ -91,8 +93,7 @@ def game_nav(base: Game, lang: str, kind: str, has_key: dict[str, bool], sheets=
     if len(base.languages) > 1:
         langs = []
         for l in base.languages:
-            have = {"index": True, "key": has_key.get(l), "turn": (has_turn or {}).get(l)}
-            target = kind if have.get(kind) else "index"
+            target = kind if have_page.get(kind, {}).get(l) else "index"
             langs.append(f'<span class="here">{l.upper()}</span>' if l == lang
                          else f'<a href="{esc(page_name(target, l, d))}" hreflang="{esc(l)}">{esc(l.upper())}</a>')
         parts.append(" · ".join(langs))
@@ -111,6 +112,8 @@ def write_game(vault: Vault, path: Path, out: Path, wished: dict | None = None) 
     has_key = {lang: bool(k) for lang, k in keys.items()}
     turns = {lang: select_turn(blocks) for lang, blocks in filtered.items()}
     has_turn = {lang: bool(t) for lang, t in turns.items()}
+    summaries = {lang: select_summary(blocks) for lang, blocks in filtered.items()}
+    has_summary = {lang: bool(t) for lang, t in summaries.items()}
     sheets = []
     for s in sheets_of(path, vault.root):
         sh = load_sheet(s, vault)
@@ -120,19 +123,26 @@ def write_game(vault: Vault, path: Path, out: Path, wished: dict | None = None) 
     for lang, g in versions.items():
         r = HtmlRenderer(g, filtered[lang], ctx, interactive=True)
         r.game_href = "../{}/index.html"
-        nav = game_nav(base, lang, "index", has_key, sheets, has_turn, (wished or {}).get(base.slug, 0))
+        nav = game_nav(base, lang, "index", has_key, sheets, has_turn, (wished or {}).get(base.slug, 0), has_summary)
         (folder / page_name("index", lang, base.default_language)).write_text(r.page(nav=nav), encoding="utf-8")
         if keys[lang]:
             r = HtmlRenderer(g, keys[lang], ctx, key_only=True, interactive=True)
             r.game_href = "../{}/index.html"
-            nav = game_nav(base, lang, "key", has_key, sheets, has_turn, (wished or {}).get(base.slug, 0))
+            nav = game_nav(base, lang, "key", has_key, sheets, has_turn, (wished or {}).get(base.slug, 0), has_summary)
             (folder / page_name("key", lang, base.default_language)).write_text(
                 r.page(f" — {r.t['key']}", nav=nav), encoding="utf-8")
+        if summaries[lang]:
+            r = HtmlRenderer(g, summaries[lang], ctx, interactive=True)
+            r.game_href = "../{}/index.html"
+            r.sel_label, r.paper = r.t["summary"], "a5"
+            nav = game_nav(base, lang, "summary", has_key, sheets, has_turn, (wished or {}).get(base.slug, 0), has_summary)
+            (folder / page_name("summary", lang, base.default_language)).write_text(
+                r.page(f" — {r.t['summary']}", nav=nav), encoding="utf-8")
         if turns[lang]:
             r = HtmlRenderer(g, turns[lang], ctx, interactive=True)
             r.game_href = "../{}/index.html"
             r.sel_label, r.paper = r.t["turn"], "a5"
-            nav = game_nav(base, lang, "turn", has_key, sheets, has_turn, (wished or {}).get(base.slug, 0))
+            nav = game_nav(base, lang, "turn", has_key, sheets, has_turn, (wished or {}).get(base.slug, 0), has_summary)
             (folder / page_name("turn", lang, base.default_language)).write_text(
                 r.page(f" — {r.t['turn']}", nav=nav), encoding="utf-8")
     cover = ""
@@ -141,7 +151,8 @@ def write_game(vault: Vault, path: Path, out: Path, wished: dict | None = None) 
         shutil.copyfile(src, folder / f"cover{src.suffix.lower()}")
         cover = f"{base.slug}/cover{src.suffix.lower()}"
     shown = versions.get(vault.language, base)       # the title in the vault's language, when there is one
-    return {"game": base, "shown": shown, "has_key": has_key, "has_turn": has_turn, "sheets": len(sheets), "cover": cover,
+    return {"game": base, "shown": shown, "has_key": has_key, "has_turn": has_turn, "has_summary": has_summary,
+            "sheets": len(sheets), "cover": cover,
             "errors": sum(i.level == "error" for i in base.issues)}
 
 
@@ -345,7 +356,8 @@ def cmd_site(args) -> int:
     (out / "index.html").write_text(index_page(vault, entries, ui, lang, len(wishes)), encoding="utf-8")
     if wishes:
         (out / "wishlist.html").write_text(wishlist_page(vault, wishes, lang, HTML_CSS + INDEX_CSS), encoding="utf-8")
-    pages = sum(len(e["game"].languages) + sum(e["has_key"].values()) + sum(e["has_turn"].values()) + e["sheets"]
+    pages = sum(len(e["game"].languages) + sum(e["has_key"].values()) + sum(e["has_turn"].values())
+                + sum(e["has_summary"].values()) + e["sheets"]
                 for e in entries)
     pages += 1 if wishes else 0
     print(f"wrote {out} ({len(entries)} games, {pages + 1} pages) — open {out / 'index.html'}")

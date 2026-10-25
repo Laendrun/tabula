@@ -14,6 +14,11 @@ A classic trick-taking game where you try *not* to win certain cards.
 Every heart costs you a point and the queen of spades costs a lot,
 unless you're bold enough to take them all.
 
+# In short {#summary}
+
+Deal all the cards. On each [[trick]], follow suit if you can.
+Avoid taking hearts and the queen of spades: the game ends at 100 points, and the lowest score wins.
+
 # Components
 
 - 1x [[deck]] — standard 52 cards, no jokers
