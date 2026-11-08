@@ -10,6 +10,7 @@ local M = {}
 
 M.config = {
   cmd = { "tabula" },          -- how to run tabula, e.g. { "python3", "-m", "tabula" }
+  vault = nil,                 -- the vault's folder (tabula --vault); else found from each file, as tabula does
   spell = false,               -- also check spelling (tabula check --spell)
   definitions = false,         -- every component needs a glossary definition
   autocomplete = true,         -- open the completion menu as you type [[, {=, :x… (Neovim 0.11+)
@@ -25,12 +26,18 @@ local function warn_once(key, msg)
   vim.schedule(function() vim.notify(msg, vim.log.levels.WARN) end)
 end
 
---- The vault's root for a file: the folder with vault.yaml, else the one with _shared/.
+--- The vault's root for a file, found as tabula finds it: the folder with vault.yaml, else the one with _shared/,
+--- else the folder above a game's own folder (g/g.game), else the file's folder. One language server per vault.
 function M.vault_root(file)
+  if M.config.vault then return vim.fs.normalize(M.config.vault) end
   local dir = vim.fs.dirname(file)
-  local found = vim.fs.find({ "vault.yaml", "vault.yml" }, { upward = true, path = dir })[1]
+  local found = vim.fs.find({ "vault.yaml" }, { upward = true, path = dir })[1]
     or vim.fs.find({ "_shared" }, { upward = true, path = dir, type = "directory" })[1]
-  return found and vim.fs.dirname(found) or dir
+  if found then return vim.fs.dirname(found) end
+  local name = vim.fs.basename(dir)
+  local slug = vim.fs.basename(file):gsub("%..*$", "")          -- g.fr.game -> g
+  if slug == name or vim.uv.fs_stat(dir .. "/" .. name .. ".game") then return vim.fs.dirname(dir) end
+  return dir
 end
 
 -- ------------------------------------------------------------------ the language server
@@ -56,7 +63,9 @@ function M.start(buf)
     return nil
   end
   vim.lsp.commands["tabula.showReferences"] = show_references
-  local cmd = vim.list_extend(vim.deepcopy(c.cmd), { "lsp" })
+  local cmd = vim.deepcopy(c.cmd)
+  if c.vault then vim.list_extend(cmd, { "--vault", c.vault }) end
+  table.insert(cmd, "lsp")
   return vim.lsp.start({
     name = "tabula",
     cmd = cmd,
@@ -79,7 +88,7 @@ function M.preview(buf)
   local file = vim.api.nvim_buf_get_name(buf)
   local out = vim.fn.tempname() .. ".html"
   local args = vim.deepcopy(M.config.cmd)
-  vim.list_extend(args, { "--vault", M.vault_root(file) })
+  if M.config.vault then vim.list_extend(args, { "--vault", M.config.vault }) end   -- else tabula finds it
   if file:match("%.sheet$") then
     vim.list_extend(args, { "sheet", file, "--stdin", "-o", out })
   else
@@ -105,6 +114,10 @@ function M.attach(buf)
   local c = M.config
   vim.bo[buf].commentstring = "<!-- %s -->"
   local group = vim.api.nvim_create_augroup("tabula_buf_" .. buf, { clear = true })
+  -- what :setfiletype something-else undoes (with the options in ftplugin/tabula.lua)
+  local undo = vim.b[buf].undo_ftplugin
+  vim.b[buf].undo_ftplugin = (undo and undo ~= "" and (undo .. " | ") or "")
+    .. "lua require('tabula').detach(" .. buf .. ")"
   vim.api.nvim_buf_create_user_command(buf, "TabulaPreview", function() M.preview(buf) end,
     { desc = "Open the game (or the sheet) in the browser" })
   vim.api.nvim_buf_create_user_command(buf, "TabulaFormat", function()
@@ -134,6 +147,18 @@ function M.attach(buf)
     end })
   end
   M.start(buf)
+end
+
+--- Undo attach(): the buffer is no longer a tabula buffer.
+function M.detach(buf)
+  pcall(vim.api.nvim_del_augroup_by_name, "tabula_buf_" .. buf)
+  for _, name in ipairs({ "TabulaPreview", "TabulaFormat", "TabulaCheck" }) do
+    pcall(vim.api.nvim_buf_del_user_command, buf, name)
+  end
+  pcall(vim.keymap.del, "n", "gd", { buffer = buf })
+  for _, client in ipairs(vim.lsp.get_clients({ bufnr = buf, name = "tabula" })) do
+    pcall(vim.lsp.buf_detach_client, buf, client.id)
+  end
 end
 
 function M.setup(opts)

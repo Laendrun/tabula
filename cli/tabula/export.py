@@ -15,7 +15,7 @@ from .syntax import (
 from .blocks import callout_family, callout_title, card_image, shown_fields, Block, components_of, is_sep_row, player_columns, player_rows
 from .filtering import filter_blocks, section_end, section_names, select_key, select_sections, select_summary, select_turn
 from .source import UNSAVED, local_file
-from .vault import Game, open_vault
+from .vault import Game, open_vault, say_fallback
 from .fields import GAME_KEYS, extra_fields, year as year_of
 from .options import OPTION_KEYS, apply_options, names, needs_of, option_info, players_note, players_range
 from .terminal import find_section, plain
@@ -981,6 +981,7 @@ def cmd_export(args) -> int:
         lang = split_lang(Path(args.game).stem)[1]      # slug.fr.game: the French version
     vault = open_vault(args.vault, args.game)
     game = vault.load(vault.find(args.game), lang)
+    say_fallback(game, lang)
     if args.interactive:           # the site's page: everything, with the filter bar
         args.players, args.variant, args.ext, args.all = None, None, None, True
     if args.all and (args.ext or args.variant):

@@ -27,6 +27,7 @@ The plugin needs tabula with pygls: `pipx install ./cli` from the repository, th
 ```lua
 require("tabula").setup({
   cmd = { "tabula" },          -- how to run tabula, e.g. { "python3", "-m", "tabula" }
+  vault = nil,                 -- the vault's folder (tabula --vault); else found from each file, as tabula does
   spell = false,               -- also check spelling (tabula with spylls)
   definitions = false,         -- every component needs a glossary definition
   autocomplete = true,         -- completion menu as you type (Neovim 0.11+)

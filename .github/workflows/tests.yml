@@ -1,14 +1,19 @@
 name: tests
 on: pull_request                         # pull requests only (opened, updated); not every push
+permissions:
+  contents: read                         # the tests only read the repository
 
 jobs:
   cli:
     runs-on: ubuntu-26.04
+    strategy:
+      matrix:
+        python: ["3.10", "3.13"]         # the oldest Python tabula supports (requires-python), and a recent one
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.13"
+          python-version: ${{ matrix.python }}
       - run: pip install -e "./cli[test]"     # tabula + pyyaml + pytest, from cli/pyproject.toml
       - run: pytest -q tests
       - run: tabula --vault examples/vault check
@@ -42,8 +47,10 @@ jobs:
         with:
           python-version: "3.13"
       - run: pip install -e "./cli[lsp]"         # the plugin starts the language server: tabula lsp
-      - run: |
-          curl -sSL https://github.com/neovim/neovim/releases/download/v0.11.4/nvim-linux-x86_64.tar.gz | tar xz
+      - run: |                                   # Neovim 0.11.4, checked against its known SHA-256
+          curl -sSL -o nvim.tar.gz https://github.com/neovim/neovim/releases/download/v0.11.4/nvim-linux-x86_64.tar.gz
+          echo "a74740047e73b2b380d63a474282814063d10650cd6cc95efa16d1713c7e616c  nvim.tar.gz" | sha256sum -c -
+          tar xzf nvim.tar.gz
           echo "$PWD/nvim-linux-x86_64/bin" >> "$GITHUB_PATH"
       - run: nvim --headless -u NONE -l editors/nvim/tests/test.lua
       - run: nvim --headless -u NONE -l editors/nvim/tests/root.lua    # what lazy.nvim installs

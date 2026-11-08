@@ -185,7 +185,10 @@ def cmd_fmt(args) -> int:
             paths += sheets_of(p, vault.root)                                     # and its score sheets
     else:
         from .fragments import fragment_files
-        paths = [p for p in vault.root.rglob("*.game")] + fragment_files(vault.root) + list(vault.root.rglob("*.sheet"))
+        def in_vault(p: Path) -> bool:      # not in .hidden/ or _drafts/ folders, which no command reads either
+            return not any(part.startswith((".", "_")) for part in p.relative_to(vault.root).parts[:-1])
+        paths = [p for p in [*vault.root.rglob("*.game"), *vault.root.rglob("*.sheet")] if in_vault(p)] \
+            + fragment_files(vault.root)
     changed = unsafe = 0
     for p in sorted(set(paths)):
         rel = p.relative_to(vault.root) if p.is_relative_to(vault.root) else p

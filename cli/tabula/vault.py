@@ -13,14 +13,13 @@ try:
 except ImportError:  # pragma: no cover
     sys.exit("tabula needs PyYAML:  pip install pyyaml")
 
-from .syntax import LANG_RE, fold, split_lang
+from .syntax import IMAGE_EXTS, LANG_RE, fold, split_lang
 from .fragments import SHARED_DIR, expand_includes
 from .values import expand_values, merged_values, value_problems
 from .symbols import expand_symbols, merged_symbols, symbol_problems
 from .source import Issues, load_yaml, local_file, read_source
 from .blocks import Block, parse_blocks
 
-IMAGE_EXTS = (".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif", ".svg")
 
 
 @dataclass
@@ -157,9 +156,18 @@ class Vault:
             if cand.exists():
                 return cand
         games = self.discover()
-        hits = [g for g in games if ref.lower() in g.stem.lower()]
+        if (named := game_named(self.root, ref)) is not None:        # its title: "Crazy Eights"
+            return named
+        # the start of one of its words ("eight" for crazy-eights), never the middle of one ("ndid" for bandido):
+        # fmt and wish change the game found, so it has to be the one meant (and it is said which one)
+        want = _slug(ref)
+        hits = [g for g in games if want and (g.stem.startswith(want) or any(
+            w.startswith(want) for w in g.stem.split("-")))]
         if len(hits) == 1:
+            print(f"tabula: '{ref}' is {hits[0].stem}", file=sys.stderr)
             return hits[0]
+        if len(hits) > 1:
+            raise SystemExit(f"tabula: '{ref}' could be {', '.join(g.stem for g in hits)}: write more of its name")
         raise SystemExit(f"tabula: game '{ref}' not found in {self.root}\n"
                          f"  available: {', '.join(g.stem for g in games) or '(none)'}")
 
@@ -207,6 +215,13 @@ class Vault:
         lines = expand_symbols(lines, merged_symbols(self.root, folder or path.parent, self.config, meta))
         return Game(slug, path, folder, meta, parse_blocks(lines), lines, issues, language,
                     default_lang, languages, fallback, body_path, tr_meta, root=self.root)
+
+
+def say_fallback(game: "Game", lang: str | None) -> None:
+    """Tell (on stderr) that the language asked for (-l) doesn't exist and which one is used instead."""
+    if game.fallback:
+        print(f"tabula: {game.title} has no '{lang}' version (available: {', '.join(game.languages)}); "
+              f"showing '{game.default_language}'", file=sys.stderr)
 
 
 def open_vault(arg: str | None, ref: str | None = None) -> Vault:

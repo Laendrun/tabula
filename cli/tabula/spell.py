@@ -16,7 +16,7 @@ import tarfile
 import urllib.request
 from pathlib import Path
 
-from .syntax import BRACES_RE, FENCE_RE, parse_choice
+from .syntax import BRACES_RE, CODE_SPAN_RE as CODE_RE, Fences, parse_choice
 from .source import raw_text
 from .symbols import SYMBOL_RE
 
@@ -24,7 +24,6 @@ REGISTRY = "https://registry.npmjs.org/dictionary-{name}/latest"
 WORD_RE = re.compile(r"(?<!\w)[^\W\d_]+(?:'[^\W\d_]+)*(?!\w)")    # whole words: not "er" of "1er"
 INCLUDE_RE = re.compile(r"!\[\[[^\[\]\n]*\]\]")
 REF_RE = re.compile(r"(?<!\\)\[\[([^\[\]|\n]+?)(?:\|([^\[\]\n]+?))?\]\]")
-CODE_RE = re.compile(r"`[^`\n]*`")
 URL_RE = re.compile(r"\b(?:https?://|www\.)\S+")
 TAG_RE = re.compile(r"</?[A-Za-z][^<>\n]*>")
 PATH_RE = re.compile(r"(?<!\w)[\w.-]+(?:/[\w.-]+)+|\b[\w-]+\.(?:png|jpe?g|gif|svg|webp|pdf|game|sheet|ya?ml)\b", re.I)
@@ -200,12 +199,9 @@ def check_spelling(game, vault, lang: str | None = None) -> list[tuple[int, str]
                         or any(p.lower() in known or lookup(p) for p in parts))
         return cache[w]
 
-    out, in_code = [], False
+    out, fences = [], Fences()
     for i in range(start, len(lines)):
-        if FENCE_RE.match(lines[i]):
-            in_code = not in_code
-            continue
-        if in_code:
+        if fences.inside(lines[i]):
             continue
         seen = set()
         for w in WORD_RE.findall(prose(lines[i])):

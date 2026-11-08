@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from .syntax import COMPONENT_RE, Cond, Ctx, REF_RE, cond_ok, fold
 from .blocks import Block
 from .filtering import filter_blocks, select_sections
-from .vault import open_vault
+from .vault import open_vault, say_fallback
 from .options import apply_options
 from .terminal import Style, block_json, render_blocks, wrap
 
@@ -95,6 +95,7 @@ def see_also(entry: Entry, entries: list[Entry]) -> list[str]:
 def cmd_lookup(args) -> int:
     vault = open_vault(args.vault, args.game)
     game = vault.load(vault.find(args.game), args.lang)
+    say_fallback(game, args.lang)
     if args.all and (args.ext or args.variant):
         print("tabula: --all already includes every extension and variant; drop either --all or -e/-v", file=sys.stderr)
         return 2

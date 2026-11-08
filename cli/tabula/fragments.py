@@ -7,7 +7,7 @@ from pathlib import Path
 
 from .blocks import SCOPE_MARK, QUIET_END
 from .source import Issue, Issues, read_source
-from .syntax import FENCE_RE, HEADING_RE, fold
+from .syntax import HEADING_RE, Fences, fold
 
 SHARED_DIR = "_shared"
 INCLUDE_RE = re.compile(r"^(\s*)!\[\[([^\[\]#|\n]+?)(?:#([^\[\]|\n]+))?\]\]\s*$")
@@ -44,11 +44,9 @@ def heading_title(text: str) -> tuple[str, list[str]]:
 
 
 def sections_of(texts: list[str]) -> list[str]:
-    out, code = [], False
+    out, fences = [], Fences()
     for t in texts:
-        if FENCE_RE.match(t):
-            code = not code
-        elif not code and (m := HEADING_RE.match(t)):
+        if not fences.inside(t) and (m := HEADING_RE.match(t)):
             title, roles = heading_title(m.group(2))
             out.append(title + "".join(f" #{r}" for r in roles))
     return out
@@ -64,12 +62,10 @@ def select_section(texts: list[str], want: str) -> tuple[list[str], int, str, st
     """The content of the section titled (or with the role) `want`, without its heading; its level, its title
     and its condition (that still applies to what is included)."""
     want_key, want_role = fold(want), want.strip().lower()
-    code = False
+    fences = Fences()
     start = level = None
     for i, t in enumerate(texts):
-        if FENCE_RE.match(t):
-            code = not code
-        if code or not (m := HEADING_RE.match(t)):
+        if fences.inside(t) or not (m := HEADING_RE.match(t)):
             continue
         title, roles = heading_title(m.group(2))
         if fold(title) == want_key or want_role in roles:
@@ -77,11 +73,9 @@ def select_section(texts: list[str], want: str) -> tuple[list[str], int, str, st
             break
     if start is None:
         return None
-    body, deeper, code = [], [], False
+    body, deeper, fences = [], [], Fences()
     for t in texts[start + 1:]:
-        if FENCE_RE.match(t):
-            code = not code
-        elif not code:
+        if not fences.inside(t):
             if m := HEADING_RE.match(t):
                 n = len(m.group(1))
                 if n <= level:
@@ -101,11 +95,9 @@ def select_section(texts: list[str], want: str) -> tuple[list[str], int, str, st
 
 def shift_headings(texts: list[str], base: int, under: int) -> list[str]:
     """Headings of level base+k become level under+k (at most 6): fragment sections nest where they land."""
-    out, code = [], False
+    out, fences = [], Fences()
     for t in texts:
-        if FENCE_RE.match(t):
-            code = not code
-        elif not code and (m := HEADING_RE.match(t)):
+        if not fences.inside(t) and (m := HEADING_RE.match(t)):
             n = min(6, max(1, under + len(m.group(1)) - base))
             t = "#" * n + t[len(m.group(1)):]
         out.append(t)
@@ -119,7 +111,7 @@ def expand_includes(lines: list[tuple[int, str]], root: Path, lang: str | None, 
     Included lines keep the include's line number (so problems point at the `![[…]]` line) and its
     indentation; the fragment's headings are nested under the section the include is in."""
     out: list[tuple[int, str]] = []
-    level, code = 0, False
+    level, fences = 0, Fences()
     budget = _budget if _budget is not None else [MAX_INCLUDED, False]     # [lines left, reported]
 
     def report(ln: int, msg: str):
@@ -127,9 +119,7 @@ def expand_includes(lines: list[tuple[int, str]], root: Path, lang: str | None, 
         issues.append(Issue("error", Path(p), l, msg))
 
     for ln, t in lines:
-        if FENCE_RE.match(t):
-            code = not code
-        if code:
+        if fences.inside(t):
             out.append((ln, t))
             continue
         if m := HEADING_RE.match(t):
@@ -189,11 +179,9 @@ def expand_includes(lines: list[tuple[int, str]], root: Path, lang: str | None, 
 
 def add_cond(texts: list[str], level: int, cond: str) -> list[str]:
     """Headings of `level` (or higher) get `cond` added to their own condition."""
-    out, code = [], False
+    out, fences = [], Fences()
     for t in texts:
-        if FENCE_RE.match(t):
-            code = not code
-        elif not code and (m := HEADING_RE.match(t)) and len(m.group(1)) <= level:
+        if not fences.inside(t) and (m := HEADING_RE.match(t)) and len(m.group(1)) <= level:
             if a := re.search(r"\s*\{([^{}]*)\}\s*$", t):
                 t = f"{t[:a.start()]} {{{cond} {a.group(1).strip()}}}"
             else:
@@ -204,16 +192,16 @@ def add_cond(texts: list[str], level: int, cond: str) -> list[str]:
 
 def open_sections(texts: list[str], level: int) -> int:
     """How many headings deeper than `level` are still open at the end of `texts`."""
-    stack, code = [], False
+    stack, fences = [], Fences()
     for t in texts:
-        if FENCE_RE.match(t):
-            code = not code
-        elif not code and (m := HEADING_RE.match(t)):
+        if fences.inside(t):
+            continue
+        if m := HEADING_RE.match(t):
             n = len(m.group(1))
             while stack and stack[-1] >= n:
                 stack.pop()
             if n > level:
                 stack.append(n)
-        elif not code and (END_RE.match(t) or t == QUIET_END) and stack:
+        elif (END_RE.match(t) or t == QUIET_END) and stack:
             stack.pop()
     return len(stack)

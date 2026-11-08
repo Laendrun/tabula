@@ -139,5 +139,6 @@ def test_epubcheck(tmp_path, capsys, vault, args):
     if not jar:
         pytest.skip("epubcheck (pip install epubcheck) and java are needed")
     book(capsys, vault, *args, "-o", str(tmp_path / "b.epub"))
-    r = subprocess.run(["java", "-jar", str(jar), str(tmp_path / "b.epub")], capture_output=True, text=True)
+    r = subprocess.run(["java", "-Duser.language=en", "-Duser.country=US", "-jar", str(jar), str(tmp_path / "b.epub")],
+                       capture_output=True, text=True)                 # its messages in English, whatever the locale
     assert r.returncode == 0 and "No errors or warnings detected" in r.stdout, r.stdout + r.stderr

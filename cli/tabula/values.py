@@ -15,11 +15,10 @@ import re
 from pathlib import Path
 
 from .source import Issues
-from .syntax import FENCE_RE, parse_cond
+from .syntax import CODE_SPAN_RE as CODE_RE, Fences, parse_cond
 
 VALUE_RE = re.compile(r"(?<!\\)\{=\s*([^\s{}]*?)\s*\}")
 NAME_RE = re.compile(r"^[A-Za-z0-9_][\w-]*$")
-CODE_RE = re.compile(r"`[^`\n]*`")
 
 
 def merged_values(vault_config: dict, *metas: dict) -> dict:
@@ -51,6 +50,8 @@ def value_problems(values) -> list[str]:
             for k, x in v.items():
                 if x is None or str(x).strip() == "":
                     out.append(f"value '{name}': '{k}' has no value")
+                elif any(c in str(x) for c in "{}|"):          # it becomes {2p: … | *: …}: | would end the branch
+                    out.append(f"value '{name}': '{k}' can't contain {{ }} or |")
         elif isinstance(v, list):
             out.append(f"value '{name}' is a list; write {{2p: 7, \"*\": 5}} for values by player count")
         elif v is None or str(v).strip() == "":
@@ -72,17 +73,9 @@ def value_text(v) -> str:
 def expand_values(lines: list[tuple[int, str]], values: dict, issues: Issues, path: Path,
                   strict: bool = True) -> list[tuple[int, str]]:
     """Replace each {=name} by its value, outside code. `strict`: an unknown name is an error."""
-    out, fence = [], None
+    out, fences = [], Fences()
     for ln, t in lines:
-        if fence:
-            fence = None if t.strip().startswith(fence) else fence
-            out.append((ln, t))
-            continue
-        if m := FENCE_RE.match(t):
-            fence = m.group(1)
-            out.append((ln, t))
-            continue
-        if "{=" not in t:
+        if fences.inside(t) or "{=" not in t:
             out.append((ln, t))
             continue
         code = [c.span() for c in CODE_RE.finditer(t)]

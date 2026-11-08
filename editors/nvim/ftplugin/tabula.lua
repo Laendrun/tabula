@@ -6,6 +6,6 @@ vim.opt_local.wrap = true
 vim.opt_local.linebreak = true
 vim.opt_local.comments = "fb:-,fb:*,fb:+,n:>"
 vim.opt_local.formatoptions:remove("t")
-vim.b.undo_ftplugin = "setlocal wrap< linebreak< comments< formatoptions< omnifunc< commentstring<"
+vim.b.undo_ftplugin = "setlocal wrap< linebreak< comments< formatoptions< omnifunc< commentstring<"   -- attach() adds to it
 
 require("tabula").attach(vim.api.nvim_get_current_buf())

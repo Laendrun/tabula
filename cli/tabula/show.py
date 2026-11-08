@@ -9,7 +9,7 @@ import sys
 from .syntax import Ctx, in_range, parse_range
 from .blocks import components_of
 from .filtering import filter_blocks, section_names, select_key, select_sections, select_summary, select_turn
-from .vault import open_vault
+from .vault import open_vault, say_fallback
 from .fields import GAME_KEYS, extra_fields, year
 from .options import OPTION_KEYS, apply_options, names, needs_text, option_info, players_note, players_range
 from .terminal import Style, block_json, plain, render_blocks
@@ -49,9 +49,7 @@ def cmd_show(args) -> int:
         print("tabula: --all already shows every extension and variant; drop either --all or -e/-v", file=sys.stderr)
         return 2
     ctx = Ctx(args.players, {v.lower() for v in (args.variant or []) + (args.ext or [])}, args.all)
-    if game.fallback:
-        print(f"tabula: {game.title} has no '{args.lang}' version (available: {', '.join(game.languages)}); "
-              f"showing '{game.default_language}'", file=sys.stderr)
+    say_fallback(game, args.lang)
     declared = game.variants
     for v in ctx.variants:
         if v not in {k.lower() for k in game.options}:

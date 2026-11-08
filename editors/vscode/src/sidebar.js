@@ -173,7 +173,8 @@ function register(context, deps) {
       players = parseInt(pick, 10);
     }
     const c = cfg();
-    const out = path.join(os.tmpdir(), `tabula-${g.slug}-${path.basename(sheet, ".sheet")}-${players || "all"}.html`);
+    // a folder of its own (not a name anyone on the computer could create first in the shared temp folder)
+    const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "tabula-")), `${g.slug}-${path.basename(sheet, ".sheet")}-${players || "all"}.html`);
     const r = await runTabula([...base(c), "sheet", sheet, ...(players ? ["-p", String(players)] : []), "-o", out], c, undefined, true).done;
     if (!r) return;
     if (r.code !== 0) return vscode.window.showErrorMessage(`Tabula: ${(r.err || r.out).trim().split("\n").pop()}`);
