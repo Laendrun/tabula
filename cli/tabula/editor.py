@@ -82,10 +82,11 @@ def targets(o: dict, ref: dict) -> list[tuple[str | None, int]]:
 
 
 def picture(image: dict | None, images: str) -> str:
-    """A card's picture in a hover: an HTML <img> (VS Code), a Markdown image, or its path."""
+    """A card's picture in a hover: an HTML <img> (VS Code), a Markdown image, or its path. Only a file of the
+    vault: a picture on the web would be downloaded each time the mouse passes over the card (it can track you)."""
     if not image:
         return ""
-    src = image.get("url") or (Path(image["path"]).as_uri() if image.get("path") and image.get("exists") else None)
+    src = Path(image["path"]).as_uri() if image.get("path") and image.get("exists") else None
     if src and images == "html":
         return f'<img src="{src}" height="160">'
     if src and images == "markdown":
@@ -179,7 +180,7 @@ def hover(o: dict, text: str, line: int, col: int, images: str = "none") -> tupl
             img = f'<img src="{uri}" height="220">' if images == "html" else f"![]({uri})" if images == "markdown" else ""
             body = (img + "\n\n" if img else "") + f"`{link['src']}`"
         elif link.get("url"):
-            body = f"![]({link['url']})" if images != "none" else link["url"]
+            body = f"`{link['url']}` (on the web: not downloaded in hovers)"
         elif link.get("outside"):
             body = f"`{link['src']}` is outside the vault: tabula doesn't use it"
         else:

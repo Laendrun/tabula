@@ -12,9 +12,9 @@ CLI = Path(__file__).resolve().parents[1] / "cli"
 
 
 class Client:
-    def __init__(self, root: Path, init_options=None, encodings=("utf-16",)):
+    def __init__(self, root: Path, init_options=None, encodings=("utf-16",), args=()):
         env = {**os.environ, "PYTHONPATH": str(CLI) + os.pathsep + os.environ.get("PYTHONPATH", "")}
-        self.p = subprocess.Popen([sys.executable, "-m", "tabula", "lsp"], stdin=subprocess.PIPE,
+        self.p = subprocess.Popen([sys.executable, "-m", "tabula", *args, "lsp"], stdin=subprocess.PIPE,
                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env, cwd=str(root))
         self.next_id = 0
         self.msgs: "queue.Queue" = queue.Queue()
@@ -80,6 +80,9 @@ class Client:
     def change(self, path: Path, text: str, version: int):
         self.notify("textDocument/didChange", {"textDocument": {"uri": path.as_uri(), "version": version},
                                                "contentChanges": [{"text": text}]})
+
+    def close_file(self, path: Path):
+        self.notify("textDocument/didClose", {"textDocument": {"uri": path.as_uri()}})
 
     def wait_diagnostics(self, path: Path, cond=lambda d: True, timeout=15):
         end = time.time() + timeout

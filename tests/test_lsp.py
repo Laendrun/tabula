@@ -172,3 +172,55 @@ def test_characters_when_the_client_offers_utf32(vault):
         assert h["range"]["start"]["character"] == line.index("[[dé]]")
     finally:
         c.close()
+
+
+def test_closing_a_file_clears_its_problems(client):
+    c, f = client
+    c.wait_diagnostics(f, lambda d: any("crad" in x["message"] for x in d))
+    c.close_file(f)
+    c.wait_diagnostics(f, lambda d: d == [])
+
+
+def test_problems_go_to_the_uri_the_editor_opened(vault, tmp_path_factory):
+    root, f = vault
+    link = tmp_path_factory.mktemp("elsewhere") / "linked"
+    link.symlink_to(root, target_is_directory=True)        # a vault reached through a symlink (/tmp on macOS…)
+    opened = link / "g" / "g.game"
+    c = Client(link)
+    try:
+        c.open(opened, GAME)
+        c.wait_diagnostics(opened, lambda d: any("crad" in x["message"] for x in d))
+        assert f.resolve().as_uri() not in c.diagnostics or opened.as_uri() == f.resolve().as_uri()
+    finally:
+        c.close()
+
+
+def test_the_vault_option_is_used(tmp_path):
+    for v in ("a", "b"):
+        (tmp_path / v / "g").mkdir(parents=True)
+        (tmp_path / v / "vault.yaml").write_text("name: T\n", encoding="utf-8")
+    (tmp_path / "b" / "_shared").mkdir()
+    (tmp_path / "b" / "_shared" / "deck.game").write_text("# Glossaire\n\nCarte\n: Une carte.\n", encoding="utf-8")
+    f = tmp_path / "a" / "g" / "g.game"
+    f.write_text(GAME, encoding="utf-8")
+    c = Client(tmp_path, args=("--vault", str(tmp_path / "b")))        # the fragment is only in b
+    try:
+        c.open(f, GAME)
+        d = c.wait_diagnostics(f)
+        assert not any("no shared fragment" in x["message"] for x in d), d
+    finally:
+        c.close()
+    c = Client(tmp_path / "a")                                          # without it: a, where it is missing
+    try:
+        c.open(f, GAME)
+        c.wait_diagnostics(f, lambda d: any("no shared fragment" in x["message"] for x in d))
+    finally:
+        c.close()
+
+
+def test_outline_only_reads_games_and_sheets(client, tmp_path):
+    c, f = client
+    other = tmp_path / "secret.txt"
+    other.write_text("# Secret\n", encoding="utf-8")
+    assert c.request("tabula/outline", {"uri": other.as_uri()}) is None
+    assert c.request("tabula/outline", {"uri": f.as_uri()})["kind"] == "game"
