@@ -13,7 +13,7 @@ from pathlib import Path
 from ._version import __version__
 from .export import HtmlRenderer, html_slug
 from .filtering import filter_blocks, select_key
-from .syntax import Ctx, fold, in_range, parse_range
+from .syntax import LANG_RE, Ctx, fold, in_range, parse_range
 from .vault import Game, open_vault
 from .options import players_range
 
@@ -274,6 +274,9 @@ def cmd_book(args) -> int:
     chosen = {v.lower() for v in (args.variant or []) + (args.ext or [])}
     ctx = Ctx(args.players, chosen, not chosen)         # without -e/-v: everything, marked with badges
     lang = args.lang or vault.language
+    if not LANG_RE.match(lang):                     # it goes into the book's XHTML: a code, nothing else
+        print(f"tabula: -l {lang!r} is not a language code (fr, en, de-CH…)", file=sys.stderr)
+        return 2
     games = [vault.load(p, lang) for p in paths]
     skipped = []
     if args.players is not None:

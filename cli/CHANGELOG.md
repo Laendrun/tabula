@@ -6,6 +6,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/): Added, Chang
 
 ## Unreleased
 
+## 0.37.0 — 2026-11-08
+
+Fixes from the audit of 6 November 2026 (security).
+
+### Security
+- `[text](game:…)` took anything after `game:`, so `game:javascript:…` made a `javascript:` link in exported pages, books and the Neovim preview. `game:` now takes a game's file name only (`game:crazy-eights`); anything else is shown as text.
+- Links to `//host` and `\\host` (and `/\host`) are shown as text: they left the vault while looking like paths. Write `https://host`.
+- A cover found in `media/` (`<slug>_cover.png`) that is a symlink leading out of the vault was published by `tabula site`. It is now ignored like any other file outside the vault, and `tabula check` reports it.
+- Fragments including each other many times (9 files, each including the next 10 times) froze check, the site and the language server. The fragments of a game now add at most 20,000 lines; check reports the include where it stops.
+- YAML aliases (`*name`) in a frontmatter, `vault.yaml` or `wishlist.yaml` are refused (8 levels of aliases froze show and export for more than 20 s).
+- `rounds:` in a `.sheet` is limited to 100 and the player columns to 100 (`rounds: 99999999` used 2 GB); check warns about larger values.
+- `tabula book -l` must be a language code (it went into the book's XHTML).
+- The language server checks files in a separate thread, so a long check (or downloading the spelling dictionary) no longer stops completion and hovers, and gives up after 30 s. `tabula.addWord` only adds one word (no line breaks or `#`).
+
+### Changed
+- `tabula check` reports links that are shown as text (`javascript:`, `//host`, `game:` without a game's file name).
+- Spec 1.3: these limits are part of the format.
+
 ## 0.36.0 — 2026-10-25
 
 ### Added

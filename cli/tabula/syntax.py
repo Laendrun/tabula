@@ -28,6 +28,24 @@ IMAGE_RE = re.compile(r"(?<!\\)!\[([^\]]*)\]\(([^)\s]+)\)")
 
 LINK_RE = re.compile(r"(?<![!\\\[])\[([^\[\]]+)\]\(([^)\s]+)\)")
 
+# links that can't run anything: web, mail and phone addresses, and paths and anchors (no scheme). Not //host or
+# \\host: a page of the vault, not a link leaving it ("/\\host" and "\\host" are //host to browsers too)
+SAFE_HREF_RE = re.compile(r"^(?:https?:|mailto:|tel:|#|/(?![/\\])|\.{1,2}/|[^:/?#\\]+(?:[/?#]|$))", re.I)
+SLUG_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")       # a game's file name: game:crazy-eights
+
+
+def link_problem(href: str) -> str | None:
+    """Why a [text](href) is shown as text only, or None for a link: game: needs a game's file name, and
+    other links can't have a scheme that runs something (javascript:, data:…)."""
+    href = href.strip()
+    if href.startswith("game:"):
+        return None if SLUG_RE.fullmatch(href[5:]) else \
+            f"'{href}' is not a game's file name (game:crazy-eights): shown as text"
+    if href.replace("\\", "/").startswith("//"):
+        return f"'{href}' leads to another site without saying so: write https://… (shown as text)"
+    return None if SAFE_HREF_RE.match(href) else \
+        f"'{href}' is not a web, mail or phone address or a path: shown as text"
+
 
 COMPONENT_RE = re.compile(r"^(\d+(?:-\d+)?)\s*[x×X]\s+[^\[\]\n]*?(?=\[\[)")   # "8x [[Gift]]", "8x cartes [[Gift]]"
 

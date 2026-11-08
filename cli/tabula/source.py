@@ -44,6 +44,22 @@ TODO_RE = re.compile(r"<!--\s*(?:TODO|FIXME)\b[\s:\-–—]*(.*?)\s*-->", re.S |
 URL_SCHEME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*:")
 
 
+
+class _NoAliasLoader(yaml.SafeLoader):
+    """YAML without anchors and aliases (&a, *a): no game needs them, and 8 levels of aliases each repeating the
+    previous one 10 times make a frontmatter of 10⁸ values that freezes show, export and the site."""
+
+    def compose_node(self, parent, index):
+        if self.check_event(yaml.AliasEvent):
+            raise yaml.composer.ComposerError(None, None, "aliases (*name) aren't allowed: write the value again",
+                                              self.peek_event().start_mark)
+        return super().compose_node(parent, index)
+
+
+def load_yaml(text: str):
+    """yaml.safe_load, without aliases (see _NoAliasLoader)."""
+    return yaml.load(text, Loader=_NoAliasLoader)
+
 def is_url(src: str) -> bool:
     """https://…, data:…: not a file of the vault (a Windows path like C:\\x counts too: never read)."""
     return bool(URL_SCHEME_RE.match(src or ""))
@@ -155,7 +171,7 @@ def read_source(path: Path, issues: Issues) -> tuple[dict, list[tuple[int, str]]
             issues.error(path, 1, "frontmatter starts with '---' but is never closed")
         else:
             try:
-                meta = yaml.safe_load("\n".join(lines[1:end])) or {}
+                meta = load_yaml("\n".join(lines[1:end])) or {}
                 if not isinstance(meta, dict):
                     issues.error(path, 2, "frontmatter must be YAML 'key: value' lines")
                     meta = {}
