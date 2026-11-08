@@ -6,6 +6,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/): Added, Chang
 
 ## Unreleased
 
+## 0.38.0 — 2026-11-08
+
+Fixes from the audit of 6 November 2026 (language server).
+
+### Fixed
+- `tabula --vault DIR lsp` (and VS Code's `tabula.vault` setting) was ignored: problems and completion used the vault found from the file's folder, the preview the one set. The server now uses it.
+- Problems were published on the file's real path: a vault behind a symlink (`/tmp` on macOS, a synced folder), or a Windows path written `c%3A`, showed no problems in the open file. They now go to the URI the editor opened, and so do go to definition and links.
+- Closing a file left its problems in the Problems panel; they are now cleared.
+- The server got slower with the size of the file (pygls splits the whole text at every access): a 20,000-line file took 36 s for its first problems, now 0.6 s.
+- The outline of a file that isn't open (`tabula/outline` on any URI) was kept in memory for ever, and any readable file could be outlined; only `.game` and `.sheet` files are read, and only open ones are kept.
+
+### Security
+- Hovers no longer download pictures from the web (`image:: https://…`): the picture of a card loaded each time the mouse passed over it, which can track who reads the rules. Pictures of the vault are still shown.
+
 ## 0.37.0 — 2026-11-08
 
 Fixes from the audit of 6 November 2026 (security).

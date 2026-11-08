@@ -39,7 +39,9 @@ def path_to_uri(path) -> str:
     return Path(path).resolve().as_uri()
 
 
-def build_server():
+def build_server(vault_arg: str | None = None):
+    """The server. `vault_arg`: tabula --vault (or the editor's tabula.vault setting); else each file's vault is
+    found from its folder, as for the other commands."""
     from lsprotocol import types as T
     from pygls.lsp.server import LanguageServer
 
@@ -53,7 +55,10 @@ def build_server():
 
     server = LanguageServer("tabula", __version__, text_document_sync_kind=T.TextDocumentSyncKind.Full)
     state = {"settings": {"spell": False, "definitions": False, "images": "none"}, "outlines": {},
-             "published": {}, "timers": {}, "generation": {}}
+             "published": {}, "timers": {}, "generation": {}, "lines": {}}
+
+    def vault_for(path) -> "Vault":
+        return open_vault(vault_arg, str(path))
     # checks run one at a time in this thread, so a long one (a big vault, the spelling dictionary to download)
     # never stops the server from answering completion, hovers…
     worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix="tabula-check")
@@ -63,43 +68,71 @@ def build_server():
     def doc_of(uri: str):
         return server.workspace.get_text_document(uri)
 
+    def is_open(uri: str) -> bool:
+        return uri in server.workspace.text_documents
+
+    def lines_of(doc) -> list[str]:
+        """The document's lines, split once per change (pygls splits the whole text at every doc.lines)."""
+        src = doc.source
+        if not is_open(doc.uri):
+            return src.splitlines(True)
+        cached = state["lines"].get(doc.uri)
+        if cached is None or cached[0] is not src:
+            cached = state["lines"][doc.uri] = (src, src.splitlines(True))
+        return cached[1]
+
+    def client_uri(file) -> str:
+        """The URI the editor uses for a file: the one it opened it with (a vault behind a symlink, file:///c%3A/…
+        on Windows), else the file's own."""
+        resolved = Path(file).resolve()
+        for u in server.workspace.text_documents:
+            if uri_to_path(u).resolve() == resolved:
+                return u
+        return resolved.as_uri()
+
     def remember(uri: str):
-        """Make the unsaved text of a document what every tabula function reads for that file."""
+        """Make the unsaved text of an open document what every tabula function reads for that file."""
         doc = doc_of(uri)
-        UNSAVED[uri_to_path(uri).resolve()] = doc.source
+        if is_open(uri):                 # a file that isn't open is read from the disk (and not kept in memory)
+            UNSAVED[uri_to_path(uri).resolve()] = doc.source
         return doc
 
     def outline(uri: str):
+        path = uri_to_path(uri)
+        if path.suffix not in (".game", ".sheet"):
+            return None
         doc = remember(uri)
         cached = state["outlines"].get(uri)
-        if cached and cached[0] == doc.version and cached[2] == doc.source:
+        if cached and cached[0] == doc.version and cached[2] is doc.source:
             return cached[1]
-        path = uri_to_path(uri)
         try:
-            o = outline_file(path, open_vault(None, str(path)))
+            o = outline_file(path, vault_for(path))
         except Exception as e:                           # never let one file stop the server
             server.window_log_message(T.LogMessageParams(type=T.MessageType.Warning, message=f"tabula outline {path}: {e}"))
             o = None
-        state["outlines"][uri] = (doc.version, o, doc.source)
+        if is_open(uri):
+            state["outlines"][uri] = (doc.version, o, doc.source)
         return o
 
     def here(doc, pos):
         """A client position as (line, column in characters)."""
-        p = doc.position_codec.position_from_client_units(doc.lines, pos)
-        return p.line, p.character
+        p = doc.position_codec.position_from_client_units(lines_of(doc), pos)
+        return max(0, p.line), max(0, p.character)
 
     def rng(doc, line: int, start: int, end: int):
         """A range on a line (columns in characters) in the client's units."""
         r = T.Range(T.Position(line, start), T.Position(line, end))
-        if line >= len(doc.lines):
+        lines = lines_of(doc)
+        if line >= len(lines):
             return r
-        return doc.position_codec.range_to_client_units(doc.lines, r)
+        return doc.position_codec.range_to_client_units(lines, r)
 
     def line_of(doc, line: int) -> str:
-        return doc.lines[line].rstrip("\r\n") if line < len(doc.lines) else ""
+        lines = lines_of(doc)
+        return lines[line].rstrip("\r\n") if line < len(lines) else ""
 
     def loc(file, line: int, doc_uri: str):
-        uri = path_to_uri(file) if file else doc_uri
+        uri = client_uri(file) if file else doc_uri
         return T.Location(uri, T.Range(T.Position(line, 0), T.Position(line, 0)))
 
     # ---------------------------------------------------------------- settings
@@ -152,7 +185,7 @@ def build_server():
         """(issues, files) or (message type, error): runs in the worker thread, so it doesn't talk to the client."""
         path = uri_to_path(uri)
         try:
-            vault = open_vault(None, str(path))
+            vault = vault_for(path)
             if path.suffix == ".sheet":
                 issues, files = list(check_sheet(load_sheet(path, vault), vault)), [path]
             else:
@@ -178,17 +211,17 @@ def build_server():
             by_file.setdefault(str(Path(i.path).resolve()), []).append(i)
         published = set()
         for f, found in by_file.items():
-            furi = path_to_uri(f)
-            fdoc = doc_of(furi) if furi in server.workspace.text_documents else None
-            lines = fdoc.lines if fdoc else _disk_lines(f)
+            furi = client_uri(f)
+            fdoc = doc_of(furi) if is_open(furi) else None
+            lines = lines_of(fdoc) if fdoc else _disk_lines(f)
             diags = []
             for i in found:
                 line = max(0, (i.line or 1) - 1)
                 text = lines[line].rstrip("\r\n") if line < len(lines) else ""
                 a, b = editor.issue_columns(text, i.msg)
                 r = T.Range(T.Position(line, a), T.Position(line, max(b, a + 1)))
-                if fdoc and line < len(fdoc.lines):
-                    r = fdoc.position_codec.range_to_client_units(fdoc.lines, r)
+                if fdoc and line < len(lines):
+                    r = fdoc.position_codec.range_to_client_units(lines, r)
                 sev = {"error": T.DiagnosticSeverity.Error, "warning": T.DiagnosticSeverity.Warning}.get(
                     i.level, T.DiagnosticSeverity.Information)
                 diags.append(T.Diagnostic(range=r, message=i.msg, severity=sev, source="tabula"))
@@ -227,10 +260,21 @@ def build_server():
     def did_close(params: T.DidCloseTextDocumentParams):
         uri = params.text_document.uri
         UNSAVED.pop(uri_to_path(uri).resolve(), None)
-        state["outlines"].pop(uri, None)
+        for key in ("outlines", "lines"):
+            state[key].pop(uri, None)
         t = state["timers"].pop(uri, None)
         if t:
             t.cancel()
+        state["generation"][uri] = state["generation"].get(uri, 0) + 1     # a check still running: dropped
+        # its problems (and those of the translations it checked) leave the Problems panel, unless another open
+        # file still shows them: that one is checked again
+        others = [u for u in server.workspace.text_documents if u != uri]
+        cleared = {u for u in state["published"].pop(uri, set()) | {uri} if u not in others}
+        for u in cleared:
+            server.text_document_publish_diagnostics(T.PublishDiagnosticsParams(uri=u, diagnostics=[]))
+        for u in others:
+            if state["published"].get(u, set()) & cleared:
+                schedule(u, 0)
 
     # ---------------------------------------------------------------- completion and hover
 
@@ -241,7 +285,7 @@ def build_server():
 
     def fragment_outline(fp):
         try:
-            return outline_file(fp, open_vault(None, str(fp)), depth=3)
+            return outline_file(fp, vault_for(fp), depth=3)
         except Exception:
             return None
 
@@ -341,9 +385,10 @@ def build_server():
     def text_edits(doc, edits):
         out = []
         for e in edits:
-            if e["line"] >= len(doc.lines):                      # past the end: appended
+            n = len(lines_of(doc))
+            if e["line"] >= n:                                    # past the end: appended
                 ends = doc.source.endswith("\n") or not doc.source
-                pos = T.Position(len(doc.lines), 0) if ends else T.Position(len(doc.lines) - 1, len(line_of(doc, len(doc.lines) - 1)))
+                pos = T.Position(n, 0) if ends else T.Position(n - 1, len(line_of(doc, n - 1)))
                 out.append(T.TextEdit(T.Range(pos, pos), ("" if ends else "\n") + e["text"]))
             else:
                 out.append(T.TextEdit(rng(doc, e["line"], e["start"], e["end"]), e["text"]))
@@ -360,7 +405,7 @@ def build_server():
         if not o:
             return None
         doc = doc_of(uri)
-        lines = [l.rstrip("\r\n") for l in doc.lines]
+        lines = [l.rstrip("\r\n") for l in lines_of(doc)]
         actions = []
         for d in mine:
             line, a = here(doc, d.range.start)
@@ -402,7 +447,7 @@ def build_server():
             return []
         if new == text:
             return []
-        end_line = len(doc.lines)
+        end_line = len(lines_of(doc))
         return [T.TextEdit(T.Range(T.Position(0, 0), T.Position(end_line, 0)), new)]
 
     # ---------------------------------------------------------------- outline view, folding, links, hints, lenses
@@ -440,7 +485,7 @@ def build_server():
         for l in o["links"]:
             target = l.get("file") or l.get("path")
             if target and l.get("exists"):
-                out.append(T.DocumentLink(range=rng(doc, l["line"], l["start"], l["end"]), target=path_to_uri(target),
+                out.append(T.DocumentLink(range=rng(doc, l["line"], l["start"], l["end"]), target=client_uri(target),
                                           tooltip="Open the shared fragment" if l["kind"] == "fragment" else "Open the image"))
         return out
 
@@ -481,7 +526,7 @@ def build_server():
 
     @server.feature("tabula/outline")
     def outline_request(params):
-        """The outline of an open document (VS Code uses it for pasted images)."""
+        """The outline of a .game or .sheet document (VS Code uses it for pasted images)."""
         uri = params.get("uri") if isinstance(params, dict) else getattr(params, "uri", None)
         return outline(uri) if uri else None
 
@@ -502,5 +547,5 @@ def cmd_lsp(args) -> int:
         print("tabula: the language server needs the pygls package: pipx inject tabula pygls "
               "(or pip install 'tabula[lsp]')", file=sys.stderr)
         return 2
-    build_server().start_io()
+    build_server(getattr(args, "vault", None)).start_io()
     return 0
