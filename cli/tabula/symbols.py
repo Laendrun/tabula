@@ -16,11 +16,9 @@ import re
 from pathlib import Path
 
 from .source import file_problem
-from .syntax import FENCE_RE
+from .syntax import CODE_SPAN_RE as CODE_RE, IMAGE_EXTS, Fences
 
 SYMBOL_RE = re.compile(r"(?<![^\W\d])(?<![_:\\/]):([A-Za-z0-9][\w+-]*):(?![\w:/])")   # "3:gold:" too
-CODE_RE = re.compile(r"`[^`\n]*`")
-IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp")
 SYM_ALT = "sym:"
 
 
@@ -83,13 +81,9 @@ def expand_symbols(lines: list[tuple[int, str]], symbols: dict) -> list[tuple[in
     """Replace each defined :name: outside code."""
     if not symbols:
         return lines
-    out, fence = [], None
+    out, fences = [], Fences()
     for ln, t in lines:
-        if fence:
-            fence = None if t.strip().startswith(fence) else fence
-        elif m := FENCE_RE.match(t):
-            fence = m.group(1)
-        elif ":" in t:
+        if not fences.inside(t) and ":" in t:
             code = [c.span() for c in CODE_RE.finditer(t)]
             t = SYMBOL_RE.sub(lambda m: m.group(0) if m.group(1) not in symbols
                               or any(a <= m.start() < b for a, b in code)

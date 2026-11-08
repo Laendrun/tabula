@@ -6,6 +6,8 @@ on:
     branches: [main]
     paths: ["editors/vscode/**", "spec/schemas/**", ".github/workflows/vsix.yml"]
   workflow_dispatch:                         # or by hand: Actions → vsix → Run workflow
+permissions:
+  contents: read                             # it only builds the .vsix (kept as the run's artifact)
 
 jobs:
   package:

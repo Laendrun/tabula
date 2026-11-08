@@ -2,7 +2,7 @@
   "name": "tabula-syntax",
   "displayName": "Tabula Game Files",
   "description": "Highlighting and live checks for Tabula .game files (board and card game rules).",
-  "version": "0.28.1",
+  "version": "0.29.0",
   "publisher": "Laendrun",
   "license": "MIT",
   "repository": {
@@ -29,6 +29,18 @@
     "game rules"
   ],
   "main": "./dist/extension.js",
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "In a folder you haven't trusted, the folder's own settings can't choose which program runs (tabula.path, tabula.extraArgs), the vault, or where the site is written.",
+      "restrictedConfigurations": [
+        "tabula.path",
+        "tabula.extraArgs",
+        "tabula.vault",
+        "tabula.siteFolder"
+      ]
+    }
+  },
   "activationEvents": [],
   "contributes": {
     "languages": [
@@ -283,8 +295,7 @@
     "yamlValidation": [
       {
         "fileMatch": [
-          "vault.yaml",
-          "vault.yml"
+          "vault.yaml"
         ],
         "url": "./schemas/vault.schema.json"
       },

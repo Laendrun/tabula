@@ -121,3 +121,62 @@ def test_options_after_a_list_of_names(tmp_path, capsys):
     root = make(tmp_path, {"g/g.game": GAME + "# Glossaire {#glossary}\n\nCarte\n: A card.\n"})
     code, out, _ = run(capsys, root, "lookup", "g", "-v", "jokers", "carte", "--no-color")
     assert code == 0 and "A card." in out
+
+
+# ---- audit of 6 November 2026
+
+def test_a_fence_of_the_other_kind_inside_a_code_block(tmp_path, capsys):
+    root = make(tmp_path, {
+        "_shared/deck.game": "# Deck\n\nINCLUDED-TEXT.\n",
+        "g/g.game": GAME + "# Rules\n\n~~~\n  ```\n# NOT A HEADING\n~~~\n\n![[deck]]\n",
+    })
+    code, out, _ = run(capsys, root, "show", "g", "--no-color")
+    assert "INCLUDED-TEXT" in out and "!deck" not in out
+    _, out, _ = run(capsys, root, "check", "--no-color")
+    assert "error" not in out.split("\n")[0]
+
+
+def test_a_game_is_found_by_the_start_of_a_word_not_the_middle(tmp_path, capsys):
+    root = make(tmp_path, {"bandido/bandido.game": "---\ntitle: Bandido\nplayers: 1-4\n---\n# R\n\nX.\n",
+                           "crazy-eights.game": "---\ntitle: Huit américain\nplayers: 2-7\n---\n# R\n\nX.\n",
+                           "crazy-cats.game": "---\ntitle: Crazy cats\nplayers: 2-7\n---\n# R\n\nX.\n"})
+    with pytest.raises(SystemExit, match="not found"):
+        run(capsys, root, "show", "ndid")
+    code, out, err = run(capsys, root, "show", "eight", "--no-color")
+    assert code == 0 and "'eight' is crazy-eights" in err
+    code, out, _ = run(capsys, root, "show", "Huit américain", "--no-color")       # its title
+    assert code == 0 and "Huit" in out
+    with pytest.raises(SystemExit, match="could be crazy-cats, crazy-eights"):
+        run(capsys, root, "show", "crazy")
+
+
+def test_fmt_leaves_hidden_and_draft_folders_alone(tmp_path, capsys):
+    messy = GAME + "#Rules\n"
+    root = make(tmp_path, {"g/g.game": messy, ".hidden/h.game": messy, "_drafts/d.game": messy})
+    run(capsys, root, "fmt")
+    assert (root / "g" / "g.game").read_text(encoding="utf-8") != messy
+    for f in (".hidden/h.game", "_drafts/d.game"):
+        assert (root / f).read_text(encoding="utf-8") == messy, f
+
+
+def test_a_bar_in_a_value_by_player_count(tmp_path, capsys):
+    root = make(tmp_path, {"g/g.game": "---\ntitle: G\nplayers: 2-4\nvalues:\n  n: {2p: a|b, \"*\": 3}\n---\n# R\n\n{=n}\n"})
+    _, out, _ = run(capsys, root, "check", "--no-color")
+    assert "value 'n': '2p' can't contain { } or |" in out
+
+
+def test_the_language_fallback_is_said_by_every_command(tmp_path, capsys):
+    root = make(tmp_path, {"g/g.game": GAME + "# R\n\nX.\n"})
+    for args in (["export", "g", "-l", "de", "-o", "-"], ["cards", "g", "-l", "de"], ["show", "g", "-l", "de"]):
+        _, _, err = run(capsys, root, *args)
+        assert "has no 'de' version" in err, args
+
+
+def test_new_bgg_takes_the_same_slugs_as_new(tmp_path):
+    from tabula.new import write_game
+    from tabula.vault import Vault
+    (tmp_path / "vault.yaml").write_text("name: T\n", encoding="utf-8")
+    for bad in ("Catan", "café", "a_b", "../x"):
+        with pytest.raises(SystemExit, match="isn't a good slug"):
+            write_game(Vault(tmp_path), bad, {"title": "X", "players": "2"}, "en")
+    assert write_game(Vault(tmp_path), "catan", {"title": "Catan", "players": "3-4"}, "en").exists()

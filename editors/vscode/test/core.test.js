@@ -73,3 +73,9 @@ test("the schemas come from the spec when building", () => {
   }
 });
 
+
+test("player counts stop at 100", () => {
+  assert.equal(core.playerCounts("2-99999999").length, 99);
+  assert.deepEqual(core.playerCounts("2-4"), [2, 3, 4]);
+  assert.deepEqual(core.playerCounts("3+").slice(-1), [8]);
+});

@@ -197,13 +197,15 @@ function imageFileName(base, ext, existing) {
   return name;
 }
 
-/** "2-5" -> [2, 3, 4, 5]; "3+" -> [3 … 8]; "2,4" -> [2, 4]. */
+const MAX_PLAYERS = 100;     // as tabula: players: 2-99999999 is a typo, not a menu of 10⁸ entries
+
+/** "2-5" -> [2, 3, 4, 5]; "3+" -> [3 … 8]; "2,4" -> [2, 4]; never more than 100. */
 function playerCounts(players) {
   const out = new Set();
   for (const part of String(players || "").split(",")) {
     const m = part.trim().match(/^(\d+)(?:-(\d+)|(\+))?$/);
     if (!m) continue;
-    const lo = +m[1], hi = m[2] ? +m[2] : m[3] ? Math.max(lo, 8) : lo;
+    const lo = +m[1], hi = Math.min(MAX_PLAYERS, m[2] ? +m[2] : m[3] ? Math.max(lo, 8) : lo);
     for (let n = lo; n <= hi; n++) out.add(n);
   }
   return [...out].sort((a, b) => a - b);

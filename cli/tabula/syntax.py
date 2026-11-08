@@ -15,6 +15,28 @@ DEF_LINE_RE = re.compile(r"^ {0,3}:(?:\s+(.*)|\s*)$")
 
 
 FENCE_RE = re.compile(r"^\s*(```|~~~)")
+CODE_SPAN_RE = re.compile(r"`[^`\n]*`")
+IMAGE_EXTS = (".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif", ".svg")     # pictures: covers, cards, symbols
+
+
+class Fences:
+    """Follows fenced code blocks line by line, as Markdown does: a block opened by ``` closes only with ```, and
+    ~~~ only with ~~~ (a ``` line inside a ~~~ block is code). Every tabula command uses it, so they agree on what
+    is code (and so not a heading, an include or a reference)."""
+
+    def __init__(self):
+        self.fence = None
+
+    def inside(self, line: str) -> bool:
+        """Is this line code (a fence line included)? Call it on every line, in order."""
+        m = FENCE_RE.match(line)
+        if self.fence is None:
+            if m:
+                self.fence = m.group(1)
+            return bool(m)
+        if m and m.group(1) == self.fence:
+            self.fence = None
+        return True
 
 
 END_RE = re.compile(r"^-{3,}\s*$")          # "---" alone on a line: end of the current section

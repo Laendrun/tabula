@@ -5,7 +5,22 @@ Newest first. VS Code shows this file in the extension's "Changelog" tab. Add yo
 
 ## Unreleased
 
+## 0.29.0 — 2026-11-08
+
+Fixes from the audit of 6 November 2026.
+
+### Fixed
+- "Check this game" checked the whole vault; it checks the game being edited.
+- A game for "2-99999999" players made a menu of 10⁸ player counts (and could stop the extension) when printing a score sheet; the menu stops at 100, like tabula.
+- A score sheet to print was written under a name anyone on the computer could guess in the temporary folder; it goes into a new folder of its own.
+- An image dropped from another Windows drive was referred to where it was instead of being copied into the game's `media/`.
+- `vault.yml` was checked against the schema although tabula only reads `vault.yaml`.
+
+### Security
+- In a folder you haven't trusted (Restricted Mode), the folder's own settings can't choose the program that runs (`tabula.path`, `tabula.extraArgs`), the vault or where the site is written.
+
 ### Changed
+- `dist/extension.js` is no longer in git: `npm run build` makes it (before packaging, and in the CI).
 - The JSON Schemas are no longer kept in a copy here: `npm run build` (run before packaging, and by the "Run the extension" launch) copies them from `spec/schemas` into `schemas/`, which git ignores. The .vsix is unchanged.
 
 ## 0.28.1 — 2026-10-25

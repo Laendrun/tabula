@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 from .syntax import (
-    BLOCK_COND_RE, BRACES_RE, CHOICE_RE, CONDISH_RE, Cond, FENCE_RE, FIELD_RE, HEADING_COND_RE,
+    BLOCK_COND_RE, BRACES_RE, CHOICE_RE, CONDISH_RE, Cond, FIELD_RE, Fences, HEADING_COND_RE,
     IMAGE_RE, KNOWN_ROLES, LINK_RE, P_TOKEN, REF_RE, bounds, fold, in_range, link_problem, parse_attrs,
     parse_choice, parse_cond,
     parse_range, split_lang,
@@ -112,11 +112,9 @@ def check_game(game: Game, vault: Vault, require_defs: bool = False,
 
     # ---- :symbols: that are probably misspelt (other :words: are left alone)
     names = list(merged_symbols(vault.root, game.base_dir, vault.config, meta))
-    in_code = False
+    fences = Fences()
     for ln, t in game.lines:
-        if FENCE_RE.match(t):
-            in_code = not in_code
-        if in_code or ":" not in t:
+        if fences.inside(t) or ":" not in t:
             continue
         for m in SYMBOL_RE.finditer(re.sub(r"`[^`]*`", "", t)):
             close = difflib.get_close_matches(m.group(1), names, n=1, cutoff=0.75)
@@ -124,11 +122,9 @@ def check_game(game: Game, vault: Vault, require_defs: bool = False,
                 iss.warn(path, ln, f"':{m.group(1)}:' is not a symbol: did you mean ':{close[0]}:'?")
 
     # ---- leftover v0.3 syntax (raw lines)
-    in_code = False
+    fences = Fences()
     for ln, t in game.lines:
-        if FENCE_RE.match(t):
-            in_code = not in_code
-        if in_code:
+        if fences.inside(t):
             continue
         if re.match(r"^=+\s", t):
             iss.warn(path, ln, "headings use '#' in v0.4 ('# Title', '## Sub'), not '='")

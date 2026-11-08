@@ -134,16 +134,20 @@ async function checkVault(opts = {}) {
   const quiet = !!(opts && opts.quiet);         // the panel's first look: no message, no Problems panel
   const editor = vscode.window.activeTextEditor;
   const uri = editor && isGame(editor.document) ? editor.document.uri : (vscode.workspace.workspaceFolders || [])[0]?.uri;
+  const file = opts && opts.file && editor && isGame(editor.document) ? editor.document.uri.fsPath : undefined;
+  if (opts && opts.file && !file) return vscode.window.showInformationMessage("Tabula: open a .game file to check it");
   const cfg = settings(uri);
-  const args = core.checkArgs({ vault: cfg.vault, extraArgs: cfg.extraArgs, definitions: cfg.definitions, spell: cfg.spell });
+  const args = core.checkArgs({ file, vault: cfg.vault, extraArgs: cfg.extraArgs, definitions: cfg.definitions, spell: cfg.spell });
   const result = await vscode.window.withProgress(
-    { location: vscode.ProgressLocation.Window, title: "Tabula: checking the vault" },
+    { location: vscode.ProgressLocation.Window, title: file ? `Tabula: checking ${path.basename(file)}` : "Tabula: checking the vault" },
     () => runTabula(args, cfg).done
   );
   if (!result) return;
   const byFile = toDiagnostics(result.issues);
-  for (const u of vaultUris) diagnostics.delete(vscode.Uri.parse(u));
-  vaultUris = new Set();
+  if (!file) {                                  // the whole vault: what it said before is replaced
+    for (const u of vaultUris) diagnostics.delete(vscode.Uri.parse(u));
+    vaultUris = new Set();
+  }
   const open = new Set(vscode.workspace.textDocuments.map((d) => path.resolve(d.uri.fsPath).toLowerCase()));
   for (const [f, list] of byFile) {
     if (open.has(path.resolve(f).toLowerCase())) continue;       // the language server already shows those
@@ -366,7 +370,8 @@ async function imageEdit(doc, line, dataTransfer) {
   const folder = path.join(dir, "media", probe.kind === "card" ? "cards" : "");
   const we = new vscode.WorkspaceEdit();
   let file;
-  if (img.src && !path.relative(dir, img.src.fsPath).startsWith("..")) {
+  const rel0 = img.src ? path.relative(dir, img.src.fsPath) : "";
+  if (img.src && rel0 && !rel0.startsWith("..") && !path.isAbsolute(rel0)) {      // (another Windows drive: absolute)
     file = img.src.fsPath;                                    // already in the game's folder: just refer to it
   } else {
     let existing = [];
@@ -444,7 +449,7 @@ function activate(context) {
     vscode.commands.registerCommand("tabula.formatFile", () => vscode.commands.executeCommand("editor.action.formatDocument")),
     vscode.commands.registerCommand("tabula.formatVault", formatVault),
     vscode.commands.registerCommand("tabula.checkVault", () => checkVault()),
-    vscode.commands.registerCommand("tabula.checkFile", () => checkVault()),
+    vscode.commands.registerCommand("tabula.checkFile", () => checkVault({ file: true })),
     vscode.commands.registerCommand("tabula.restartServer", restartClient),
     vscode.commands.registerCommand("tabula.openPreview", openPreview),
     vscode.window.onDidChangeActiveTextEditor((ed) => { if (ed && preview && isGame(ed.document)) previewDocument(ed.document); }),

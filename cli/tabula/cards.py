@@ -11,7 +11,7 @@ from .syntax import Ctx, fold
 from .totals import is_group, members
 from .blocks import Block, components_of
 from .filtering import filter_blocks
-from .vault import open_vault
+from .vault import open_vault, say_fallback
 from .options import apply_options
 from .terminal import Style, plain, render_inline, vlen, wrap
 
@@ -142,6 +142,7 @@ def card_cell(r: dict, st: Style) -> str:
 def cmd_cards(args) -> int:
     vault = open_vault(args.vault, args.game)
     game = vault.load(vault.find(args.game), args.lang)
+    say_fallback(game, args.lang)
     if args.all and (args.ext or args.variant):
         print("tabula: --all already includes every extension and variant; drop either --all or -e/-v", file=sys.stderr)
         return 2

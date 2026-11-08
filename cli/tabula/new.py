@@ -15,6 +15,7 @@ from pathlib import Path
 import yaml
 
 from ._version import __version__
+from .syntax import IMAGE_EXTS, SLUG_RE
 from .vault import Vault, open_vault
 
 BGG = "https://boardgamegeek.com/xmlapi2"
@@ -151,19 +152,23 @@ def skeleton(lang: str) -> str:
 
 
 def write_game(vault: Vault, slug: str, meta: dict, lang: str, image: str = "", force: bool = False) -> Path:
-    if not re.fullmatch(r"[^\W_][\w-]*", slug):
-        raise SystemExit(f"tabula: '{slug}' can't be a game's name: use letters, digits and '-' (like 'oh-my-socks'), "
-                         "no '/', '.' or '..'")
+    if not SLUG_RE.fullmatch(slug):          # the same rule for `new SLUG` and `new bgg ID SLUG`
+        raise SystemExit(f"tabula: '{slug}' isn't a good slug; use lowercase letters, digits and dashes "
+                         f"(like '{slugify(slug)}')")
     folder = vault.root / slug
     path = folder / f"{slug}.game"
     others = [p for p in (path, vault.root / f"{slug}.game") if p.exists()]
     if others and not force:
         raise SystemExit(f"tabula: {others[0]} already exists (use --force to replace it)")
     folder.mkdir(parents=True, exist_ok=True)
+    if image and not image.lower().startswith("https://"):
+        print(f"tabula: no cover image (not an https:// address: {image})", file=sys.stderr)
+        image = ""
     if image:
         try:
             data = fetch(image)
-            ext = (Path(urllib.parse.urlparse(image).path).suffix or ".jpg").lower()
+            ext = Path(urllib.parse.urlparse(image).path).suffix.lower()
+            ext = ext if ext in IMAGE_EXTS else ".jpg"
             (folder / "media").mkdir(exist_ok=True)
             (folder / "media" / f"cover{ext}").write_bytes(data)      # found as the cover, no `cover:` needed
         except BggError as e:
@@ -217,9 +222,6 @@ def cmd_new(args) -> int:
         if len(words) != 1:
             raise SystemExit("tabula: use 'tabula new SLUG' or 'tabula new bgg ID [SLUG]'")
         slug = words[0]
-        if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", slug):
-            raise SystemExit(f"tabula: '{slug}' isn't a good slug; use lowercase letters, digits and dashes "
-                             f"(like '{slugify(slug)}')")
         meta = {"title": args.title or slug.replace("-", " ").capitalize(), "players": args.players}
         path = write_game(vault, slug, meta, lang, force=args.force)
         print(f"wrote {path}")

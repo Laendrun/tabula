@@ -218,6 +218,27 @@ test("without tabula: one message, no server", function()
   tabula.setup({ cmd = cmd })
 end)
 
+test("the vault is found as tabula finds it", function()
+  local d = vim.fn.tempname()
+  vim.fn.mkdir(d .. "/v/hearts", "p")
+  eq(tabula.vault_root(d .. "/v/hearts/hearts.game"), d .. "/v", "a game in its own folder")
+  eq(tabula.vault_root(d .. "/v/hearts/hearts.fr.game"), d .. "/v", "its translation")
+  eq(tabula.vault_root(d .. "/v/solo.game"), d .. "/v", "a game without a folder")
+  vim.fn.writefile({ "name: V" }, d .. "/v/vault.yml")                -- tabula only reads vault.yaml
+  eq(tabula.vault_root(d .. "/v/hearts/x.game"), d .. "/v/hearts")
+  vim.fn.delete(d, "rf")
+end)
+
+test("another filetype undoes the buffer's setup", function()
+  vim.cmd("enew")
+  local b = vim.api.nvim_get_current_buf()
+  vim.bo[b].filetype = "tabula"
+  eq(vim.api.nvim_buf_get_commands(b, {}).TabulaPreview ~= nil, true, "set up")
+  vim.bo[b].filetype = "text"
+  eq(vim.api.nvim_buf_get_commands(b, {}).TabulaPreview, nil, "undone")
+  vim.cmd("bwipeout!")
+end)
+
 print(string.format("\n%d tests, %d failed", count, failures))
 vim.fn.delete(tmp, "rf")
 os.exit(failures == 0 and 0 or 1)

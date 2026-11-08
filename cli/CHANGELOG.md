@@ -6,6 +6,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/): Added, Chang
 
 ## Unreleased
 
+## 0.39.0 — 2026-11-08
+
+Fixes from the audit of 6 November 2026 (the rest).
+
+### Fixed
+- Code blocks are followed the same way everywhere: a block opened by ``` closes only with ```, and ~~~ only with ~~~. A ``` line inside a ~~~ block made `show` and `check` see the rest of the file as code (a following `![[deck]]` was shown as "!deck"), while the editors saw it right.
+- `tabula show ndid` opened Bandido: a game was found by any part of its name, and `fmt` or `wish --for` could change the wrong game without saying so. A game is now found by its file name, its title, or the start of one of the words of its name (`eight` for crazy-eights); tabula says which game it took, and asks for more when several match.
+- `tabula fmt` (without names) formatted the files in `.hidden/` and `_drafts/` folders, which no other command reads.
+- A value by player count containing `|` (`{2p: a|b, "*": 3}`) was shown as written; check now reports it.
+- The notice "has no 'de' version" is given by `export`, `cards` and `lookup` too, not only `show`.
+- `tabula new bgg ID SLUG` accepted capitals and accents in the name; it takes the same names as `tabula new` now. The cover is only downloaded from an `https://` address, and saved with a picture's extension.
+- The tests of the book no longer depend on the computer's language (epubcheck's messages).
+
+### Changed
+- One list of picture extensions (`.avif` symbols work) and one pattern for `code` in the whole tool.
+- CI tests Python 3.10 (the oldest supported) and 3.13, checks Neovim's download against its SHA-256, and runs with read-only permissions.
+
 ## 0.38.0 — 2026-11-08
 
 Fixes from the audit of 6 November 2026 (language server).
