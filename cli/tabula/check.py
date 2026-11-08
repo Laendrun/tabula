@@ -10,7 +10,8 @@ from pathlib import Path
 
 from .syntax import (
     BLOCK_COND_RE, BRACES_RE, CHOICE_RE, CONDISH_RE, Cond, FENCE_RE, FIELD_RE, HEADING_COND_RE,
-    IMAGE_RE, KNOWN_ROLES, P_TOKEN, REF_RE, bounds, fold, in_range, parse_attrs, parse_choice, parse_cond,
+    IMAGE_RE, KNOWN_ROLES, LINK_RE, P_TOKEN, REF_RE, bounds, fold, in_range, link_problem, parse_attrs,
+    parse_choice, parse_cond,
     parse_range, split_lang,
 )
 from .fragments import SHARED_DIR, fragment_files
@@ -22,7 +23,7 @@ from .cards import card_catalog
 from .spell import SpellError, check_spelling
 from .values import value_problems
 from .fields import GAME_KEYS
-from .source import file_problem
+from .source import file_problem, local_file
 from .totals import count_mismatches, empty_totals, members
 from .options import option_problems, players_range, year_ok
 from .sheet import check_sheet, load_sheet, sheets_of
@@ -76,6 +77,11 @@ def check_game(game: Game, vault: Vault, require_defs: bool = False,
         iss.warn(path, 1, f"year should be the year the game came out, e.g. 2019 (got '{meta['year']}')")
     if meta.get("cover") and (why := file_problem(game.base_dir, str(meta["cover"]), vault.root)):
         iss.error(path, 1, f"cover image {why}: {meta['cover']}")
+    elif not meta.get("cover") and meta.get("cover") is not False and (media := game.base_dir / "media").is_dir():
+        for f in sorted(media.iterdir()):
+            if f.stem.lower() in (f"{game.slug}_cover", f"{game.slug}-cover") and \
+                    local_file(game.base_dir, f"media/{f.name}", vault.root) is None:
+                iss.error(path, 1, f"cover image media/{f.name} leads outside the vault (a link): not used")
     v = meta.get("variants")
     if v is not None and not isinstance(v, (dict, list)):
         iss.error(path, 1, "'variants' must be a mapping (name: description) or a list of names")
@@ -196,6 +202,9 @@ def check_game(game: Game, vault: Vault, require_defs: bool = False,
             src = m.group(2)
             if why := file_problem(game.base_dir, src, vault.root):
                 iss.error(path, ln, f"image {why}: {src}")
+        for m in LINK_RE.finditer(rest):
+            if why := link_problem(m.group(2)):
+                iss.error(path, ln, f"link {why}")
 
     terms: dict[str, tuple[int, str]] = {}
     bracketed: set[str] = set()      # terms written as [[Term]]: reported once, not at every reference

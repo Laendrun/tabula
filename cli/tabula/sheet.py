@@ -36,6 +36,8 @@ SHEET_KEYS = ("title", "game", "size", "orientation", "margin", "font_size", "fi
 PLAYER_RE = re.compile(r"\{(n|player)\}")
 ROUND_RE = re.compile(r"\{r\}")
 DEFAULT_MAX_PLAYERS = 6          # for a game "for 2+ players"
+MAX_ROUNDS = 100                 # rounds: 99999999 is a typo, not 10⁸ rows to build
+MAX_COLUMNS = 100                # player columns, likewise (players: 2-99999999, -p 99999999)
 MERGE_LEFT, MERGE_UP, BLOCKED = "<", "^", "//"
 
 
@@ -82,14 +84,16 @@ def player_count(sheet: Sheet, wanted: int | None) -> int:
     if wanted is not None:
         if wanted < 1:
             raise SystemExit("tabula: -p needs at least 1 player")
+        if wanted > MAX_COLUMNS:
+            raise SystemExit(f"tabula: a sheet has at most {MAX_COLUMNS} player columns")
         if rng and not in_range(rng, wanted):
             raise SystemExit(f"tabula: {sheet.game_meta.get('title', 'this game')} is for "
                              f"{sheet.game_meta.get('players')} players, not {wanted}")
         return wanted
     if not rng:
         return DEFAULT_MAX_PLAYERS
-    hi = bounds(rng)[1]
-    return int(hi) if hi < 99 else max(DEFAULT_MAX_PLAYERS, int(bounds(rng)[0]))
+    lo, hi = bounds(rng)
+    return min(MAX_COLUMNS, int(hi) if hi < 99 else max(DEFAULT_MAX_PLAYERS, int(lo)))
 
 
 def expand_grid(rows: list[list[str]], players: int, rounds: int) -> list[list[str]]:
@@ -178,6 +182,12 @@ def check_sheet(sheet: Sheet, vault) -> Issues:
         iss.error(p, 1, f"unknown size '{meta.get('size')}' (a0 to a6, b4, b5, letter, legal, tabloid, or 210x297 in mm)")
     if str(meta.get("orientation") or "portrait").lower() not in ("portrait", "landscape"):
         iss.error(p, 1, f"orientation must be portrait or landscape (got '{meta.get('orientation')}')")
+    if "rounds" in meta:
+        r = meta["rounds"]
+        if isinstance(r, bool) or not isinstance(r, int) or r < 1:
+            iss.error(p, 1, f"'rounds' must be a whole number of rows, e.g. 10 (got '{r}')")
+        elif r > MAX_ROUNDS:
+            iss.warn(p, 1, f"rounds: {r}: a sheet has at most {MAX_ROUNDS} rounds (only {MAX_ROUNDS} are printed)")
     for key in ("margin", "font_size"):
         if key in meta and not isinstance(meta[key], (int, float)):
             iss.error(p, 1, f"'{key}' must be a number ({'mm' if key == 'margin' else 'points'})")
@@ -342,7 +352,7 @@ def render_sheet(sheet: Sheet, players: int | None = None) -> str:
     w, h = sheet.paper
     n = player_count(sheet, players)
     try:
-        rounds = max(1, int(sheet.meta.get("rounds", 10)))
+        rounds = min(MAX_ROUNDS, max(1, int(sheet.meta.get("rounds", 10))))
     except (TypeError, ValueError):
         rounds = 10
     try:

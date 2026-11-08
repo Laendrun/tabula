@@ -9,7 +9,7 @@ from pathlib import Path
 
 from ._version import __version__
 from .syntax import (
-    CHOICE_RE, Ctx, ESCAPE_RE, IMAGE_RE, LINK_RE, REF_RE, cond_ok, fold, in_range, open_label,
+    CHOICE_RE, Ctx, ESCAPE_RE, IMAGE_RE, LINK_RE, REF_RE, cond_ok, fold, in_range, link_problem, open_label,
     Cond, cond_tokens, json_range, parse_choice, parse_cond, parse_range, split_lang, via_of,
 )
 from .blocks import callout_family, callout_title, card_image, shown_fields, Block, components_of, is_sep_row, player_columns, player_rows
@@ -346,9 +346,7 @@ FILTER_JS = r"""
 """
 
 
-# links that can't run anything: web, mail and phone addresses, and paths and anchors (no scheme)
 MAX_PLAYERS = 100           # player-count menus stop there (players: 2-99999999 is a typo, not a menu)
-SAFE_HREF_RE = re.compile(r"^(?:https?:|mailto:|tel:|#|/(?!/)|\.{0,2}/|[^:/?#]+(?:[/?#]|$))", re.I)
 
 CALLOUT_ICONS = {"example": "◆", "warning": "⚠\ufe0e", "tip": "✦", "info": "ℹ\ufe0e", "question": "?", "note": "▪"}
 
@@ -539,10 +537,11 @@ class HtmlRenderer:
         return f'<span class="ref" title="{self.esc(tip)}">{self.esc(shown)}</span>'
 
     def link(self, label: str, href: str) -> str:
+        if link_problem(href):            # javascript:, data:…, game:javascript:… would run in the page
+            return self.esc(label)
+        href = href.strip()
         if href.startswith("game:"):
             href = self.game_href.format(href[5:])
-        elif not SAFE_HREF_RE.match(href.strip()):          # javascript:, data:… would run in the page
-            return self.esc(label)
         return f'<a href="{self.esc(href)}">{self.esc(label)}</a>'
 
     # ------------------------------------------------------------------ blocks

@@ -17,7 +17,7 @@ from .syntax import LANG_RE, fold, split_lang
 from .fragments import SHARED_DIR, expand_includes
 from .values import expand_values, merged_values, value_problems
 from .symbols import expand_symbols, merged_symbols, symbol_problems
-from .source import Issues, local_file, read_source
+from .source import Issues, load_yaml, local_file, read_source
 from .blocks import Block, parse_blocks
 
 IMAGE_EXTS = (".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif", ".svg")
@@ -66,8 +66,8 @@ class Game:
         images = sorted(f for f in media.iterdir() if f.is_file() and f.suffix.lower() in IMAGE_EXTS)
         for name in names:
             for f in images:
-                if f.stem.lower() == name.lower():
-                    return f
+                if f.stem.lower() == name.lower() and local_file(self.base_dir, f"media/{f.name}", self.root):
+                    return f            # not a link to a file outside the vault: the site would publish it
         return None
 
     def _options(self, key: str) -> dict[str, str]:
@@ -101,7 +101,7 @@ class Vault:
         cfg = self.root / "vault.yaml"
         if cfg.exists():
             try:
-                self.config = yaml.safe_load(cfg.read_text(encoding="utf-8")) or {}
+                self.config = load_yaml(cfg.read_text(encoding="utf-8")) or {}
             except yaml.YAMLError as e:
                 self.issues.error(cfg, 1, f"invalid YAML: {e}")
             if not isinstance(self.config, dict):          # a list or a word: nothing tabula can use

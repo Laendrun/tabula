@@ -29,7 +29,7 @@ from pathlib import Path
 
 import yaml
 
-from .source import Issues
+from .source import Issues, load_yaml
 from .syntax import fold
 
 WISHLIST = "wishlist.yaml"
@@ -49,7 +49,7 @@ def load_wishes(vault) -> tuple[list[dict], Issues]:
     text = path.read_text(encoding="utf-8")
     try:
         node = yaml.compose(text)
-        data = yaml.safe_load(text)
+        data = load_yaml(text)
     except yaml.YAMLError as e:
         mark = getattr(e, "problem_mark", None)
         problem = str(getattr(e, "problem", e))

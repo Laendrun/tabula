@@ -539,7 +539,11 @@ def quick_fixes(lines: list[str], o: dict, line: int, message: str, start: int, 
 
 
 def add_word(vault_root: Path, word: str) -> Path:
-    """Add a word to the vault's words.txt (created if needed); returns the file."""
+    """Add a word to the vault's words.txt (created if needed); returns the file. One word: no spaces, line
+    breaks or '#' (ValueError)."""
+    word = str(word).strip()
+    if not re.fullmatch(r"[^\s#]{1,100}", word):
+        raise ValueError(f"not a single word: {word!r}")
     f = vault_root / "words.txt"
     text = f.read_text(encoding="utf-8") if f.is_file() else "# Words the spell check accepts (tabula check --spell), one per line\n"
     words = {l.split("#")[0].strip().lower() for l in text.splitlines()}

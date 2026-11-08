@@ -13,6 +13,8 @@ SHARED_DIR = "_shared"
 INCLUDE_RE = re.compile(r"^(\s*)!\[\[([^\[\]#|\n]+?)(?:#([^\[\]|\n]+))?\]\]\s*$")
 END_RE = re.compile(r"^-{3,}\s*$")
 MAX_DEPTH = 8
+MAX_INCLUDED = 20000          # lines all the fragments of a game may add: 9 files each including the next 10 times
+                              # would add 10⁹ (and freeze check, the site and the editors)
 
 
 def fragment_path(root: Path, name: str, lang: str | None) -> Path | None:
@@ -111,13 +113,14 @@ def shift_headings(texts: list[str], base: int, under: int) -> list[str]:
 
 
 def expand_includes(lines: list[tuple[int, str]], root: Path, lang: str | None, issues: Issues, path: Path,
-                    _stack: tuple = (), _at: tuple | None = None) -> list[tuple[int, str]]:
+                    _stack: tuple = (), _at: tuple | None = None, _budget: list | None = None) -> list[tuple[int, str]]:
     """Replace every `![[name]]` / `![[name#Section]]` line by the fragment's lines.
 
     Included lines keep the include's line number (so problems point at the `![[…]]` line) and its
     indentation; the fragment's headings are nested under the section the include is in."""
     out: list[tuple[int, str]] = []
     level, code = 0, False
+    budget = _budget if _budget is not None else [MAX_INCLUDED, False]     # [lines left, reported]
 
     def report(ln: int, msg: str):
         p, l = _at or (path, ln)
@@ -148,9 +151,17 @@ def expand_includes(lines: list[tuple[int, str]], root: Path, lang: str | None, 
             continue
         sub = Issues()
         _, flines = read_source(fp, sub)
+        budget[0] -= len(flines)
+        if budget[0] < 0:
+            if not budget[1]:
+                budget[1] = True
+                report(ln, f"the fragments add more than {MAX_INCLUDED} lines: '{name}' and the next ones are left out "
+                           f"(does a fragment include another many times?)")
+            continue
         for i in sub:
             report(ln, f"in {SHARED_DIR}/{fp.name}: {i.msg}")
-        flines = expand_includes(flines, root, lang, issues, path, _stack + (fp.resolve(),), _at or (path, ln))
+        flines = expand_includes(flines, root, lang, issues, path, _stack + (fp.resolve(),), _at or (path, ln),
+                                 budget)
         texts = [x for _, x in flines]
         base, title, cond = 0, "", ""
         if section:

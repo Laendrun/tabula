@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
@@ -23,6 +24,7 @@ from . import editor
 from ._version import __version__
 
 DEBOUNCE = 0.25            # seconds of quiet before checking a changed file
+CHECK_TIMEOUT = 30         # seconds: a check that takes longer is given up (and said in the log)
 
 
 def uri_to_path(uri: str) -> Path:
@@ -51,7 +53,10 @@ def build_server():
 
     server = LanguageServer("tabula", __version__, text_document_sync_kind=T.TextDocumentSyncKind.Full)
     state = {"settings": {"spell": False, "definitions": False, "images": "none"}, "outlines": {},
-             "published": {}, "timers": {}}
+             "published": {}, "timers": {}, "generation": {}}
+    # checks run one at a time in this thread, so a long one (a big vault, the spelling dictionary to download)
+    # never stops the server from answering completion, hovers…
+    worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix="tabula-check")
 
     # ---------------------------------------------------------------- documents, outlines, positions
 
@@ -117,12 +122,35 @@ def build_server():
     # ---------------------------------------------------------------- problems (tabula check)
 
     def check(uri: str):
+        """Check a file (and its translations) in the worker thread, then publish the problems."""
         state["timers"].pop(uri, None)
         if uri not in server.workspace.text_documents:
             return
         remember(uri)
+        generation = state["generation"][uri] = state["generation"].get(uri, 0) + 1
+        settings = dict(state["settings"])
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            publish(uri, run_check(uri, settings))
+            return
+
+        async def wait(future):
+            try:
+                result = await asyncio.wait_for(asyncio.shield(future), CHECK_TIMEOUT)
+            except asyncio.TimeoutError:
+                log(T.MessageType.Warning, f"tabula check {uri_to_path(uri)}: gave up after {CHECK_TIMEOUT} s")
+                return
+            if state["generation"].get(uri) == generation and uri in server.workspace.text_documents:
+                publish(uri, result)                   # else a newer check is coming, or the file was closed
+        loop.create_task(wait(loop.run_in_executor(worker, run_check, uri, settings)))
+
+    def log(kind, message: str):
+        server.window_log_message(T.LogMessageParams(type=kind, message=message))
+
+    def run_check(uri: str, s: dict):
+        """(issues, files) or (message type, error): runs in the worker thread, so it doesn't talk to the client."""
         path = uri_to_path(uri)
-        s = state["settings"]
         try:
             vault = open_vault(None, str(path))
             if path.suffix == ".sheet":
@@ -135,11 +163,16 @@ def build_server():
                 files = [path] + [path.parent / (f"{game.slug}.game" if l == game.default_language
                                                  else f"{game.slug}.{l}.game") for l in game.languages]
         except SystemExit as e:
-            server.window_log_message(T.LogMessageParams(type=T.MessageType.Warning, message=str(e)))
-            return
+            return T.MessageType.Warning, str(e)
         except Exception as e:
-            server.window_log_message(T.LogMessageParams(type=T.MessageType.Error, message=f"tabula check {path}: {e!r}"))
+            return T.MessageType.Error, f"tabula check {path}: {e!r}"
+        return issues, files
+
+    def publish(uri: str, result):
+        if isinstance(result[0], T.MessageType):
+            log(*result)
             return
+        issues, files = result
         by_file: dict = {str(Path(f).resolve()): [] for f in files}
         for i in issues:
             by_file.setdefault(str(Path(i.path).resolve()), []).append(i)
@@ -346,7 +379,11 @@ def build_server():
     def add_word(uri: str, word: str):
         o = outline(uri)
         root = Path(o["vault"]) if o else uri_to_path(uri).parent
-        f = editor.add_word(root, word)
+        try:
+            f = editor.add_word(root, word)
+        except ValueError as e:
+            log(T.MessageType.Warning, f"tabula.addWord: {e}")
+            return
         server.window_show_message(T.ShowMessageParams(type=T.MessageType.Info, message=f"'{word}' added to {f}"))
         for u in list(server.workspace.text_documents):
             schedule(u, 0)

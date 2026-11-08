@@ -1,4 +1,4 @@
-# Tabula — specification v1.2
+# Tabula — specification v1.3
 
 A plain-text format for board, card, dice, dexterity, outdoor and homemade games. Each game is a single `.game` file: a game description and its rules, written in Markdown with three small additions.
 
@@ -129,7 +129,7 @@ Série
 | `symbols` | map name → text or image | `{key: media/key.png}` | symbols written `:key:` in the text (see 4) |
 | `values` | map name → value | `{main: {2p: 7, "*": 5}}` | values written `{=main}` in the text (see 8.6) |
 
-Count ranges: `4`, `2-5`, `3+`, `2,4`.
+Count ranges: `4`, `2-5`, `3+`, `2,4`. Menus and lists of player counts (the page's filter, sheet columns) stop at 100 players (`2-99999999` is almost always a typo).
 
 **Your own keys.** Only the keys above do something. Any other key is allowed, kept, and shown as it is, as "Label: value", under the credits of the exported page and the book, and under the title in `tabula show` (and in `show --json`'s `meta`):
 
@@ -147,7 +147,7 @@ A list is shown with commas, a mapping as "Key: value; …"; empty keys are left
 
 All the usual Markdown: headings `#` to `######`, paragraphs, `*italic*` and `**bold**`, lists (`-`, `*`, `1.`), `> quotes` (shown as notes, or as callouts, see below), tables, images `![caption](media/photo.jpg)`, links, and fenced code blocks.
 
-**Files and links stay safe to share.** Every file a game names (images, card pictures, `cover:`, symbol images, `![[fragments]]`) must be inside the vault: an absolute path, or a `../` that leads out of it, is never read, and `tabula check` reports it as an error. Fragments are names (`![[deck-52]]`), not paths. Links can be web addresses (`https:`, `http:`), `mailto:` and `tel:` addresses, `game:` links and relative paths; other schemes (`javascript:`, `data:`…) are shown as plain text. A game's `language:` must be a language code (`fr`, `pt-BR`). Files are UTF-8.
+**Files and links stay safe to share.** Every file a game names or that is found for it (images, card pictures, `cover:` and the `media/` cover, symbol images, `![[fragments]]`) must be inside the vault: an absolute path, a `../` or a link (symlink) that leads out of it is never read, and `tabula check` reports it as an error. Fragments are names (`![[deck-52]]`), not paths. Links can be web addresses (`https:`, `http:`), `mailto:` and `tel:` addresses, `game:` links to a game's file name (`game:crazy-eights`) and relative paths; other schemes (`javascript:`, `data:`…), a `game:` followed by anything else, and `//host` addresses (write `https://host`) are shown as plain text, and `tabula check` reports them. YAML anchors and aliases (`&a`, `*a`) aren't allowed in a frontmatter, and the fragments of a game add at most 20,000 lines. A game's `language:` must be a language code (`fr`, `pt-BR`). Files are UTF-8.
 
 **Comments** use standard HTML comments, which are never shown:
 
@@ -656,7 +656,7 @@ A **score sheet** is a page to print and fill in during a game. It is its own fi
 title: Feuille de score
 size: a4              # a0 to a6, b4, b5, letter, legal, tabloid, or 210x297 (mm)
 orientation: portrait # or landscape
-rounds: 10            # how many times a {r} row is repeated (default 10)
+rounds: 10            # how many times a {r} row is repeated (default 10, at most 100)
 ---
 
 # Frantic :star:
@@ -799,6 +799,8 @@ year: 2019 / series: Micro             in frontmatter: the year it came out / yo
 ## 16. Versions
 
 The spec has a version of its own; the `tabula` CLI and the VS Code extension have theirs (see their changelogs). From 1.0 on, a new feature that doesn't change what existing files mean is a minor version (1.1, 1.2…); a change that makes an existing file mean something else, or no longer valid, is a major version (2.0), and `tabula check` points out what to change, as it does for v0.3 syntax.
+
+**1.3** (November 2026): limits that keep a shared vault safe: `game:` takes a game's file name, `//host` links, YAML aliases and symlinked covers leading out of the vault are refused, fragments add at most 20,000 lines, sheets have at most 100 rounds and player columns, player-count menus stop at 100 (3.1, 4, 10).
 
 **1.2** (October 2026): `needs` can name another game, linked when it is in the vault (8.5).
 
